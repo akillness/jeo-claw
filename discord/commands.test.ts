@@ -47,12 +47,10 @@ test("parseCommand: approve command requires workflow id and action", () => {
     user: "bob",
   });
 
-  const res3 = parseCommand("approve wf-999 git.push");
+  const res3 = parseCommand("approve wf-999");
   expect(res3).toEqual({
-    type: "approve",
-    workflowId: "wf-999",
-    action: "git.push",
-    user: "unknown",
+    type: "unknown",
+    raw: "approve wf-999",
   });
 
   expect(parseCommand("approve wf-999", "alice")).toEqual({ type: "unknown", raw: "approve wf-999" });
@@ -76,12 +74,10 @@ test("parseCommand: reject command requires workflow id and action", () => {
     user: "bob",
   });
 
-  const res3 = parseCommand("reject wf-999 git.merge");
+  const res3 = parseCommand("reject wf-999");
   expect(res3).toEqual({
-    type: "reject",
-    workflowId: "wf-999",
-    action: "git.merge",
-    user: "unknown",
+    type: "unknown",
+    raw: "reject wf-999",
   });
 
   expect(parseCommand("reject wf-999", "alice")).toEqual({ type: "unknown", raw: "reject wf-999" });

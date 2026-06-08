@@ -1,9 +1,9 @@
 // Least-privilege secret loader: pulls per-role and per-control-service credentials from gcloud Secret Manager.
 // Invariants:
-//  - Each role receives ONLY the secrets its job requires (least privilege).
-//  - Only pr-creator / merger receive a write-scoped GitHub token; all others get read-only.
+//  - Every runtime role gets only read-only startup credentials.
+//  - Write-capable GitHub credentials are released separately for approved write actions.
 //  - Control services receive only control-plane credentials, never role GitHub/OpenAI bundles.
-//  - Missing required secrets are a hard failure (never silently empty).
+//  - Missing or blank required secrets are a hard failure.
 //  - Plaintext secret values and upstream secret-store messages are never logged or embedded in errors.
 import { spawn } from "node:child_process";
 
@@ -19,6 +19,9 @@ export type Scope = "read" | "write";
 
 type SecretSpec = { name: string; scope: Scope };
 
+const WRITE_SECRET: SecretSpec = { name: "github-token-rw", scope: "write" };
+const WRITE_ELIGIBLE_ROLES = new Set<Role>(["pr-creator", "merger"]);
+
 export const ROLE_SECRETS: Record<Role, SecretSpec[]> = {
   "researcher-coder": [
     { name: "openai-api-key", scope: "read" },
@@ -30,7 +33,7 @@ export const ROLE_SECRETS: Record<Role, SecretSpec[]> = {
   ],
   "pr-creator": [
     { name: "openai-api-key", scope: "read" },
-    { name: "github-token-rw", scope: "write" },
+    { name: "github-token-ro", scope: "read" },
   ],
   "pr-review-scheduler": [
     { name: "openai-api-key", scope: "read" },
@@ -38,16 +41,18 @@ export const ROLE_SECRETS: Record<Role, SecretSpec[]> = {
   ],
   merger: [
     { name: "openai-api-key", scope: "read" },
-    { name: "github-token-rw", scope: "write" },
+    { name: "github-token-ro", scope: "read" },
   ],
 };
 
 export const CONTROL_SECRETS: Record<ControlService, SecretSpec[]> = {
   "glue-webhook": [
     { name: "github-webhook-secret", scope: "read" },
+    { name: "control-event-secret", scope: "read" },
   ],
   "discord-bot": [
     { name: "discord-bot-token", scope: "read" },
+    { name: "control-event-secret", scope: "read" },
   ],
 };
 
@@ -57,6 +62,7 @@ export const ENV_FOR: Record<string, string> = {
   "github-token-rw": "GITHUB_TOKEN",
   "github-webhook-secret": "GITHUB_WEBHOOK_SECRET",
   "discord-bot-token": "DISCORD_BOT_TOKEN",
+  "control-event-secret": "JEO_CONTROL_EVENT_SECRET",
 };
 
 export interface SecretSource {
@@ -89,6 +95,14 @@ export class GcloudSecretSource implements SecretSource {
 
 export class MissingSecretError extends Error {}
 
+function requireTrimmedSecret(label: string, value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new MissingSecretError(`${label} resolved empty`);
+  }
+  return trimmed;
+}
+
 async function loadSpecs(
   label: string,
   specs: SecretSpec[],
@@ -104,17 +118,16 @@ async function loadSpecs(
     } catch {
       throw new MissingSecretError(`${label}: cannot load ${secretId}`);
     }
-    if (!value) throw new MissingSecretError(`${label}: ${secretId} resolved empty`);
     const envVarName = ENV_FOR[spec.name];
     if (!envVarName) {
       throw new Error(`unknown secret spec name: ${spec.name}`);
     }
-    env[envVarName] = value;
+    env[envVarName] = requireTrimmedSecret(`${label}: ${secretId}`, value);
   }
   return env;
 }
 
-/** Loads the least-privilege secret env for a role. Returns env-var name -> value. */
+/** Loads the read-only startup env for a role. */
 export async function loadSecretsForRole(
   role: Role,
   source: SecretSource,
@@ -123,6 +136,18 @@ export async function loadSecretsForRole(
   const specs = ROLE_SECRETS[role];
   if (!specs) throw new Error(`unknown role: ${role}`);
   return loadSpecs(`role ${role}`, specs, source, opts);
+}
+
+/** Loads write-capable GitHub credentials for an approved write role/action broker. */
+export async function loadWriteSecretsForRole(
+  role: Role,
+  source: SecretSource,
+  opts: { prefix: string },
+): Promise<Record<string, string>> {
+  if (!WRITE_ELIGIBLE_ROLES.has(role)) {
+    throw new MissingSecretError(`role ${role}: no write secret scope`);
+  }
+  return loadSpecs(`write role ${role}`, [WRITE_SECRET], source, opts);
 }
 
 /** Loads only control-plane credentials for a control service. */
@@ -136,9 +161,9 @@ export async function loadSecretsForControl(
   return loadSpecs(`control ${service}`, specs, source, opts);
 }
 
-/** True if a role is permitted write-scope secrets. */
+/** True if a role is eligible for mediated write-scope secrets. */
 export function hasWriteScope(role: Role): boolean {
-  return ROLE_SECRETS[role].some((s) => s.scope === "write");
+  return WRITE_ELIGIBLE_ROLES.has(role);
 }
 
 export function controlSecretNames(service: ControlService): string[] {

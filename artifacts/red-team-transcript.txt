@@ -1,33 +1,38 @@
 # red-team transcript
-Generated: 2026-06-08T13:43:21.212303+00:00
+Generated: 2026-06-08T15:28:30.695334+00:00
 Command: bun test qa/red-team.test.ts
 Exit code: 0
 
 bun test v1.3.14 (0d9b296a)
 
 qa\red-team.test.ts:
-(pass) 1.1 Merge gate - all 2-of-3 combinations must be blocked [3.56ms]
-(pass) 1.2 Merge gate - truthy-but-not-true values should be blocked [0.08ms]
-(pass) 2.1 Webhook signature forgery - tampered body with valid old signature [1.04ms]
-(pass) 2.2 Webhook signature forgery - wrong secret [0.15ms]
-(pass) 2.3 Webhook signature forgery - malformed headers [0.18ms]
-(pass) 2.4 Webhook signature - correctly-signed body must be accepted [0.10ms]
-(pass) 3.1 Secret loader - read-only roles must NEVER trigger access to the write token id [0.72ms]
-(pass) 3.2 Secret loader - missing required secret and empty value throws MissingSecretError [0.37ms]
-(pass) 3.3 Secret loader - redact() must mask values even when they contain regex-special chars [0.13ms]
-(pass) 3.4 Secret loader - confirm no secret value appears in thrown error messages [0.29ms]
-(pass) 3.5 Control secret loader - control services receive only their own control-plane credentials [0.60ms]
-(pass) 4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize [0.52ms]
-(pass) 4.2 High-risk guard - unknown or non-high-risk action always allowed [0.06ms]
-(pass) 4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B [0.08ms]
-(pass) 5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash [1.32ms]
-(pass) 5.2 Command parser fuzz - extra whitespace handled correctly [0.22ms]
-(pass) 6.1 Metric math - empty samples returns empty array [0.20ms]
-(pass) 6.2 Metric math - single runtime only [0.28ms]
-(pass) 6.3 Metric math - all-failed batch [0.12ms]
-(pass) 6.4 Metric math - mixed exact averages [0.18ms]
+(pass) 1.1 Merge gate - all 2-of-3 combinations must be blocked [6.95ms]
+(pass) 1.2 Merge gate - truthy-but-not-true values should be blocked [0.06ms]
+(pass) 2.1 Webhook signature forgery - tampered body with valid old signature [0.43ms]
+(pass) 2.2 Webhook signature forgery - wrong secret [0.10ms]
+(pass) 2.3 Webhook signature forgery - malformed headers [0.14ms]
+(pass) 2.4 Webhook signature - correctly-signed body must be accepted [0.07ms]
+(pass) 3.1 Secret loader - read-only roles must NEVER trigger access to the write token id [0.53ms]
+(pass) 3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release [0.28ms]
+(pass) 3.2 Secret loader - missing required secret and empty value throws MissingSecretError [0.23ms]
+(pass) 3.3 Secret loader - redact() must mask values even when they contain regex-special chars [0.11ms]
+(pass) 3.4 Secret loader - confirm no secret value appears in thrown error messages [0.19ms]
+(pass) 3.5 Control secret loader - control services receive only their own control-plane credentials [0.43ms]
+(pass) 4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize [0.48ms]
+(pass) 4.4 Control event path - unauthenticated approval mutation is rejected [0.65ms]
+(pass) 4.5 Discord control plane - approval command outside approval policy is rejected [1.62ms]
+(pass) 4.6 Dispatch broker - unauthenticated write-secret release is rejected [0.61ms]
+(pass) 4.7 Dispatch broker - approved write-secret release is scoped and consumes approval [0.93ms]
+(pass) 4.2 High-risk guard - unknown or non-high-risk action always allowed [0.07ms]
+(pass) 4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B [0.09ms]
+(pass) 5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash [0.37ms]
+(pass) 5.2 Command parser fuzz - extra whitespace handled correctly [0.13ms]
+(pass) 6.1 Metric math - empty samples returns empty array [0.17ms]
+(pass) 6.2 Metric math - single runtime only [0.22ms]
+(pass) 6.3 Metric math - all-failed batch [0.10ms]
+(pass) 6.4 Metric math - mixed exact averages [0.15ms]
 
- 20 pass
+ 25 pass
  0 fail
- 97 expect() calls
-Ran 20 tests across 1 file. [88.00ms]
+ 113 expect() calls
+Ran 25 tests across 1 file. [474.00ms]

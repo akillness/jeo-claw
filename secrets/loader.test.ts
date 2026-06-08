@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test";
 import {
   loadSecretsForRole,
+  loadWriteSecretsForRole,
   loadSecretsForControl,
   hasWriteScope,
   redact,
@@ -28,24 +29,33 @@ const fullStore = {
   "jeo-claw-github-token-rw": "ghp_readwrite",
   "jeo-claw-github-webhook-secret": "whsec_fake",
   "jeo-claw-discord-bot-token": "xoxb_fake_discord",
+  "jeo-claw-control-event-secret": "control-secret",
 };
 
-test("least privilege: read-only roles never receive the write token", async () => {
-  for (const role of ["researcher-coder", "reviewer", "pr-review-scheduler"] as Role[]) {
+test("all runtime roles receive only read-only startup github token", async () => {
+  for (const role of Object.keys(ROLE_SECRETS) as Role[]) {
     const src = new MockSource(fullStore);
-    await loadSecretsForRole(role, src, { prefix: "jeo-claw" });
+    const env = await loadSecretsForRole(role, src, { prefix: "jeo-claw" });
     expect(src.accessed).not.toContain("jeo-claw-github-token-rw");
-    expect(hasWriteScope(role)).toBe(false);
+    expect(env.GITHUB_TOKEN).toBe("ghp_readonly");
   }
 });
 
-test("write roles (pr-creator, merger) receive the write token", async () => {
+test("write roles are eligible for mediated write secret release", async () => {
   for (const role of ["pr-creator", "merger"] as Role[]) {
     const src = new MockSource(fullStore);
-    const env = await loadSecretsForRole(role, src, { prefix: "jeo-claw" });
-    expect(src.accessed).toContain("jeo-claw-github-token-rw");
+    const env = await loadWriteSecretsForRole(role, src, { prefix: "jeo-claw" });
+    expect(src.accessed).toEqual(["jeo-claw-github-token-rw"]);
     expect(env.GITHUB_TOKEN).toBe("ghp_readwrite");
     expect(hasWriteScope(role)).toBe(true);
+  }
+});
+
+test("non-write roles cannot request mediated write secrets", async () => {
+  for (const role of ["researcher-coder", "reviewer", "pr-review-scheduler"] as Role[]) {
+    const src = new MockSource(fullStore);
+    await expect(loadWriteSecretsForRole(role, src, { prefix: "jeo-claw" })).rejects.toBeInstanceOf(MissingSecretError);
+    expect(hasWriteScope(role)).toBe(false);
   }
 });
 
@@ -55,8 +65,10 @@ test("runtime roles never receive control-plane secrets", async () => {
     const env = await loadSecretsForRole(role, src, { prefix: "jeo-claw" });
     expect(env.GITHUB_WEBHOOK_SECRET).toBeUndefined();
     expect(env.DISCORD_BOT_TOKEN).toBeUndefined();
+    expect(env.JEO_CONTROL_EVENT_SECRET).toBeUndefined();
     expect(src.accessed).not.toContain("jeo-claw-github-webhook-secret");
     expect(src.accessed).not.toContain("jeo-claw-discord-bot-token");
+    expect(src.accessed).not.toContain("jeo-claw-control-event-secret");
   }
 });
 
@@ -64,16 +76,18 @@ test("control services receive only control-plane secrets", async () => {
   const glueSrc = new MockSource(fullStore);
   const glue = await loadSecretsForControl("glue-webhook", glueSrc, { prefix: "jeo-claw" });
   expect(glue.GITHUB_WEBHOOK_SECRET).toBe("whsec_fake");
+  expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("control-secret");
   expect(glue.GITHUB_TOKEN).toBeUndefined();
   expect(glue.OPENAI_API_KEY).toBeUndefined();
-  expect(glueSrc.accessed).toEqual(["jeo-claw-github-webhook-secret"]);
+  expect(glueSrc.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret"]);
 
   const discordSrc = new MockSource(fullStore);
   const discord = await loadSecretsForControl("discord-bot", discordSrc, { prefix: "jeo-claw" });
   expect(discord.DISCORD_BOT_TOKEN).toBe("xoxb_fake_discord");
+  expect(discord.JEO_CONTROL_EVENT_SECRET).toBe("control-secret");
   expect(discord.GITHUB_TOKEN).toBeUndefined();
   expect(discord.OPENAI_API_KEY).toBeUndefined();
-  expect(discordSrc.accessed).toEqual(["jeo-claw-discord-bot-token"]);
+  expect(discordSrc.accessed).toEqual(["jeo-claw-discord-bot-token", "jeo-claw-control-event-secret"]);
 });
 
 test("missing required secret is a hard failure with sanitized upstream details", async () => {
@@ -89,11 +103,14 @@ test("missing required secret is a hard failure with sanitized upstream details"
   }
 });
 
-test("empty secret value is rejected", async () => {
-  const src = new MockSource({ ...fullStore, "jeo-claw-openai-api-key": "" });
-  await expect(loadSecretsForRole("reviewer", src, { prefix: "jeo-claw" })).rejects.toBeInstanceOf(
-    MissingSecretError,
-  );
+test("blank and whitespace-only secret values are rejected", async () => {
+  await expect(
+    loadSecretsForRole("reviewer", new MockSource({ ...fullStore, "jeo-claw-openai-api-key": "" }), { prefix: "jeo-claw" }),
+  ).rejects.toBeInstanceOf(MissingSecretError);
+
+  await expect(
+    loadSecretsForControl("glue-webhook", new MockSource({ ...fullStore, "jeo-claw-github-webhook-secret": "   " }), { prefix: "jeo-claw" }),
+  ).rejects.toBeInstanceOf(MissingSecretError);
 });
 
 test("redact masks every secret value", () => {

@@ -59,6 +59,7 @@ export function createWorkflow(id: string, runtime: Runtime, request: string): W
     stage: initialStage,
     status: "running",
     history: [{ stage: initialStage, at: now(), status: "running" }],
+    headRef: `jeo/${runtime}/pr-creator/${id}`,
   };
 }
 

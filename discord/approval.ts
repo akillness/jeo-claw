@@ -78,7 +78,7 @@ export class ApprovalRegistry {
 }
 
 /**
- * Guards high-risk actions. High-risk actions (pr.create, git.push, git.merge, pr.merge)
+ * Guards high-risk actions. High-risk actions (pr.create, pr.merge)
  * are allowed ONLY when registry has a matching unconsumed Discord approval for the same
  * workflow id and the same action. The approval is consumed on allow so it cannot authorize
  * another write action or a later retry.

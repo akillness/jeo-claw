@@ -60,6 +60,7 @@ GitHub webhook ─▶ glue/server.ts (HTTP :8787)
 | `compose/egress-proxy/` | `squid.conf` + `allowlist.txt` |
 | `qa/` | Adversarial red-team test suite |
 | `artifacts/` | QA evidence (red-team report/transcript, verify transcript) |
+| `ops/` | Self-evolving operating doctrine: spec-kit workflow (constitution/spec/plan/tasks/verify) + rtk·graphify·obsidian·llm-wiki knowledge loop. Start at `ops/RULES.md`. Knowledge vault in `ops/vault/`; `ops/scripts/capture-knowledge.ts` files completed work |
 
 ## Development Commands
 
@@ -107,7 +108,7 @@ and `bun run check:compose`.
   - Webhook auth uses `createHmac('sha256')` + `timingSafeEqual` (constant-time).
   - Merge requires **all three** booleans (`ciPassed && reviewPassed && discordApproved`).
     Use **strict `=== true`** checks (see Known Issues).
-  - High-risk actions (`git.push`, `git.merge`, `pr.merge`) are blocked unless approved.
+  - High-risk actions (`pr.create`, `pr.merge`) are blocked unless approved.
   - Secret values are redacted (`***REDACTED***`) in logs/errors; only secret **ids** surface.
   - Configs reference secrets only via `${ENV_REF}` — **never hardcode tokens**.
 

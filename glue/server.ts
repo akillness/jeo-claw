@@ -1,6 +1,8 @@
 import { verifySignature, parseWebhook } from "./github-webhook";
 import { applyEvent, advanceStage, createWorkflow } from "./state-machine";
-import type { WorkflowState, ControlEvent } from "./contract";
+import type { WorkflowState, ControlEvent, HighRiskAction } from "./contract";
+import { GcloudSecretSource, loadWriteSecretsForRole, type Role, type SecretSource } from "../secrets/loader.ts";
+import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
 
 export const store = new Map<string, WorkflowState>();
 
@@ -19,6 +21,68 @@ const FORBIDDEN_RUNTIME_DISPATCH_FIELDS = new Set([
   "mount",
   "volume",
 ]);
+
+function json(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function requireControlSecret(secret: string | undefined, provided: string | null): boolean {
+  return !!secret && provided === secret;
+}
+
+function roleForAction(action: string): Role | undefined {
+  if (action === "pr.create") return "pr-creator";
+  if (action === "pr.merge") return "merger";
+  return undefined;
+}
+function consumeApprovedAction(state: WorkflowState, action: HighRiskAction): WorkflowState {
+  const current = state.actionApprovals?.[action];
+  return {
+    ...state,
+    pendingAction: state.pendingAction === action ? undefined : state.pendingAction,
+    actionApprovals: {
+      ...(state.actionApprovals ?? {}),
+      [action]: {
+        requestedAt: current?.requestedAt ?? new Date().toISOString(),
+        user: current?.user,
+        decidedAt: current?.decidedAt,
+        status: "consumed",
+        consumedAt: new Date().toISOString(),
+      },
+    },
+  };
+}
+
+function createActionForStage(state: WorkflowState): Extract<HighRiskAction, "pr.create" | "pr.merge"> | undefined {
+  if (state.stage === "pr-create") return "pr.create";
+  if (state.stage === "merge") return "pr.merge";
+  return undefined;
+}
+
+function brokerActionForCreate(action: Extract<HighRiskAction, "pr.create" | "pr.merge">): Role {
+  return action === "pr.create" ? "pr-creator" : "merger";
+}
+
+function readyForCreate(state: WorkflowState): boolean {
+  return (
+    state.stage === "pr-create" &&
+    state.prNumber === undefined &&
+    state.actionApprovals?.["pr.create"]?.status === "approved"
+  );
+}
+
+function readyForMerge(state: WorkflowState): boolean {
+  return (
+    state.stage === "merge" &&
+    state.prNumber !== undefined &&
+    state.ciPassed === true &&
+    state.reviewPassed === true &&
+    state.actionApprovals?.["pr.merge"]?.status === "approved"
+  );
+}
 
 export function validateRuntimeDispatchPayload(payload: unknown): { ok: boolean; reason?: string } {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -42,104 +106,196 @@ export function validateRuntimeDispatchPayload(payload: unknown): { ok: boolean;
   return { ok: true };
 }
 
-export async function handleControlDispatchRequest(req: Request): Promise<Response> {
-  return new Response(JSON.stringify({ error: "Runtime dispatch is not implemented in this control plane" }), {
-    status: 501,
-    headers: { "Content-Type": "application/json" },
-  });
+interface RuntimeDispatchPayload {
+  workflowId: string;
+  role: string;
+  action: HighRiskAction;
+  runtime: string;
+  stage: string;
+}
+
+interface WorkflowBrokerOpts {
+  store: Map<string, WorkflowState>;
+  controlEventSecret: string;
+  prefix: string;
+  sourceFactory: () => SecretSource;
+}
+
+interface WorkflowExecutionOpts extends WorkflowBrokerOpts {
+  writeDeps: GitHubWriteDeps;
+}
+
+async function brokerApprovedWriteCredentials(
+  workflow: WorkflowState,
+  action: HighRiskAction,
+  opts: WorkflowBrokerOpts,
+): Promise<{ role: Role; credentials: Record<string, string> }> {
+  const role = roleForAction(action);
+  if (!role) {
+    throw new Error(`Unsupported broker action: ${action}`);
+  }
+  const approval = workflow.actionApprovals?.[action];
+  if (approval?.status !== "approved") {
+    throw new Error(`Action ${action} is not approved`);
+  }
+  const credentials = await loadWriteSecretsForRole(role, opts.sourceFactory(), { prefix: opts.prefix });
+  return { role, credentials };
+}
+
+async function maybeExecuteApprovedWriteTransition(
+  state: WorkflowState,
+  opts: WorkflowExecutionOpts,
+): Promise<WorkflowState | undefined> {
+  if (readyForCreate(state)) {
+    const { credentials } = await brokerApprovedWriteCredentials(state, "pr.create", opts);
+    const writeToken = credentials.GITHUB_TOKEN;
+    if (!writeToken) throw new Error("Approved PR-create token missing");
+    const executed = await executeApprovedWriteAction(state, "pr.create", writeToken, opts.writeDeps);
+    return advanceStage(executed.workflow);
+  }
+
+  if (readyForMerge(state)) {
+    const { credentials } = await brokerApprovedWriteCredentials(state, "pr.merge", opts);
+    const writeToken = credentials.GITHUB_TOKEN;
+    if (!writeToken) throw new Error("Approved merge token missing");
+    const executed = await executeApprovedWriteAction(state, "pr.merge", writeToken, opts.writeDeps);
+    return advanceStage(executed.workflow);
+  }
+
+  return undefined;
+}
+
+async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecutionOpts): Promise<WorkflowState> {
+  const executed = await maybeExecuteApprovedWriteTransition(state, opts);
+  if (executed) return executed;
+  return advanceStage(state);
+}
+
+export async function handleControlDispatchRequest(
+  req: Request,
+  opts: WorkflowBrokerOpts,
+): Promise<Response> {
+  if (!requireControlSecret(opts.controlEventSecret, req.headers.get("x-control-event-secret"))) {
+    return json(401, { error: "Unauthorized" });
+  }
+
+  let payload: unknown;
+  try {
+    payload = await req.json();
+  } catch {
+    return json(400, { error: "Invalid JSON" });
+  }
+
+  const validation = validateRuntimeDispatchPayload(payload);
+  if (!validation.ok) {
+    return json(400, { error: validation.reason });
+  }
+
+  const body = payload as RuntimeDispatchPayload;
+  const expectedRole = roleForAction(body.action);
+  if (!expectedRole || expectedRole !== body.role) {
+    return json(403, { error: "Dispatch role/action mismatch" });
+  }
+
+  const workflow = opts.store.get(body.workflowId);
+  if (!workflow) {
+    return json(404, { error: "Workflow not found" });
+  }
+
+  try {
+    const { credentials } = await brokerApprovedWriteCredentials(workflow, body.action, opts);
+    const updated = consumeApprovedAction(workflow, body.action);
+    opts.store.set(updated.id, updated);
+    return json(200, {
+      success: true,
+      workflowId: updated.id,
+      role: expectedRole,
+      action: body.action,
+      credentials,
+    });
+  } catch (err) {
+    return json(403, { error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 export async function handleControlEventRequest(
   req: Request,
-  opts: { store: Map<string, WorkflowState> }
+  opts: Partial<WorkflowExecutionOpts> & { store: Map<string, WorkflowState>; controlEventSecret: string }
 ): Promise<Response> {
+  const providedSecret = req.headers.get("x-control-event-secret");
+  if (!requireControlSecret(opts.controlEventSecret, providedSecret)) {
+    return json(401, { error: "Unauthorized" });
+  }
+
   let event: ControlEvent;
   try {
     event = (await req.json()) as ControlEvent;
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(400, { error: "Invalid JSON" });
   }
 
   if (event.type === "request") {
     const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const wf = createWorkflow(wfId, event.runtime, event.request);
     opts.store.set(wfId, wf);
-    return new Response(JSON.stringify({ success: true, workflow: wf }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(201, { success: true, workflow: wf });
   }
 
   if (event.type === "approve" || event.type === "reject") {
     const wf = opts.store.get(event.workflowId);
     if (!wf) {
-      return new Response(JSON.stringify({ error: "Workflow not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
+      return json(404, { error: "Workflow not found" });
+    }
+    let updated = applyEvent(wf, event);
+    if (opts.prefix && opts.sourceFactory && opts.writeDeps) {
+      updated = await progressWorkflowState(updated, {
+        store: opts.store,
+        controlEventSecret: opts.controlEventSecret,
+        prefix: opts.prefix,
+        sourceFactory: opts.sourceFactory,
+        writeDeps: opts.writeDeps,
       });
     }
-    const updated = applyEvent(wf, event);
     opts.store.set(event.workflowId, updated);
-    return new Response(JSON.stringify({ success: true, workflow: updated }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(200, { success: true, workflow: updated });
   }
 
   if (event.type === "config-set") {
-    return new Response(JSON.stringify({ success: true, config: { key: event.key, value: event.value } }), {
-      status: 202,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(501, { error: "config-set is not implemented in the control plane" });
   }
 
-  return new Response(JSON.stringify({ error: "Unknown control event" }), {
-    status: 400,
-    headers: { "Content-Type": "application/json" },
-  });
+  return json(400, { error: "Unknown control event" });
 }
 
 export async function handleWebhookRequest(
   req: Request,
-  opts: { secret: string; store: Map<string, WorkflowState> }
+  opts: WorkflowExecutionOpts & { secret: string },
 ): Promise<Response> {
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname === "/health") {
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(200, { ok: true });
   }
 
   if (url.pathname === "/dispatch") {
-    return handleControlDispatchRequest(req);
+    return handleControlDispatchRequest(req, opts);
   }
 
   if (url.pathname === "/control-event") {
-    return handleControlEventRequest(req, { store: opts.store });
+    return handleControlEventRequest(req, opts);
   }
 
   const signatureHeader = req.headers.get("x-hub-signature-256") || req.headers.get("x-hub-signature") || "";
   const rawBody = await req.text();
 
   if (!verifySignature(rawBody, signatureHeader, opts.secret)) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(401, { error: "Unauthorized" });
   }
 
   let parsed;
   try {
     parsed = parseWebhook(rawBody);
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(400, { error: "Invalid JSON" });
   }
 
   let workflowState: WorkflowState | undefined;
@@ -169,31 +325,46 @@ export async function handleWebhookRequest(
 
   if (workflowState) {
     let nextState = applyEvent(workflowState, parsed);
-    nextState = advanceStage(nextState);
+    nextState = await progressWorkflowState(nextState, opts);
     opts.store.set(nextState.id, nextState);
-    return new Response(JSON.stringify({ success: true, workflow: nextState }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json(200, { success: true, workflow: nextState });
   }
 
-  return new Response(JSON.stringify({ success: false, message: "No matching workflow found" }), {
-    status: 202,
-    headers: { "Content-Type": "application/json" },
-  });
+  return json(202, { success: false, message: "No matching workflow found" });
 }
 
 export function start() {
   const port = parseInt(process.env.GLUE_PORT || "8787", 10);
-  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  const secret = process.env.GITHUB_WEBHOOK_SECRET?.trim();
   if (!secret) {
     throw new Error("GITHUB_WEBHOOK_SECRET is missing or empty");
+  }
+  const controlEventSecret = process.env.JEO_CONTROL_EVENT_SECRET?.trim();
+  if (!controlEventSecret) {
+    throw new Error("JEO_CONTROL_EVENT_SECRET is missing or empty");
+  }
+  const project = process.env.GCLOUD_PROJECT?.trim();
+  const prefix = process.env.GCLOUD_SECRET_PREFIX?.trim();
+  const targetRepo = process.env.TARGET_REPO?.trim();
+  const targetBranch = process.env.TARGET_BRANCH?.trim();
+  if (!project || !prefix || !targetRepo || !targetBranch) {
+    throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, and TARGET_BRANCH are required");
   }
 
   return Bun.serve({
     port,
     async fetch(req) {
-      return handleWebhookRequest(req, { secret, store });
+      return handleWebhookRequest(req, {
+        secret,
+        controlEventSecret,
+        prefix,
+        sourceFactory: () => new GcloudSecretSource(project),
+        writeDeps: {
+          targetRepo,
+          targetBranch,
+        },
+        store,
+      });
     },
   });
 }

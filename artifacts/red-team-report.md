@@ -2,17 +2,17 @@
 
 ## Status: PASSED
 
-The adversarial red-team suite was regenerated after implementing the action-scoped approval model, strict boolean parsing, role/control secret separation, and control-pivot rejection surface. No blockers were found in the current run.
+The adversarial red-team suite was regenerated after implementing the action-scoped approval model, strict boolean parsing, role/control secret separation, control-pivot rejection, unauthenticated control-event rejection, Discord approval-policy checks, and approval-gated write-secret broker tests. No blockers were found within the exercised adversarial cases.
 
 ---
 
 ## Final Test Run Results
 
 * **Command:** `bun test qa/red-team.test.ts`
-* **Pass count:** 19 pass
+* **Pass count:** 25 pass
 * **Fail count:** 0 fail
 * **Execution Transcript:** `artifacts/red-team-transcript.txt`
-* **Generated:** 2026-06-08T13:37:24.599145+00:00
+* **Generated:** 2026-06-08T15:28:30.695334+00:00
 
 ---
 

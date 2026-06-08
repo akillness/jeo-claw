@@ -82,10 +82,8 @@ export function validateConfigs(dir = CFG_DIR): Check[] {
     add(`${label} secrets are env-refs only`, bad.length === 0, bad.join(",") || `${secrets.length} refs ok`);
   }
 
-  add("zeroclaw discord channel set", !!zc.channels?.discord, "");
-  add("nullclaw discord channel set", !!nc.channels?.discord, "");
 
-  // PR creator and merger require approval in SOP (both); PR create/push and merge are write gates.
+  // PR creator and merger require approval in SOP (both); PR create and merge are the write gates.
   const requiredApprovalAgents = ["pr_creator", "merger"];
   for (const agent of requiredApprovalAgents) {
     add(`zeroclaw ${agent} requires approval`, (zc.sop?.pipelines?.pr_flow?.approval_required ?? []).includes(agent), "");

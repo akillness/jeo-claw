@@ -1,5 +1,5 @@
 # verify transcript
-Generated: 2026-06-08T13:43:14.582910+00:00
+Generated: 2026-06-08T15:28:26.280616+00:00
 
 
 ## compose-static
@@ -151,7 +151,9 @@ Exit code: 0
 [PASS] glue-webhook no-new-privileges  (security_opt)
 [PASS] glue-webhook read-only rootfs  (true)
 [PASS] glue-webhook tmpfs scratch  (["/tmp","/run"])
-[PASS] glue-webhook has no runtime role secret env  (ok)
+[PASS] glue-webhook has no direct secret or runtime env  (ok)
+[PASS] glue-webhook has Secret Manager bootstrap env  (ok)
+[PASS] glue-webhook boots through control/start.ts  (["bun","run","control/start.ts","glue-webhook"])
 [PASS] glue-webhook has no runtime state/worktree/socket mounts  (ok)
 [PASS] control service discord-bot defined  (ok)
 [PASS] discord-bot uses only claw_internal  (networks=[claw_internal])
@@ -161,7 +163,9 @@ Exit code: 0
 [PASS] discord-bot no-new-privileges  (security_opt)
 [PASS] discord-bot read-only rootfs  (true)
 [PASS] discord-bot tmpfs scratch  (["/tmp","/run"])
-[PASS] discord-bot has no runtime role secret env  (ok)
+[PASS] discord-bot has no direct secret or runtime env  (ok)
+[PASS] discord-bot has Secret Manager bootstrap env  (ok)
+[PASS] discord-bot boots through control/start.ts  (["bun","run","control/start.ts","discord-bot"])
 [PASS] discord-bot has no runtime state/worktree/socket mounts  (ok)
 [PASS] glue-webhook exposes loopback webhook port only  (["127.0.0.1:${GLUE_PORT:-8787}:8787"])
 [PASS] discord-bot exposes no ports  ([])
@@ -179,7 +183,7 @@ Exit code: 0
 [PASS] allowlist has no wildcard or IP literal  (none)
 [PASS] no plaintext secrets in .env.example  (scanned)
 
-172/172 checks passed
+176/176 checks passed
 $ bun run scripts/check-compose.ts
 
 
@@ -190,120 +194,159 @@ Exit code: 0
 
 bun test v1.3.14 (0d9b296a)
 
+runtimes\start.test.ts:
+(pass) commandForRuntime maps runtimes to startup commands [1.57ms]
+(pass) resolveRuntimeEnvironment loads least-privilege role secrets [1.02ms]
+(pass) resolveRuntimeEnvironment drops ambient secrets outside the role allowlist [0.17ms]
+(pass) resolveRuntimeEnvironment rejects missing role/project/prefix [0.17ms]
+
 compare\dashboard.test.ts:
-(pass) dashboard renders both runtime names and all 5 metric families and is non-empty with static data [1.25ms]
-(pass) dashboard rendering with summaries generated from a deterministic mock RunFn [1.03ms]
+(pass) dashboard renders both runtime names and all 5 metric families and is non-empty with static data [0.47ms]
+(pass) dashboard rendering with summaries generated from a deterministic mock RunFn [0.57ms]
 
 compare\metrics.test.ts:
-(pass) summarize - empty input returns empty array [0.10ms]
-(pass) summarize - math correct with known samples [0.36ms]
-(pass) summarize - a runtime with zero samples handled gracefully [0.14ms]
+(pass) summarize - empty input returns empty array [0.11ms]
+(pass) summarize - math correct with known samples [0.41ms]
+(pass) summarize - a runtime with zero samples handled gracefully [0.17ms]
 
 compare\runner.test.ts:
-(pass) runComparison invokes RunFn correct number of times and with correct run indices [0.52ms]
-(pass) compareAndSummarize returns both samples and summaries correctly [0.35ms]
-
-scripts\check-compose.test.ts:
-(pass) compose security posture: every static check passes [149.29ms]
-(pass) no service mounts the host Docker socket or host workspace [37.52ms]
-(pass) runtime-role services are isolated from the edge network [28.87ms]
-(pass) only egress-proxy attaches to edge [25.44ms]
-(pass) both control services are internal-only and hardened [33.37ms]
-(pass) runtime-role services have unique state and worktree volumes [24.55ms]
+(pass) runComparison invokes RunFn correct number of times and with correct run indices [0.30ms]
+(pass) compareAndSummarize returns both samples and summaries correctly [0.20ms]
 
 config\validate.test.ts:
-(pass) both runtime configs pass every validation check [2.34ms]
-(pass) A/B fairness: identical model id [0.62ms]
-(pass) no plaintext secrets — api keys/tokens are env refs [0.53ms]
-(pass) exactly 5 roles in each runtime [0.40ms]
+(pass) both runtime configs pass every validation check [1.59ms]
+(pass) A/B fairness: identical model id [0.28ms]
+(pass) runtime configs keep only env-referenced provider secrets and no embedded Discord control block [0.26ms]
+(pass) exactly 5 roles in each runtime [0.26ms]
 
 discord\approval.test.ts:
-(pass) ApprovalRegistry: action-scoped lifecycle with consume [0.70ms]
-(pass) guardHighRisk: blocks, consumes matching action approval, and isolates actions [0.77ms]
-(pass) bot handlers: buildHandlers routes action-scoped events and manages registry [3.49ms]
-(pass) bot handlers with bridging: request creates workflow, action approval bridges to store, config set yolo is rejected [1.59ms]
-(pass) bot handlers forward events through async onEvent bridge [0.28ms]
+(pass) ApprovalRegistry: action-scoped lifecycle with consume [4.41ms]
+(pass) guardHighRisk: blocks, consumes matching action approval, and isolates actions [1.82ms]
+(pass) bot handlers: buildHandlers routes action-scoped events and manages registry [7.48ms]
+(pass) bot handlers with bridging: request creates workflow, action approval bridges to store, config set yolo is rejected [0.81ms]
+(pass) bot handlers forward events through async onEvent bridge [0.17ms]
+(pass) bot handlers reject commands from the wrong guild or channel [0.16ms]
+(pass) bot handlers require approval permission for approve/reject/config-set [0.24ms]
+(pass) bot handlers allow approval commands for authorized approvers in the approval channel [0.20ms]
 
 discord\commands.test.ts:
-(pass) parseCommand: request command [0.29ms]
-(pass) parseCommand: approve command requires workflow id and action [0.30ms]
-(pass) parseCommand: reject command requires workflow id and action [0.22ms]
-(pass) parseCommand: config set command [0.33ms]
-(pass) parseCommand: unknown commands [0.18ms]
-(pass) validateConfigValue validations [0.24ms]
+(pass) parseCommand: request command [0.14ms]
+(pass) parseCommand: approve command requires workflow id and action [0.11ms]
+(pass) parseCommand: reject command requires workflow id and action [0.14ms]
+(pass) parseCommand: config set command [0.17ms]
+(pass) parseCommand: unknown commands [0.14ms]
+(pass) validateConfigValue validations [0.22ms]
 
 qa\red-team.test.ts:
-(pass) 1.1 Merge gate - all 2-of-3 combinations must be blocked [0.18ms]
-(pass) 1.2 Merge gate - truthy-but-not-true values should be blocked [0.06ms]
-(pass) 2.1 Webhook signature forgery - tampered body with valid old signature [0.59ms]
-(pass) 2.2 Webhook signature forgery - wrong secret [0.18ms]
-(pass) 2.3 Webhook signature forgery - malformed headers [0.21ms]
-(pass) 2.4 Webhook signature - correctly-signed body must be accepted [0.14ms]
-(pass) 3.1 Secret loader - read-only roles must NEVER trigger access to the write token id [2.01ms]
-(pass) 3.2 Secret loader - missing required secret and empty value throws MissingSecretError [0.39ms]
-(pass) 3.3 Secret loader - redact() must mask values even when they contain regex-special chars [0.14ms]
-(pass) 3.4 Secret loader - confirm no secret value appears in thrown error messages [0.39ms]
-(pass) 3.5 Control secret loader - control services receive only their own control-plane credentials [0.64ms]
-(pass) 4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize [0.23ms]
-(pass) 4.2 High-risk guard - unknown or non-high-risk action always allowed [0.09ms]
-(pass) 4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B [0.23ms]
-(pass) 5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash [0.26ms]
-(pass) 5.2 Command parser fuzz - extra whitespace handled correctly [0.14ms]
+(pass) 1.1 Merge gate - all 2-of-3 combinations must be blocked [0.14ms]
+(pass) 1.2 Merge gate - truthy-but-not-true values should be blocked [0.03ms]
+(pass) 2.1 Webhook signature forgery - tampered body with valid old signature [0.35ms]
+(pass) 2.2 Webhook signature forgery - wrong secret [0.10ms]
+(pass) 2.3 Webhook signature forgery - malformed headers [0.14ms]
+(pass) 2.4 Webhook signature - correctly-signed body must be accepted [0.09ms]
+(pass) 3.1 Secret loader - read-only roles must NEVER trigger access to the write token id [0.27ms]
+(pass) 3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release [0.26ms]
+(pass) 3.2 Secret loader - missing required secret and empty value throws MissingSecretError [0.21ms]
+(pass) 3.3 Secret loader - redact() must mask values even when they contain regex-special chars [0.08ms]
+(pass) 3.4 Secret loader - confirm no secret value appears in thrown error messages [0.18ms]
+(pass) 3.5 Control secret loader - control services receive only their own control-plane credentials [0.38ms]
+(pass) 4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize [0.19ms]
+(pass) 4.4 Control event path - unauthenticated approval mutation is rejected [0.45ms]
+(pass) 4.5 Discord control plane - approval command outside approval policy is rejected [0.21ms]
+(pass) 4.6 Dispatch broker - unauthenticated write-secret release is rejected [0.40ms]
+(pass) 4.7 Dispatch broker - approved write-secret release is scoped and consumes approval [0.73ms]
+(pass) 4.2 High-risk guard - unknown or non-high-risk action always allowed [0.06ms]
+(pass) 4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B [0.09ms]
+(pass) 5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash [0.16ms]
+(pass) 5.2 Command parser fuzz - extra whitespace handled correctly [0.16ms]
 (pass) 6.1 Metric math - empty samples returns empty array [0.03ms]
-(pass) 6.2 Metric math - single runtime only [0.18ms]
-(pass) 6.3 Metric math - all-failed batch [0.10ms]
-(pass) 6.4 Metric math - mixed exact averages [0.15ms]
+(pass) 6.2 Metric math - single runtime only [0.16ms]
+(pass) 6.3 Metric math - all-failed batch [0.11ms]
+(pass) 6.4 Metric math - mixed exact averages [0.12ms]
+
+scripts\check-compose.test.ts:
+(pass) compose security posture: every static check passes [86.48ms]
+(pass) no service mounts the host Docker socket or host workspace [19.70ms]
+(pass) runtime-role services are isolated from the edge network [17.07ms]
+(pass) only egress-proxy attaches to edge [14.37ms]
+(pass) both control services are internal-only and hardened [15.26ms]
+(pass) runtime-role services have unique state and worktree volumes [16.73ms]
 
 secrets\loader.test.ts:
-(pass) least privilege: read-only roles never receive the write token [0.81ms]
-(pass) write roles (pr-creator, merger) receive the write token [0.30ms]
-(pass) runtime roles never receive control-plane secrets [0.38ms]
-(pass) control services receive only control-plane secrets [0.31ms]
-(pass) missing required secret is a hard failure with sanitized upstream details [2.63ms]
-(pass) empty secret value is rejected [1.67ms]
-(pass) redact masks every secret value [0.20ms]
-(pass) every runtime role requires the OpenAI key and control services do not [3.15ms]
+(pass) all runtime roles receive only read-only startup github token [0.40ms]
+(pass) write roles are eligible for mediated write secret release [0.28ms]
+(pass) non-write roles cannot request mediated write secrets [0.22ms]
+(pass) runtime roles never receive control-plane secrets [0.21ms]
+(pass) control services receive only control-plane secrets [0.19ms]
+(pass) missing required secret is a hard failure with sanitized upstream details [0.21ms]
+(pass) blank and whitespace-only secret values are rejected [0.15ms]
+(pass) redact masks every secret value [0.07ms]
+(pass) every runtime role requires the OpenAI key and control services do not [0.12ms]
 
 glue\github-webhook.test.ts:
-(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.27ms]
-(pass) parseWebhook handles pull_request event [0.29ms]
+(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.25ms]
+(pass) parseWebhook handles pull_request event [0.20ms]
 (pass) parseWebhook handles check_suite conclusion success [0.06ms]
 (pass) parseWebhook handles check_suite conclusion failure [0.05ms]
 (pass) parseWebhook handles status success [0.05ms]
-(pass) parseWebhook handles status pending [0.05ms]
+(pass) parseWebhook handles status pending [0.08ms]
 (pass) parseWebhook handles status failure [0.05ms]
-(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.16ms]
-(pass) parseWebhook accepts strict direct boolean fields [0.06ms]
+(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.15ms]
+(pass) parseWebhook accepts strict direct boolean fields [0.07ms]
 
 glue\merge-gate.test.ts:
-(pass) merge gate allows when all true [0.15ms]
-(pass) merge gate blocks when each single condition is false [0.14ms]
+(pass) merge gate allows when all true [0.13ms]
+(pass) merge gate blocks when each single condition is false [0.11ms]
 
 glue\server.test.ts:
-(pass) handleWebhookRequest returns 401 on bad signature [1.27ms]
-(pass) handleWebhookRequest exposes health without webhook signature [0.34ms]
-(pass) handleWebhookRequest returns 200 on valid pull_request event [1.15ms]
-(pass) handleWebhookRequest rejects non-boolean webhook fields without mutating workflow [0.65ms]
-(pass) validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields [0.24ms]
-(pass) handleControlEventRequest creates workflows and updates approval state [0.54ms]
-(pass) handleControlDispatchRequest is explicit not-implemented, not fake success [0.20ms]
-(pass) unmatched signed webhook reports non-success body [0.26ms]
-(pass) start throws when GITHUB_WEBHOOK_SECRET is missing [0.43ms]
+(pass) handleWebhookRequest returns 401 on bad signature [1.08ms]
+(pass) handleWebhookRequest exposes health without webhook signature [0.25ms]
+(pass) handleWebhookRequest returns 200 on valid pull_request event [1.02ms]
+(pass) handleWebhookRequest rejects non-boolean webhook fields without mutating workflow [0.48ms]
+(pass) validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields [0.14ms]
+(pass) handleControlEventRequest rejects unauthenticated mutations [0.17ms]
+(pass) handleControlEventRequest creates workflows and updates approval state when authenticated [0.33ms]
+(pass) handleControlEventRequest executes approved PR creation through the live write path [1.32ms]
+(pass) handleWebhookRequest executes approved merge through the live write path [0.76ms]
+(pass) config-set through control-event is explicit not-implemented [0.17ms]
+(pass) handleControlDispatchRequest rejects unauthenticated or unapproved write release [0.41ms]
+(pass) handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval [0.34ms]
+(pass) handleControlDispatchRequest rejects role/action mismatch [0.25ms]
+(pass) unmatched signed webhook reports non-success body [0.43ms]
+(pass) start throws when required secrets/bootstrap inputs are missing or blank [1.01ms]
 
 glue\state-machine.test.ts:
-(pass) createWorkflow sets up initial state [0.14ms]
-(pass) advanceStage walks automatic stages until PR creation approval is required [0.41ms]
-(pass) pr-create requires pr.create and git.push approvals before scheduling review [0.35ms]
-(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.44ms]
-(pass) merge stage merges when CI, review, git.merge approval, and pr.merge approval are true [0.26ms]
-(pass) applyEvent sets fields and action approvals correctly [0.15ms]
-(pass) advanceStage does not resurrect rejected or merged states [0.21ms]
-(pass) legacy approved boolean cannot synthesize merge approvals [0.25ms]
+(pass) createWorkflow sets up initial state [0.12ms]
+(pass) advanceStage walks automatic stages until PR creation approval is required [0.28ms]
+(pass) pr-create requires pr.create approval before scheduling review [0.09ms]
+(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.27ms]
+(pass) merge stage merges when CI, review, and pr.merge approval are true [0.18ms]
+(pass) applyEvent sets fields and action approvals correctly [0.13ms]
+(pass) advanceStage does not resurrect rejected or merged states [0.13ms]
+(pass) legacy approved boolean cannot synthesize merge approvals [0.13ms]
 
- 84 pass
+control\start.test.ts:
+(pass) commandForService maps control services to startup commands [0.10ms]
+(pass) resolveControlEnvironment loads control secrets from Secret Manager inputs [0.71ms]
+(pass) resolveControlEnvironment rejects missing project or prefix [0.19ms]
+(pass) resolveControlEnvironment rejects blank loaded secrets [0.12ms]
+(pass) resolveControlEnvironment drops ambient non-control secrets from child env [0.20ms]
+
+ops\scripts\capture-knowledge.test.ts:
+(pass) slugify normalizes to kebab-case and keeps 한글 [0.27ms]
+(pass) validateInput requires title/slug/summary [0.26ms]
+(pass) buildArtifacts emits raw + wiki + log + index content [0.56ms]
+(pass) applyCapture writes raw, wiki, appends log, inserts index link [1.00ms]
+(pass) applyCapture preserves existing raw source (immutable) [0.27ms]
+(pass) applyCapture preserves existing wiki page (LLM-owned) [0.22ms]
+(pass) applyCapture is idempotent for index link and log line [0.31ms]
+(pass) parseArgs reads flags and derives slug from title when omitted [0.21ms]
+(pass) runCapture returns failure result on invalid input [0.22ms]
+
+ 117 pass
  0 fail
- 557 expect() calls
-Ran 84 tests across 13 files. [1170.00ms]
+ 664 expect() calls
+Ran 117 tests across 16 files. [800.00ms]
 
 
 

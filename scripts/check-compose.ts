@@ -22,7 +22,9 @@ export const CONTROL_SERVICES = ["glue-webhook", "discord-bot"] as const;
 const SOCKET_RE = /docker\.sock/i;
 const SECRET_RE = /(sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/;
 const RUNTIME_FORBIDDEN_ENV = new Set(["DISCORD_BOT_TOKEN", "GITHUB_WEBHOOK_SECRET", "GITHUB_TOKEN", "OPENAI_API_KEY"]);
-const CONTROL_FORBIDDEN_ENV = new Set(["GITHUB_TOKEN", "OPENAI_API_KEY", "GCLOUD_PROJECT", "GCLOUD_SECRET_PREFIX", "LLM_PROVIDER", "LLM_MODEL", "OPENAI_WIRE_API"]);
+const CONTROL_FORBIDDEN_ENV = new Set(["GITHUB_TOKEN", "OPENAI_API_KEY", "LLM_PROVIDER", "LLM_MODEL", "OPENAI_WIRE_API", "GITHUB_WEBHOOK_SECRET", "DISCORD_BOT_TOKEN"]);
+const CONTROL_REQUIRED_ENV = new Set(["GCLOUD_PROJECT", "GCLOUD_SECRET_PREFIX"]);
+
 
 function isAllowedEntry(entry: string): boolean {
   const clean = entry.startsWith(".") ? entry.slice(1) : entry;
@@ -194,8 +196,16 @@ export function runChecks(root = ROOT): Check[] {
     add(`${svc} no-new-privileges`, hasNoNewPrivileges(def), "security_opt");
     add(`${svc} read-only rootfs`, def.read_only === true, String(def.read_only));
     add(`${svc} tmpfs scratch`, hasTmpfs(def, "/tmp") && hasTmpfs(def, "/run"), JSON.stringify(def.tmpfs ?? []));
-    const forbiddenEnv = envKeys(def).filter((key) => CONTROL_FORBIDDEN_ENV.has(key));
-    add(`${svc} has no runtime role secret env`, forbiddenEnv.length === 0, forbiddenEnv.join(",") || "ok");
+    const controlEnvKeys = envKeys(def);
+    const forbiddenEnv = controlEnvKeys.filter((key) => CONTROL_FORBIDDEN_ENV.has(key));
+    add(`${svc} has no direct secret or runtime env`, forbiddenEnv.length === 0, forbiddenEnv.join(",") || "ok");
+    const missingRequiredEnv = [...CONTROL_REQUIRED_ENV].filter((key) => !controlEnvKeys.includes(key));
+    add(`${svc} has Secret Manager bootstrap env`, missingRequiredEnv.length === 0, missingRequiredEnv.join(",") || "ok");
+    add(
+      `${svc} boots through control/start.ts`,
+      JSON.stringify(def.command ?? []).includes("control/start.ts"),
+      JSON.stringify(def.command ?? []),
+    );
     const forbiddenRuntimeMount = (def.volumes ?? []).map(volumeText).find((v: string) => /zeroclaw|nullclaw|workspace|Docker\.sock|docker\.sock/.test(v));
     add(`${svc} has no runtime state/worktree/socket mounts`, !forbiddenRuntimeMount, forbiddenRuntimeMount || "ok");
   }

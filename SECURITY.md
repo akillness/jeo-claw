@@ -11,6 +11,7 @@
 ## 2. Egress allowlist
 - 모든 외부 통신은 `egress-proxy`(squid) allowlist를 통과해야 한다.
 - 허용 도메인: GitHub, OpenAI(api.openai.com), gcloud Secret Manager(googleapis.com), Discord. 그 외 전부 차단.
+- control plane(`discord-bot` → `glue-webhook`)는 내부 shared secret(`JEO_CONTROL_EVENT_SECRET`)으로 상호 인증하며, role runtime은 해당 secret을 받지 않는다.
 
 ## 3. 비밀 관리 (Secrets)
 - 모든 비밀은 **gcloud Secret Manager**에서 런타임에 주입. 코드/이미지/리포에 평문 토큰 금지.
@@ -19,16 +20,18 @@
   |------|--------|--------|------|
   | researcher-coder | read | read-only | — |
   | reviewer | read | read-only | — |
-  | pr-creator | read | **write** | — |
+  | pr-creator | read | read-only runtime stage | control plane가 승인 후 `github-token-rw`로 PR 생성 실행 |
   | pr-review-scheduler | read | read-only | — |
-  | merger | read | **write** | — |
-  | glue-webhook(control) | — | — | webhook-secret |
-  | discord-bot(control) | — | — | discord-bot-token |
+  | merger | read | read-only runtime stage | control plane가 승인 후 `github-token-rw`로 merge 실행 |
+  | glue-webhook(control) | — | — | webhook-secret, control-event-secret, approved-write broker |
+  | discord-bot(control) | — | — | discord-bot-token, control-event-secret |
+- `github-token-rw`는 장기 컨테이너 부팅 시점에 주입하지 않고, `glue-webhook`의 승인된 write executor 경로에서만 별도로 로드한다.
 - 로그·에러 메시지에서 비밀값 **리댁션**(`redact()`); 누락/빈 비밀은 하드 실패.
 
 ## 4. 자율성 & 승인 게이트 (Autonomy)
 - 두 런타임 모두 `autonomy = supervised` (중위험 승인, 고위험 차단).
-- 고위험 액션(`pr.create`, `git.push`, `git.merge`, `pr.merge`)은 workflow 단위가 아니라 action-scoped single-use **Discord 승인 필수**. glue 머지 게이트가 CI 통과 AND 머지역할 검수 AND `git.merge`/`pr.merge` 승인을 모두 강제한다.
+- 고위험 액션(`pr.create`, `pr.merge`)은 workflow 단위가 아니라 action-scoped single-use **Discord 승인 필수**. glue는 CI/리뷰 상태와 결합해 승인된 `pr.create`·`pr.merge`만 실행한다.
+- Discord 명령은 승인 채널 + 승인자 권한(설정된 역할 또는 관리자/ManageGuild 권한) + 내부 control-event secret 검증을 통과해야만 glue 상태를 변경할 수 있다.
 
 ## 5. 무결성 (Integrity)
 - ZeroClaw tool receipts(모든 액션 암호화 영수증)를 활성화해 감사 추적.

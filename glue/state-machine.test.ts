@@ -13,6 +13,7 @@ test("createWorkflow sets up initial state", () => {
   expect(h0).toBeDefined();
   expect(h0!.stage).toBe("research-code");
   expect(typeof h0!.at).toBe("string");
+  expect(state.headRef).toBe("jeo/zeroclaw/pr-creator/wf-1");
 });
 
 test("advanceStage walks automatic stages until PR creation approval is required", () => {
@@ -31,23 +32,16 @@ test("advanceStage walks automatic stages until PR creation approval is required
   expect(state.pendingAction).toBe("pr.create");
 });
 
-test("pr-create requires pr.create and git.push approvals before scheduling review", () => {
+test("pr-create requires pr.create approval before scheduling review", () => {
   let state = createWorkflow("wf-1", "zeroclaw", "fix bug");
   state = advanceStage(state); // review
   state = advanceStage(state); // pr-create
 
   state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
   state = advanceStage(state);
-  expect(state.stage).toBe("pr-create");
-  expect(state.status).toBe("awaiting-approval");
-  expect(state.pendingAction).toBe("git.push");
-
-  state = applyEvent(state, { type: "approve", action: "git.push", user: "alice" });
-  state = advanceStage(state);
   expect(state.stage).toBe("pr-review-schedule");
   expect(state.status).toBe("running");
   expect(state.actionApprovals?.["pr.create"]?.status).toBe("consumed");
-  expect(state.actionApprovals?.["git.push"]?.status).toBe("consumed");
 });
 
 test("merge stage blocks and stays awaiting-approval if conditions not met", () => {
@@ -55,7 +49,6 @@ test("merge stage blocks and stays awaiting-approval if conditions not met", () 
   state = advanceStage(state); // review
   state = advanceStage(state); // pr-create
   state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
-  state = applyEvent(state, { type: "approve", action: "git.push", user: "alice" });
   state = advanceStage(state); // pr-review-schedule
   state = advanceStage(state); // merge
 
@@ -70,29 +63,25 @@ test("merge stage blocks and stays awaiting-approval if conditions not met", () 
   expect(state.status).toBe("awaiting-approval");
 
   state = applyEvent(state, { reviewPassed: true });
-  state = applyEvent(state, { type: "approve", action: "git.merge", user: "alice" });
   state = advanceStage(state);
   expect(state.status).toBe("awaiting-approval");
   expect(state.pendingAction).toBe("pr.merge");
 });
 
-test("merge stage merges when CI, review, git.merge approval, and pr.merge approval are true", () => {
+test("merge stage merges when CI, review, and pr.merge approval are true", () => {
   let state = createWorkflow("wf-1", "zeroclaw", "fix bug");
   state = advanceStage(state); // review
   state = advanceStage(state); // pr-create
   state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
-  state = applyEvent(state, { type: "approve", action: "git.push", user: "alice" });
   state = advanceStage(state); // pr-review-schedule
   state = advanceStage(state); // merge
 
   state = applyEvent(state, { ciPassed: true, reviewPassed: true });
-  state = applyEvent(state, { type: "approve", action: "git.merge", user: "alice" });
   state = applyEvent(state, { type: "approve", action: "pr.merge", user: "alice" });
 
   state = advanceStage(state);
   expect(state.stage).toBe("merge");
   expect(state.status).toBe("merged");
-  expect(state.actionApprovals?.["git.merge"]?.status).toBe("consumed");
   expect(state.actionApprovals?.["pr.merge"]?.status).toBe("consumed");
 });
 
@@ -124,11 +113,9 @@ test("advanceStage does not resurrect rejected or merged states", () => {
   state2 = advanceStage(state2); // review
   state2 = advanceStage(state2); // pr-create
   state2 = applyEvent(state2, { type: "approve", action: "pr.create", user: "alice" });
-  state2 = applyEvent(state2, { type: "approve", action: "git.push", user: "alice" });
   state2 = advanceStage(state2); // pr-review-schedule
   state2 = advanceStage(state2); // merge
   state2 = applyEvent(state2, { ciPassed: true, reviewPassed: true });
-  state2 = applyEvent(state2, { type: "approve", action: "git.merge", user: "alice" });
   state2 = applyEvent(state2, { type: "approve", action: "pr.merge", user: "alice" });
   state2 = advanceStage(state2);
   expect(state2.status).toBe("merged");
@@ -136,18 +123,17 @@ test("advanceStage does not resurrect rejected or merged states", () => {
   const advancedMerge = advanceStage(state2);
   expect(advancedMerge.status).toBe("merged");
 });
+
 test("legacy approved boolean cannot synthesize merge approvals", () => {
   let state = createWorkflow("wf-legacy", "zeroclaw", "fix bug");
   state = advanceStage(state); // review
   state = advanceStage(state); // pr-create
   state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
-  state = applyEvent(state, { type: "approve", action: "git.push", user: "alice" });
   state = advanceStage(state); // pr-review-schedule
   state = advanceStage(state); // merge
   state = applyEvent(state, { ciPassed: true, reviewPassed: true });
   state = applyEvent(state, { approved: true } as any);
   state = advanceStage(state);
   expect(state.status).toBe("awaiting-approval");
-  expect(state.actionApprovals?.["git.merge"]?.status).not.toBe("approved");
   expect(state.actionApprovals?.["pr.merge"]?.status).not.toBe("approved");
 });

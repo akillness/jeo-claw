@@ -11,12 +11,13 @@ test("A/B fairness: identical model id", () => {
   expect(loadZeroclaw().providers.models.openai.coding.model).toBe(loadNullclaw().provider.model);
 });
 
-test("no plaintext secrets — api keys/tokens are env refs", () => {
+test("runtime configs keep only env-referenced provider secrets and no embedded Discord control block", () => {
   const zc = loadZeroclaw();
   const nc = loadNullclaw();
   expect(zc.providers.models.openai.coding.api_key).toMatch(/^\$\{[A-Z_]+\}$/);
   expect(nc.provider.api_key).toMatch(/^\$\{[A-Z_]+\}$/);
-  expect(zc.channels.discord.ops.token).toMatch(/^\$\{[A-Z_]+\}$/);
+  expect(zc.channels?.discord).toBeUndefined();
+  expect(nc.channels?.discord).toBeUndefined();
 });
 
 test("exactly 5 roles in each runtime", () => {

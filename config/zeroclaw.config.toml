@@ -1,4 +1,4 @@
-# ZeroClaw V3 config — OpenAI gpt-5, supervised autonomy, Discord channel, 5 role agents.
+# ZeroClaw V3 config — OpenAI gpt-5, supervised autonomy, 5 role agents behind the split Discord control plane.
 # Secrets are referenced via ${ENV} only; never inline plaintext (injected by secrets/loader.ts).
 
 # ── Provider (identical model to NullClaw for fair A/B comparison) ──
@@ -11,12 +11,8 @@ api_key = "${OPENAI_API_KEY}"
 # ── Risk profile (high-risk blocked → escalated to Discord approval) ──
 [risk.profiles.default]
 autonomy = "supervised"   # medium-risk requires approval, high-risk blocked
-high_risk = ["pr.create", "git.push", "git.merge", "pr.merge"]
+high_risk = ["pr.create", "pr.merge"]
 
-# ── Channels ──
-[channels.discord.ops]
-token = "${DISCORD_BOT_TOKEN}"
-guild_id = "${DISCORD_GUILD_ID}"
 
 # ── Role agents (each role = one agent; runtime drives them via SOP + subagents) ──
 [agents.researcher_coder]
@@ -35,7 +31,6 @@ system = "Review the produced code for correctness and quality before PR."
 model_provider = "openai.coding"
 risk_profile = "default"
 role = "pr-creator"
-write_access = true   # only pr-creator/merger get write scope
 system = "Open a GitHub PR against akillness/jeo-claw."
 
 [agents.pr_review_scheduler]
@@ -48,7 +43,6 @@ system = "On PR open, schedule and run review inspection."
 model_provider = "openai.coding"
 risk_profile = "default"
 role = "merger"
-write_access = true
 system = "After CI pass + review + Discord approval, merge to main."
 
 # ── SOP: webhook/event-triggered pipeline with approval gates ──

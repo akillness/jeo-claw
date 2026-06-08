@@ -94,7 +94,7 @@ services:
       context: .
       dockerfile: control/Dockerfile
     container_name: jeo-glue-webhook
-    command: ["bun", "run", "glue/server.ts"]
+    command: ["bun", "run", "control/start.ts", "glue-webhook"]
     restart: unless-stopped
     depends_on:
       egress-proxy:
@@ -103,7 +103,10 @@ services:
       JEO_CONTROL_SERVICE: glue-webhook
       GLUE_PORT: ${GLUE_PORT:-8787}
       GITHUB_WEBHOOK_PATH: ${GITHUB_WEBHOOK_PATH:-/webhook/github}
-      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GCLOUD_PROJECT: ${GCLOUD_PROJECT}
+      GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
+      TARGET_REPO: ${TARGET_REPO}
+      TARGET_BRANCH: ${TARGET_BRANCH}
       HTTP_PROXY: ${EGRESS_PROXY_URL}
       HTTPS_PROXY: ${EGRESS_PROXY_URL}
       NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot
@@ -133,7 +136,7 @@ services:
       context: .
       dockerfile: control/Dockerfile
     container_name: jeo-discord-bot
-    command: ["bun", "run", "discord/bot.ts"]
+    command: ["bun", "run", "control/start.ts", "discord-bot"]
     restart: unless-stopped
     depends_on:
       glue-webhook:
@@ -142,12 +145,16 @@ services:
         condition: service_healthy
     environment:
       JEO_CONTROL_SERVICE: discord-bot
-      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       DISCORD_REQUEST_CHANNEL_ID: ${DISCORD_REQUEST_CHANNEL_ID}
       DISCORD_STATUS_CHANNEL_ID: ${DISCORD_STATUS_CHANNEL_ID}
       DISCORD_APPROVAL_CHANNEL_ID: ${DISCORD_APPROVAL_CHANNEL_ID}
+      DISCORD_APPROVER_ROLE_ID: ${DISCORD_APPROVER_ROLE_ID}
       DISCORD_DASHBOARD_CHANNEL_ID: ${DISCORD_DASHBOARD_CHANNEL_ID}
+      GCLOUD_PROJECT: ${GCLOUD_PROJECT}
+      GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
+      TARGET_REPO: ${TARGET_REPO}
+      TARGET_BRANCH: ${TARGET_BRANCH}
       GLUE_EVENT_ENDPOINT: http://glue-webhook:8787
       HTTP_PROXY: ${EGRESS_PROXY_URL}
       HTTPS_PROXY: ${EGRESS_PROXY_URL}
@@ -163,7 +170,7 @@ services:
       - /tmp
       - /run
     healthcheck:
-      test: ["CMD-SHELL", "bun -e 'process.exit(process.env.DISCORD_BOT_TOKEN && process.env.DISCORD_BOT_TOKEN.trim() !== \"\" ? 0 : 1)'"]
+      test: ["CMD-SHELL", "bun -e 'process.exit(process.env.GCLOUD_PROJECT && process.env.GCLOUD_PROJECT.trim() !== \"\" && process.env.GCLOUD_SECRET_PREFIX && process.env.GCLOUD_SECRET_PREFIX.trim() !== \"\" ? 0 : 1)'"]
       interval: 30s
       timeout: 5s
       retries: 3

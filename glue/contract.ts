@@ -40,12 +40,12 @@ export const STAGE_TO_ROLE = {
   merge: "merger",
 } as const satisfies Record<Stage, Role>;
 
-export const HIGH_RISK_ACTIONS = ["pr.create", "git.push", "git.merge", "pr.merge"] as const;
+export const HIGH_RISK_ACTIONS = ["pr.create", "pr.merge"] as const;
 export type HighRiskAction = (typeof HIGH_RISK_ACTIONS)[number];
 export type WorkflowAction = HighRiskAction | "research-code" | "review" | "pr-review-schedule" | "ci.update" | "review.update";
 
-export const PR_CREATE_ACTIONS = ["pr.create", "git.push"] as const satisfies readonly HighRiskAction[];
-export const MERGE_ACTIONS = ["git.merge", "pr.merge"] as const satisfies readonly HighRiskAction[];
+export const PR_CREATE_ACTIONS = ["pr.create"] as const satisfies readonly HighRiskAction[];
+export const MERGE_ACTIONS = ["pr.merge"] as const satisfies readonly HighRiskAction[];
 
 export type WorkflowStatus = "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed";
 
@@ -71,6 +71,9 @@ export interface WorkflowState {
   pendingAction?: HighRiskAction;
   actionApprovals?: Partial<Record<HighRiskAction, ApprovalSnapshot>>;
   history: { stage: Stage; at: string; action?: WorkflowAction; status?: WorkflowStatus }[];
+  headRef?: string;
+  prUrl?: string;
+  mergedAt?: string;
 }
 
 // Inputs to the merge policy gate. Merge is allowed ONLY when all three are boolean true.

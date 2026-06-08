@@ -33,10 +33,10 @@ test("ApprovalRegistry: action-scoped lifecycle with consume", () => {
 test("guardHighRisk: blocks, consumes matching action approval, and isolates actions", () => {
   const registry = new ApprovalRegistry();
   const wfId = "wf-456";
-  const highRiskActions = ["pr.create", "git.push", "git.merge", "pr.merge"];
+  const highRiskActions = ["pr.create", "pr.merge"];
   const nonHighRiskActions = ["git.checkout", "ci.run", "comment.add", "build"];
 
-  registry.requirePending(wfId, "git.push");
+  registry.requirePending(wfId, "pr.create");
   for (const action of highRiskActions) {
     const res = guardHighRisk(action, wfId, registry);
     expect(res.allowed).toBe(false);
@@ -49,9 +49,9 @@ test("guardHighRisk: blocks, consumes matching action approval, and isolates act
     expect(res.reason).toBeUndefined();
   }
 
-  registry.approve(wfId, "git.push", "alice");
-  expect(guardHighRisk("git.push", wfId, registry).allowed).toBe(true);
-  expect(guardHighRisk("git.push", wfId, registry).allowed).toBe(false);
+  registry.approve(wfId, "pr.create", "alice");
+  expect(guardHighRisk("pr.create", wfId, registry).allowed).toBe(true);
+  expect(guardHighRisk("pr.create", wfId, registry).allowed).toBe(false);
   expect(guardHighRisk("pr.merge", wfId, registry).allowed).toBe(false);
 
   registry.approve(wfId, "pr.merge", "alice");
@@ -141,14 +141,9 @@ test("bot handlers: buildHandlers routes action-scoped events and manages regist
   };
 
   await handlers.handleInteraction(mockInteraction);
-  expect(receivedEvents).toHaveLength(initialEventsLength + 1);
-  expect(receivedEvents[initialEventsLength]).toEqual({
-    type: "config-set",
-    key: "provider",
-    value: "openai",
-  });
+  expect(receivedEvents).toHaveLength(initialEventsLength);
   expect(interactionReplyCalled).toBe(true);
-  expect(interactionReplyContent.content).toContain("config set provider openai");
+  expect(interactionReplyContent.content).toContain("config-set is not implemented");
 
   let buttonReplyCalled = false;
   let buttonReplyContent: any = null;
@@ -237,6 +232,95 @@ test("bot handlers forward events through async onEvent bridge", async () => {
       type: "approve",
       workflowId: "wf-42",
       action: "pr.create",
+      user: "alice#0001",
+    },
+  ]);
+});
+test("bot handlers reject commands from the wrong guild or channel", async () => {
+  const registry = new ApprovalRegistry();
+  const received: ControlEvent[] = [];
+  let reply = "";
+  const handlers = buildHandlers({
+    registry,
+    policy: {
+      guildId: "guild-1",
+      requestChannelId: "request-chan",
+      approvalChannelId: "approval-chan",
+    },
+    onEvent: async (event) => {
+      received.push(event);
+    },
+  });
+
+  await handlers.handleMessage({
+    content: "request zeroclaw build something",
+    author: { bot: false, tag: "alice#0001" },
+    guildId: "guild-2",
+    channelId: "request-chan",
+    member: {},
+    reply: async (msg: string) => { reply = msg; },
+  });
+
+  expect(received).toEqual([]);
+  expect(reply).toContain("wrong guild");
+});
+
+test("bot handlers require approval permission for approve/reject/config-set", async () => {
+  const registry = new ApprovalRegistry();
+  let reply = "";
+  const handlers = buildHandlers({
+    registry,
+    policy: {
+      guildId: "guild-1",
+      requestChannelId: "request-chan",
+      approvalChannelId: "approval-chan",
+      approverRoleId: "approver-role",
+    },
+    onEvent: async () => {},
+  });
+
+  await handlers.handleMessage({
+    content: "approve wf-1 pr.merge",
+    author: { bot: false, tag: "alice#0001" },
+    guildId: "guild-1",
+    channelId: "approval-chan",
+    member: { roles: { cache: new Set() }, permissions: { has: () => false } },
+    reply: async (msg: string) => { reply = msg; },
+  });
+
+  expect(reply).toContain("approver permission required");
+});
+
+test("bot handlers allow approval commands for authorized approvers in the approval channel", async () => {
+  const registry = new ApprovalRegistry();
+  const received: ControlEvent[] = [];
+  const handlers = buildHandlers({
+    registry,
+    policy: {
+      guildId: "guild-1",
+      requestChannelId: "request-chan",
+      approvalChannelId: "approval-chan",
+      approverRoleId: "approver-role",
+    },
+    onEvent: async (event) => {
+      received.push(event);
+    },
+  });
+
+  await handlers.handleMessage({
+    content: "approve wf-1 pr.merge",
+    author: { bot: false, tag: "alice#0001" },
+    guildId: "guild-1",
+    channelId: "approval-chan",
+    member: { roles: { cache: new Set(["approver-role"]) }, permissions: { has: () => false } },
+    reply: async () => {},
+  });
+
+  expect(received).toEqual([
+    {
+      type: "approve",
+      workflowId: "wf-1",
+      action: "pr.merge",
       user: "alice#0001",
     },
   ]);

@@ -9,7 +9,8 @@
     "check:compose": "bun run scripts/check-compose.ts",
     "glue": "bun run glue/server.ts",
     "discord": "bun run discord/bot.ts",
-    "compare": "bun run compare/runner.ts"
+    "compare": "bun run compare/runner.ts",
+    "capture": "bun run ops/scripts/capture-knowledge.ts"
   },
   "dependencies": {
     "discord.js": "^14.26.4",

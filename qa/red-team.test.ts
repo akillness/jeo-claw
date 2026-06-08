@@ -1,11 +1,14 @@
 import { test, expect } from "bun:test";
 import { evaluateMergeGate } from "../glue/merge-gate";
 import { verifySignature } from "../glue/github-webhook";
-import { loadSecretsForRole, MissingSecretError, redact, ROLE_SECRETS, type Role, type SecretSource } from "../secrets/loader";
+import { loadSecretsForRole, loadWriteSecretsForRole, MissingSecretError, redact, ROLE_SECRETS, type Role, type SecretSource } from "../secrets/loader";
 import { ApprovalRegistry, guardHighRisk } from "../discord/approval";
 import { parseCommand } from "../discord/commands";
+import { buildHandlers } from "../discord/bot";
+import { handleControlEventRequest, handleControlDispatchRequest } from "../glue/server";
+import { createWorkflow, applyEvent } from "../glue/state-machine";
 import { summarize } from "../compare/metrics";
-import type { MetricSample } from "../glue/contract";
+import type { MetricSample, WorkflowState, ControlEvent } from "../glue/contract";
 
 // ==========================================
 // 1. MERGE GATE BYPASS ATTEMPTS
@@ -141,6 +144,25 @@ test("3.1 Secret loader - read-only roles must NEVER trigger access to the write
     expect(spy.accessed).not.toContain("jeo-claw-github-token-rw");
   }
 });
+test("3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release", async () => {
+  const store = {
+    "jeo-claw-openai-api-key": "sk-fake",
+    "jeo-claw-github-token-ro": "ghp_ro",
+    "jeo-claw-github-token-rw": "ghp_rw",
+  };
+
+  for (const role of ["pr-creator", "merger"] as Role[]) {
+    const startupSpy = new SpySource(store);
+    const startupEnv = await loadSecretsForRole(role, startupSpy, { prefix: "jeo-claw" });
+    expect(startupEnv.GITHUB_TOKEN).toBe("ghp_ro");
+    expect(startupSpy.accessed).not.toContain("jeo-claw-github-token-rw");
+
+    const writeSpy = new SpySource(store);
+    const writeEnv = await loadWriteSecretsForRole(role, writeSpy, { prefix: "jeo-claw" });
+    expect(writeEnv.GITHUB_TOKEN).toBe("ghp_rw");
+    expect(writeSpy.accessed).toEqual(["jeo-claw-github-token-rw"]);
+  }
+});
 
 test("3.2 Secret loader - missing required secret and empty value throws MissingSecretError", async () => {
   const incompleteStore = {
@@ -191,6 +213,7 @@ test("3.5 Control secret loader - control services receive only their own contro
   const store = {
     "jeo-claw-github-webhook-secret": "whsec_control",
     "jeo-claw-discord-bot-token": "xoxb_control",
+    "jeo-claw-control-event-secret": "ctrl_secret",
     "jeo-claw-openai-api-key": "sk-fake",
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-github-token-rw": "ghp_rw",
@@ -200,16 +223,18 @@ test("3.5 Control secret loader - control services receive only their own contro
   const glueSpy = new SpySource(store);
   const glue = await loadSecretsForControl("glue-webhook", glueSpy, { prefix: "jeo-claw" });
   expect(glue.GITHUB_WEBHOOK_SECRET).toBe("whsec_control");
+  expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("ctrl_secret");
   expect(glue.OPENAI_API_KEY).toBeUndefined();
   expect(glue.GITHUB_TOKEN).toBeUndefined();
-  expect(glueSpy.accessed).toEqual(["jeo-claw-github-webhook-secret"]);
+  expect(glueSpy.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret"]);
 
   const discordSpy = new SpySource(store);
   const discord = await loadSecretsForControl("discord-bot", discordSpy, { prefix: "jeo-claw" });
   expect(discord.DISCORD_BOT_TOKEN).toBe("xoxb_control");
+  expect(discord.JEO_CONTROL_EVENT_SECRET).toBe("ctrl_secret");
   expect(discord.GITHUB_TOKEN).toBeUndefined();
   expect(discord.OPENAI_API_KEY).toBeUndefined();
-  expect(discordSpy.accessed).toEqual(["jeo-claw-discord-bot-token"]);
+  expect(discordSpy.accessed).toEqual(["jeo-claw-discord-bot-token", "jeo-claw-control-event-secret"]);
 });
 
 // ==========================================
@@ -218,30 +243,121 @@ test("3.5 Control secret loader - control services receive only their own contro
 test("4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize", () => {
   const registry = new ApprovalRegistry();
   const workflowId = "wf-123";
-  registry.requirePending(workflowId, "git.push");
+  registry.requirePending(workflowId, "pr.create");
   
   // Guard should block high-risk actions initially.
-  const rGitPush = guardHighRisk("git.push", workflowId, registry);
-  expect(rGitPush.allowed).toBe(false);
-  expect(rGitPush.reason).toContain("requires unconsumed Discord approval");
-  
-  const rGitMerge = guardHighRisk("git.merge", workflowId, registry);
-  expect(rGitMerge.allowed).toBe(false);
+  const rPrCreate = guardHighRisk("pr.create", workflowId, registry);
+  expect(rPrCreate.allowed).toBe(false);
+  expect(rPrCreate.reason).toContain("requires unconsumed Discord approval");
   
   const rPrMerge = guardHighRisk("pr.merge", workflowId, registry);
   expect(rPrMerge.allowed).toBe(false);
   
-  // Approving git.push only allows git.push once.
-  registry.approve(workflowId, "git.push", "admin-user");
-  expect(guardHighRisk("git.push", workflowId, registry).allowed).toBe(true);
-  expect(guardHighRisk("git.push", workflowId, registry).allowed).toBe(false);
-  expect(guardHighRisk("git.merge", workflowId, registry).allowed).toBe(false);
+  // Approving pr.create only allows pr.create once.
+  registry.approve(workflowId, "pr.create", "admin-user");
+  expect(guardHighRisk("pr.create", workflowId, registry).allowed).toBe(true);
+  expect(guardHighRisk("pr.create", workflowId, registry).allowed).toBe(false);
   expect(guardHighRisk("pr.merge", workflowId, registry).allowed).toBe(false);
   
   // Reject re-blocks even if a prior approval existed.
   registry.approve(workflowId, "pr.merge", "admin-user");
   registry.reject(workflowId, "pr.merge", "admin-user");
   expect(guardHighRisk("pr.merge", workflowId, registry).allowed).toBe(false);
+});
+
+test("4.4 Control event path - unauthenticated approval mutation is rejected", async () => {
+  const store = new Map<string, WorkflowState>();
+  const res = await handleControlEventRequest(
+    new Request("http://localhost/control-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "approve", workflowId: "wf-1", action: "pr.merge", user: "mallory" }),
+    }),
+    { store, controlEventSecret: "control-secret" },
+  );
+  expect(res.status).toBe(401);
+  expect(store.size).toBe(0);
+});
+
+test("4.5 Discord control plane - approval command outside approval policy is rejected", async () => {
+  const registry = new ApprovalRegistry();
+  const received: ControlEvent[] = [];
+  let reply = "";
+  const handlers = buildHandlers({
+    registry,
+    policy: {
+      guildId: "guild-1",
+      requestChannelId: "request-chan",
+      approvalChannelId: "approval-chan",
+      approverRoleId: "approver-role",
+    },
+    onEvent: async (event) => {
+      received.push(event);
+    },
+  });
+
+  await handlers.handleMessage({
+    content: "approve wf-1 pr.merge",
+    author: { bot: false, tag: "mallory#0001" },
+    guildId: "guild-1",
+    channelId: "request-chan",
+    member: { roles: { cache: new Set() }, permissions: { has: () => false } },
+    reply: async (msg: string) => { reply = msg; },
+  });
+
+  expect(received).toEqual([]);
+  expect(reply).toContain("wrong channel");
+});
+test("4.6 Dispatch broker - unauthenticated write-secret release is rejected", async () => {
+  const store = new Map<string, WorkflowState>();
+  const wf = createWorkflow("wf-broker", "zeroclaw", "build secure feature");
+  store.set(wf.id, wf);
+
+  const res = await handleControlDispatchRequest(
+    new Request("http://localhost/dispatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workflowId: wf.id, runtime: "zeroclaw", role: "pr-creator", stage: "pr-create", action: "pr.create" }),
+    }),
+    {
+      store,
+      controlEventSecret: "control-secret",
+      prefix: "jeo-claw",
+      sourceFactory: () => new SpySource({ "jeo-claw-github-token-rw": "ghp_rw" }),
+    },
+  );
+
+  expect(res.status).toBe(401);
+});
+
+test("4.7 Dispatch broker - approved write-secret release is scoped and consumes approval", async () => {
+  const store = new Map<string, WorkflowState>();
+  let wf = createWorkflow("wf-broker", "zeroclaw", "build secure feature");
+  wf.stage = "pr-create";
+  wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
+  store.set(wf.id, wf);
+
+  const res = await handleControlDispatchRequest(
+    new Request("http://localhost/dispatch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-control-event-secret": "control-secret",
+      },
+      body: JSON.stringify({ workflowId: wf.id, runtime: "zeroclaw", role: "pr-creator", stage: "pr-create", action: "pr.create" }),
+    }),
+    {
+      store,
+      controlEventSecret: "control-secret",
+      prefix: "jeo-claw",
+      sourceFactory: () => new SpySource({ "jeo-claw-github-token-rw": "ghp_rw" }),
+    },
+  );
+
+  expect(res.status).toBe(200);
+  const data = (await res.json()) as { credentials: Record<string, string> };
+  expect(data.credentials.GITHUB_TOKEN).toBe("ghp_rw");
+  expect(store.get(wf.id)?.actionApprovals?.["pr.create"]?.status).toBe("consumed");
 });
 
 test("4.2 High-risk guard - unknown or non-high-risk action always allowed", () => {
@@ -255,14 +371,14 @@ test("4.2 High-risk guard - unknown or non-high-risk action always allowed", () 
 
 test("4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B", () => {
   const registry = new ApprovalRegistry();
-  registry.requirePending("wf-A", "git.push");
-  registry.requirePending("wf-B", "git.push");
+  registry.requirePending("wf-A", "pr.create");
+  registry.requirePending("wf-B", "pr.create");
   registry.requirePending("wf-A", "pr.merge");
   
-  registry.approve("wf-A", "git.push", "user");
+  registry.approve("wf-A", "pr.create", "user");
   
-  expect(guardHighRisk("git.push", "wf-A", registry).allowed).toBe(true);
-  expect(guardHighRisk("git.push", "wf-B", registry).allowed).toBe(false);
+  expect(guardHighRisk("pr.create", "wf-A", registry).allowed).toBe(true);
+  expect(guardHighRisk("pr.create", "wf-B", registry).allowed).toBe(false);
   expect(guardHighRisk("pr.merge", "wf-A", registry).allowed).toBe(false);
 });
 
