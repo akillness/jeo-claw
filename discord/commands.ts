@@ -1,0 +1,105 @@
+import { HIGH_RISK_ACTIONS, type ControlEvent, type Runtime, type ConfigKey, type HighRiskAction } from "../glue/contract.ts";
+
+const VALID_ACTIONS = new Set<string>(HIGH_RISK_ACTIONS);
+
+function parseAction(value: string | undefined): HighRiskAction | undefined {
+  if (!value) return undefined;
+  return VALID_ACTIONS.has(value) ? (value as HighRiskAction) : undefined;
+}
+
+export function validateConfigValue(key: ConfigKey, value: string): { ok: boolean; reason?: string } {
+  const trimmed = value.trim();
+  if (key === "autonomy") {
+    if (trimmed !== "supervised") {
+      return { ok: false, reason: `Invalid autonomy value: '${trimmed}'. Only 'supervised' is allowed.` };
+    }
+  } else if (key === "scaleout") {
+    const num = Number(trimmed);
+    if (!/^\d+$/.test(trimmed) || isNaN(num) || num < 1 || num > 3) {
+      return { ok: false, reason: `Invalid scaleout value: '${trimmed}'. Must be an integer between 1 and 3.` };
+    }
+  } else if (key === "provider" || key === "model") {
+    if (trimmed.length === 0) {
+      return { ok: false, reason: `Value for ${key} cannot be empty.` };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * Parses a Discord slash-style or plain text command into a ControlEvent.
+ * High-risk approvals must name both workflow id and action, e.g.
+ * `approve wf-123 pr.create` or `reject wf-123 pr.merge`.
+ */
+export function parseCommand(
+  input: string,
+  user?: string
+): ControlEvent | { type: "unknown"; raw: string } {
+  const trimmed = input.trim();
+  const normalized = trimmed.startsWith("/") ? trimmed.slice(1).trim() : trimmed;
+
+  const requestRegex = /^request\s+(\S+)\s+(.+)$/i;
+  const requestMatch = normalized.match(requestRegex);
+  if (requestMatch) {
+    const runtimeStr = requestMatch[1]?.toLowerCase();
+    const reqStr = requestMatch[2];
+    if (reqStr && (runtimeStr === "zeroclaw" || runtimeStr === "nullclaw")) {
+      return {
+        type: "request",
+        runtime: runtimeStr as Runtime,
+        request: reqStr.trim(),
+      };
+    }
+    return { type: "unknown", raw: input };
+  }
+
+  const approveRegex = /^approve\s+(\S+)\s+(\S+)$/i;
+  const approveMatch = normalized.match(approveRegex);
+  if (approveMatch) {
+    const wfId = approveMatch[1];
+    const action = parseAction(approveMatch[2]);
+    if (wfId && action) {
+      return {
+        type: "approve",
+        workflowId: wfId,
+        action,
+        user: user || "unknown",
+      };
+    }
+    return { type: "unknown", raw: input };
+  }
+
+  const rejectRegex = /^reject\s+(\S+)\s+(\S+)$/i;
+  const rejectMatch = normalized.match(rejectRegex);
+  if (rejectMatch) {
+    const wfId = rejectMatch[1];
+    const action = parseAction(rejectMatch[2]);
+    if (wfId && action) {
+      return {
+        type: "reject",
+        workflowId: wfId,
+        action,
+        user: user || "unknown",
+      };
+    }
+    return { type: "unknown", raw: input };
+  }
+
+  const configRegex = /^config\s+set\s+(\S+)\s+(.+)$/i;
+  const configMatch = normalized.match(configRegex);
+  if (configMatch) {
+    const keyStr = configMatch[1]?.toLowerCase();
+    const valStr = configMatch[2];
+    const validKeys: ConfigKey[] = ["provider", "model", "autonomy", "scaleout"];
+    if (keyStr && valStr && validKeys.includes(keyStr as ConfigKey)) {
+      return {
+        type: "config-set",
+        key: keyStr as ConfigKey,
+        value: valStr.trim(),
+      };
+    }
+    return { type: "unknown", raw: input };
+  }
+
+  return { type: "unknown", raw: input };
+}

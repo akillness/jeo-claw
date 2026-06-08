@@ -1,0 +1,58 @@
+# ZeroClaw V3 config — OpenAI gpt-5, supervised autonomy, Discord channel, 5 role agents.
+# Secrets are referenced via ${ENV} only; never inline plaintext (injected by secrets/loader.ts).
+
+# ── Provider (identical model to NullClaw for fair A/B comparison) ──
+[providers.models.openai.coding]   # type = openai; alias = coding
+model = "gpt-5-codex"
+wire_api = "responses"
+requires_openai_auth = false
+api_key = "${OPENAI_API_KEY}"
+
+# ── Risk profile (high-risk blocked → escalated to Discord approval) ──
+[risk.profiles.default]
+autonomy = "supervised"   # medium-risk requires approval, high-risk blocked
+high_risk = ["pr.create", "git.push", "git.merge", "pr.merge"]
+
+# ── Channels ──
+[channels.discord.ops]
+token = "${DISCORD_BOT_TOKEN}"
+guild_id = "${DISCORD_GUILD_ID}"
+
+# ── Role agents (each role = one agent; runtime drives them via SOP + subagents) ──
+[agents.researcher_coder]
+model_provider = "openai.coding"
+risk_profile = "default"
+role = "researcher-coder"
+system = "Research the request, then write code and an initial branch."
+
+[agents.reviewer]
+model_provider = "openai.coding"
+risk_profile = "default"
+role = "reviewer"
+system = "Review the produced code for correctness and quality before PR."
+
+[agents.pr_creator]
+model_provider = "openai.coding"
+risk_profile = "default"
+role = "pr-creator"
+write_access = true   # only pr-creator/merger get write scope
+system = "Open a GitHub PR against akillness/jeo-claw."
+
+[agents.pr_review_scheduler]
+model_provider = "openai.coding"
+risk_profile = "default"
+role = "pr-review-scheduler"
+system = "On PR open, schedule and run review inspection."
+
+[agents.merger]
+model_provider = "openai.coding"
+risk_profile = "default"
+role = "merger"
+write_access = true
+system = "After CI pass + review + Discord approval, merge to main."
+
+# ── SOP: webhook/event-triggered pipeline with approval gates ──
+[sop.pipelines.pr_flow]
+trigger = "webhook"
+stages = ["researcher_coder", "reviewer", "pr_creator", "pr_review_scheduler", "merger"]
+approval_required = ["pr_creator", "merger"]

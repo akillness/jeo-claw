@@ -1,0 +1,21 @@
+{
+  "name": "jeo-claw",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dual-runtime (ZeroClaw + NullClaw) agentic PR orchestration, Discord-controlled, local-Docker first.",
+  "scripts": {
+    "test": "bun test",
+    "check:compose": "bun run scripts/check-compose.ts",
+    "glue": "bun run glue/server.ts",
+    "discord": "bun run discord/bot.ts",
+    "compare": "bun run compare/runner.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.26.4",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

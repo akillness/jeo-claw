@@ -1,0 +1,17 @@
+# secrets — never commit real values
+.env
+.env.*
+!.env.example
+secrets/*.local
+secrets/*.json
+!secrets/.gitkeep
+
+# deps / build
+node_modules/
+dist/
+*.log
+
+# runtime data
+data/
+*.sqlite
+*.sqlite-*
