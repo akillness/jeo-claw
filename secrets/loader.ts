@@ -1,6 +1,6 @@
 // Least-privilege secret loader: pulls per-role and per-control-service credentials from gcloud Secret Manager.
 // Invariants:
-//  - Every runtime role gets only read-only startup credentials.
+//  - Every runtime role gets only read-only startup credentials plus the runtime-dispatch secret.
 //  - Write-capable GitHub credentials are released separately for approved write actions.
 //  - Control services receive only control-plane credentials, never role GitHub/OpenAI bundles.
 //  - Missing or blank required secrets are a hard failure.
@@ -20,28 +20,34 @@ export type Scope = "read" | "write";
 type SecretSpec = { name: string; scope: Scope };
 
 const WRITE_SECRET: SecretSpec = { name: "github-token-rw", scope: "write" };
+const RUNTIME_DISPATCH_SECRET: SecretSpec = { name: "runtime-dispatch-secret", scope: "read" };
 const WRITE_ELIGIBLE_ROLES = new Set<Role>(["pr-creator", "merger"]);
 
 export const ROLE_SECRETS: Record<Role, SecretSpec[]> = {
   "researcher-coder": [
     { name: "openai-api-key", scope: "read" },
     { name: "github-token-ro", scope: "read" },
+    RUNTIME_DISPATCH_SECRET,
   ],
   reviewer: [
     { name: "openai-api-key", scope: "read" },
     { name: "github-token-ro", scope: "read" },
+    RUNTIME_DISPATCH_SECRET,
   ],
   "pr-creator": [
     { name: "openai-api-key", scope: "read" },
     { name: "github-token-ro", scope: "read" },
+    RUNTIME_DISPATCH_SECRET,
   ],
   "pr-review-scheduler": [
     { name: "openai-api-key", scope: "read" },
     { name: "github-token-ro", scope: "read" },
+    RUNTIME_DISPATCH_SECRET,
   ],
   merger: [
     { name: "openai-api-key", scope: "read" },
     { name: "github-token-ro", scope: "read" },
+    RUNTIME_DISPATCH_SECRET,
   ],
 };
 
@@ -49,6 +55,7 @@ export const CONTROL_SECRETS: Record<ControlService, SecretSpec[]> = {
   "glue-webhook": [
     { name: "github-webhook-secret", scope: "read" },
     { name: "control-event-secret", scope: "read" },
+    RUNTIME_DISPATCH_SECRET,
   ],
   "discord-bot": [
     { name: "discord-bot-token", scope: "read" },
@@ -63,13 +70,13 @@ export const ENV_FOR: Record<string, string> = {
   "github-webhook-secret": "GITHUB_WEBHOOK_SECRET",
   "discord-bot-token": "DISCORD_BOT_TOKEN",
   "control-event-secret": "JEO_CONTROL_EVENT_SECRET",
+  "runtime-dispatch-secret": "JEO_RUNTIME_DISPATCH_SECRET",
 };
 
 export interface SecretSource {
   access(secretId: string): Promise<string>;
 }
 
-/** Reads secrets from gcloud Secret Manager via the gcloud CLI (Secret Manager use ONLY). */
 export class GcloudSecretSource implements SecretSource {
   constructor(private project: string) {}
   access(secretId: string): Promise<string> {
@@ -127,7 +134,6 @@ async function loadSpecs(
   return env;
 }
 
-/** Loads the read-only startup env for a role. */
 export async function loadSecretsForRole(
   role: Role,
   source: SecretSource,
@@ -138,7 +144,6 @@ export async function loadSecretsForRole(
   return loadSpecs(`role ${role}`, specs, source, opts);
 }
 
-/** Loads write-capable GitHub credentials for an approved write role/action broker. */
 export async function loadWriteSecretsForRole(
   role: Role,
   source: SecretSource,
@@ -150,7 +155,6 @@ export async function loadWriteSecretsForRole(
   return loadSpecs(`write role ${role}`, [WRITE_SECRET], source, opts);
 }
 
-/** Loads only control-plane credentials for a control service. */
 export async function loadSecretsForControl(
   service: ControlService,
   source: SecretSource,
@@ -161,7 +165,6 @@ export async function loadSecretsForControl(
   return loadSpecs(`control ${service}`, specs, source, opts);
 }
 
-/** True if a role is eligible for mediated write-scope secrets. */
 export function hasWriteScope(role: Role): boolean {
   return WRITE_ELIGIBLE_ROLES.has(role);
 }
@@ -170,7 +173,6 @@ export function controlSecretNames(service: ControlService): string[] {
   return CONTROL_SECRETS[service].map((s) => s.name);
 }
 
-/** Redacts secret values from any string for safe logging. */
 export function redact(s: string, secrets: string[]): string {
   let r = s;
   for (const v of secrets) if (v) r = r.split(v).join("***REDACTED***");

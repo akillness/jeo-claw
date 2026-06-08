@@ -25,6 +25,19 @@ class MockSource implements SecretSource {
 function sourceFactory() {
   return new MockSource({ "jeo-claw-github-token-rw": "ghp_write_live" });
 }
+const runtimeDispatchFetchImpl: typeof fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+  const body = init?.body ? JSON.parse(String(init.body)) : {};
+  return new Response(
+    JSON.stringify({
+      success: true,
+      receiptPath: `/tmp/${body.workflowId ?? "wf"}-${body.stage ?? "stage"}.json`,
+      runtime: body.runtime,
+      role: body.role,
+      stage: body.stage,
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}) as typeof fetch;
 
 test("handleWebhookRequest returns 401 on bad signature", async () => {
   const secret = "test_webhook_secret";
@@ -41,6 +54,8 @@ test("handleWebhookRequest returns 401 on bad signature", async () => {
     prefix: "jeo-claw",
     sourceFactory,
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
     store,
   });
   expect(res.status).toBe(401);
@@ -55,6 +70,8 @@ test("handleWebhookRequest exposes health without webhook signature", async () =
     prefix: "jeo-claw",
     sourceFactory,
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
     store: new Map(),
   });
   expect(res.status).toBe(200);
@@ -85,6 +102,8 @@ test("handleWebhookRequest returns 200 on valid pull_request event", async () =>
     prefix: "jeo-claw",
     sourceFactory,
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
     store,
   });
   expect(res.status).toBe(200);
@@ -113,6 +132,8 @@ test("handleWebhookRequest rejects non-boolean webhook fields without mutating w
     prefix: "jeo-claw",
     sourceFactory,
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
     store,
   });
   expect(res.status).toBe(400);
@@ -213,11 +234,14 @@ test("handleControlEventRequest executes approved PR creation through the live w
     prefix: "jeo-claw",
     sourceFactory,
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main", fetchImpl },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
   });
   expect(approveRes.status).toBe(200);
   const updated = localStore.get(wf.id)!;
   expect(updated.prNumber).toBe(77);
-  expect(updated.stage).toBe("pr-review-schedule");
+  expect(updated.stage).toBe("merge");
+  expect(updated.status).toBe("awaiting-approval");
   expect(updated.actionApprovals?.["pr.create"]?.status).toBe("consumed");
   expect(calls[0]?.url).toContain("/repos/acme/repo/pulls");
   expect(calls[0]?.body.head).toBe(`jeo/${wf.runtime}/pr-creator/${wf.id}`);
@@ -256,6 +280,8 @@ test("handleWebhookRequest executes approved merge through the live write path",
     prefix: "jeo-claw",
     sourceFactory,
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main", fetchImpl },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
     store: localStore,
   });
   expect(res.status).toBe(200);
@@ -350,6 +376,8 @@ test("unmatched signed webhook reports non-success body", async () => {
     prefix: "jeo-claw",
     sourceFactory,
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
     store: new Map(),
   });
   expect(res.status).toBe(202);
@@ -372,7 +400,7 @@ test("start throws when required secrets/bootstrap inputs are missing or blank",
     process.env.GITHUB_WEBHOOK_SECRET = "whsec_test";
     expect(() => start()).toThrow("JEO_CONTROL_EVENT_SECRET is missing or empty");
     process.env.JEO_CONTROL_EVENT_SECRET = CONTROL_SECRET;
-    expect(() => start()).toThrow("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, and TARGET_BRANCH are required");
+    expect(() => start()).toThrow("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, TARGET_BRANCH, and JEO_RUNTIME_DISPATCH_SECRET are required");
   } finally {
     process.env.GITHUB_WEBHOOK_SECRET = originalWebhook;
     process.env.JEO_CONTROL_EVENT_SECRET = originalControl;

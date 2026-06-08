@@ -35,8 +35,7 @@ GitHub webhook ─▶ glue/server.ts (HTTP :8787)
 ```
 
 - **5 roles map 1:1 to 5 stages**: `researcher-coder`, `reviewer`, `pr-creator`,
-  `pr-review-scheduler`, `merger`. Roles/stages live in the runtime configs and are
-  executed by each runtime's built-in SOP/subagents; the TS glue is a thin connector.
+  `pr-review-scheduler`, `merger`. Roles/stages live in the runtime configs; runtime dispatch wrappers create stage artifacts/receipts inside each role container, while the TS glue owns approval gates and approved GitHub writes.
 - **Central type contract**: `glue/contract.ts` defines `Runtime`, `WorkflowState`,
   `Stage`, `WorkflowStatus`, the `ControlEvent` discriminated union, `MergeGateInput/Result`,
   and `MetricSample`/`RuntimeMetricSummary`. Every module imports types from here.
@@ -150,15 +149,13 @@ and `bun run check:compose`.
   `SecretSource`) and assert on recorded calls; `mock()` from `bun:test` for handler spies.
 - **Run**: `bun test` (all suites) or target a file, e.g. `bun test glue/merge-gate.test.ts`.
 - **Coverage themes**: merge-gate blocking (all 2-of-3 combos rejected), webhook signature
-  forgery, secret least-privilege (read-only roles never get write tokens; only
-  `pr-creator`/`merger` write; only `merger` gets the webhook secret), high-risk approval
+  forgery, secret least-privilege (runtime roles start read-only; approved writes use the control-plane broker; control services receive webhook/control-event secrets only), high-risk approval
   gating, state-machine transitions (rejected/merged are terminal), A/B config fairness
   (identical model/provider, `autonomy=supervised`, exactly 5 roles, no plaintext secrets),
   and Docker posture (`qa/red-team.test.ts`, `scripts/check-compose.test.ts`).
-- **Static gates before Docker**: `bunx tsc --noEmit`, `bun run check:compose`
-  (asserts no host docker socket, network isolation, restart policy, egress allowlist,
+- **Static validators are part of the contract**: `scripts/check-compose.ts` and
+  `config/validate.ts` are required gates, not optional lint. Keep them in sync with
+  compose/config changes (allowlist exclusivity, role matrix, hardening, approval stages,
   no plaintext secrets in `.env.example`), and `bun run config/validate.ts`.
-- **Known issue** (`artifacts/red-team-report.md`): `evaluateMergeGate` accepted
-  truthy-but-not-`true` values (e.g. `ciPassed: "yes"`), allowing a merge bypass. Fix is
-  strict boolean equality (`=== true`, not `!`). New code touching policy gates **must**
-  use strict checks and add a regression test.
+- **Known issue resolved**: `evaluateMergeGate` now rejects truthy-but-not-`true` values via strict boolean equality. New code touching policy gates **must**
+  use strict checks and keep the regression tests green.

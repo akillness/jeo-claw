@@ -35,10 +35,11 @@ x-zeroclaw-common: &zeroclaw-common
   <<: *runtime-common
   build:
     context: ./runtimes/zeroclaw
+  command: ["bun", "run", "runtimes/start.ts", "zeroclaw"]
   volumes:
     - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
   healthcheck:
-    test: ["CMD-SHELL", "zeroclaw status || exit 1"]
+    test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
     interval: 30s
     timeout: 10s
     retries: 3
@@ -47,10 +48,11 @@ x-nullclaw-common: &nullclaw-common
   <<: *runtime-common
   build:
     context: ./runtimes/nullclaw
+  command: ["bun", "run", "runtimes/start.ts", "nullclaw"]
   volumes:
     - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro
   healthcheck:
-    test: ["CMD-SHELL", "nullclaw status || exit 1"]
+    test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
     interval: 30s
     timeout: 10s
     retries: 3

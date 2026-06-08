@@ -133,6 +133,7 @@ test("3.1 Secret loader - read-only roles must NEVER trigger access to the write
     "jeo-claw-openai-api-key": "sk-fake",
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-github-token-rw": "ghp_rw",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
   };
   
   const readOnlyRoles: Role[] = ["reviewer", "researcher-coder", "pr-review-scheduler"];
@@ -149,6 +150,7 @@ test("3.1b Secret loader - write roles use read-only startup env and require med
     "jeo-claw-openai-api-key": "sk-fake",
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-github-token-rw": "ghp_rw",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
   };
 
   for (const role of ["pr-creator", "merger"] as Role[]) {
@@ -167,6 +169,7 @@ test("3.1b Secret loader - write roles use read-only startup env and require med
 test("3.2 Secret loader - missing required secret and empty value throws MissingSecretError", async () => {
   const incompleteStore = {
     "jeo-claw-github-token-ro": "ghp_ro",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
     // openai-api-key is missing
   };
   
@@ -176,6 +179,7 @@ test("3.2 Secret loader - missing required secret and empty value throws Missing
   const emptyValueStore = {
     "jeo-claw-openai-api-key": "",
     "jeo-claw-github-token-ro": "ghp_ro",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
   };
   const spyEmpty = new SpySource(emptyValueStore);
   expect(loadSecretsForRole("reviewer", spyEmpty, { prefix: "jeo-claw" })).rejects.toThrow(MissingSecretError);
@@ -214,6 +218,7 @@ test("3.5 Control secret loader - control services receive only their own contro
     "jeo-claw-github-webhook-secret": "whsec_control",
     "jeo-claw-discord-bot-token": "xoxb_control",
     "jeo-claw-control-event-secret": "ctrl_secret",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
     "jeo-claw-openai-api-key": "sk-fake",
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-github-token-rw": "ghp_rw",
@@ -226,7 +231,7 @@ test("3.5 Control secret loader - control services receive only their own contro
   expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("ctrl_secret");
   expect(glue.OPENAI_API_KEY).toBeUndefined();
   expect(glue.GITHUB_TOKEN).toBeUndefined();
-  expect(glueSpy.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret"]);
+  expect(glueSpy.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret", "jeo-claw-runtime-dispatch-secret"]);
 
   const discordSpy = new SpySource(store);
   const discord = await loadSecretsForControl("discord-bot", discordSpy, { prefix: "jeo-claw" });

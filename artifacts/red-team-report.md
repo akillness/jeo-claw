@@ -12,7 +12,7 @@ The adversarial red-team suite was regenerated after implementing the action-sco
 * **Pass count:** 25 pass
 * **Fail count:** 0 fail
 * **Execution Transcript:** `artifacts/red-team-transcript.txt`
-* **Generated:** 2026-06-08T15:28:30.695334+00:00
+* **Generated:** 2026-06-08T16:43:23.272190+00:00
 
 ---
 

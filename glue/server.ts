@@ -3,6 +3,7 @@ import { applyEvent, advanceStage, createWorkflow } from "./state-machine";
 import type { WorkflowState, ControlEvent, HighRiskAction } from "./contract";
 import { GcloudSecretSource, loadWriteSecretsForRole, type Role, type SecretSource } from "../secrets/loader.ts";
 import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
+import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
 
 export const store = new Map<string, WorkflowState>();
 
@@ -123,6 +124,8 @@ interface WorkflowBrokerOpts {
 
 interface WorkflowExecutionOpts extends WorkflowBrokerOpts {
   writeDeps: GitHubWriteDeps;
+  runtimeDispatchSecret: string;
+  dispatchFetchImpl?: typeof fetch;
 }
 
 async function brokerApprovedWriteCredentials(
@@ -164,11 +167,40 @@ async function maybeExecuteApprovedWriteTransition(
 
   return undefined;
 }
+async function maybeDispatchStageTransition(
+  state: WorkflowState,
+  opts: WorkflowExecutionOpts,
+): Promise<WorkflowState | undefined> {
+  if (!dispatchableStage(state.stage)) return undefined;
+  await dispatchStageWork(state, {
+    runtimeDispatchSecret: opts.runtimeDispatchSecret,
+    fetchImpl: opts.dispatchFetchImpl,
+  });
+  return advanceStage(state);
+}
+
 
 async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecutionOpts): Promise<WorkflowState> {
-  const executed = await maybeExecuteApprovedWriteTransition(state, opts);
-  if (executed) return executed;
-  return advanceStage(state);
+  let current = state;
+  while (true) {
+    if (current.status === "merged" || current.status === "rejected" || current.status === "failed") {
+      return current;
+    }
+
+    const dispatched = await maybeDispatchStageTransition(current, opts);
+    if (dispatched) {
+      current = dispatched;
+      continue;
+    }
+
+    const executed = await maybeExecuteApprovedWriteTransition(current, opts);
+    if (executed) {
+      current = executed;
+      continue;
+    }
+
+    return advanceStage(current);
+  }
 }
 
 export async function handleControlDispatchRequest(
@@ -236,7 +268,18 @@ export async function handleControlEventRequest(
 
   if (event.type === "request") {
     const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const wf = createWorkflow(wfId, event.runtime, event.request);
+    let wf = createWorkflow(wfId, event.runtime, event.request);
+    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+      wf = await progressWorkflowState(wf, {
+        store: opts.store,
+        controlEventSecret: opts.controlEventSecret,
+        prefix: opts.prefix,
+        sourceFactory: opts.sourceFactory,
+        writeDeps: opts.writeDeps,
+        runtimeDispatchSecret: opts.runtimeDispatchSecret,
+        dispatchFetchImpl: opts.dispatchFetchImpl,
+      });
+    }
     opts.store.set(wfId, wf);
     return json(201, { success: true, workflow: wf });
   }
@@ -247,13 +290,15 @@ export async function handleControlEventRequest(
       return json(404, { error: "Workflow not found" });
     }
     let updated = applyEvent(wf, event);
-    if (opts.prefix && opts.sourceFactory && opts.writeDeps) {
+    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
       updated = await progressWorkflowState(updated, {
         store: opts.store,
         controlEventSecret: opts.controlEventSecret,
         prefix: opts.prefix,
         sourceFactory: opts.sourceFactory,
         writeDeps: opts.writeDeps,
+        runtimeDispatchSecret: opts.runtimeDispatchSecret,
+        dispatchFetchImpl: opts.dispatchFetchImpl,
       });
     }
     opts.store.set(event.workflowId, updated);
@@ -347,8 +392,9 @@ export function start() {
   const prefix = process.env.GCLOUD_SECRET_PREFIX?.trim();
   const targetRepo = process.env.TARGET_REPO?.trim();
   const targetBranch = process.env.TARGET_BRANCH?.trim();
-  if (!project || !prefix || !targetRepo || !targetBranch) {
-    throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, and TARGET_BRANCH are required");
+  const runtimeDispatchSecret = process.env.JEO_RUNTIME_DISPATCH_SECRET?.trim();
+  if (!project || !prefix || !targetRepo || !targetBranch || !runtimeDispatchSecret) {
+    throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, TARGET_BRANCH, and JEO_RUNTIME_DISPATCH_SECRET are required");
   }
 
   return Bun.serve({
@@ -363,6 +409,7 @@ export function start() {
           targetRepo,
           targetBranch,
         },
+        runtimeDispatchSecret,
         store,
       });
     },

@@ -27,6 +27,7 @@ test("resolveControlEnvironment loads control secrets from Secret Manager inputs
     new MockSource({
       "jeo-claw-github-webhook-secret": "whsec_live",
       "jeo-claw-control-event-secret": "control-secret",
+      "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
     }),
   );
 
@@ -41,7 +42,7 @@ test("resolveControlEnvironment rejects missing project or prefix", async () => 
     resolveControlEnvironment(
       "discord-bot",
       { GCLOUD_PROJECT: "", GCLOUD_SECRET_PREFIX: "jeo-claw" },
-      new MockSource({ "jeo-claw-discord-bot-token": "xoxb-live", "jeo-claw-control-event-secret": "control-secret" }),
+      new MockSource({ "jeo-claw-discord-bot-token": "xoxb-live", "jeo-claw-control-event-secret": "control-secret", "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret" }),
     ),
   ).rejects.toThrow("GCLOUD_PROJECT is missing or empty");
 
@@ -49,7 +50,7 @@ test("resolveControlEnvironment rejects missing project or prefix", async () => 
     resolveControlEnvironment(
       "discord-bot",
       { GCLOUD_PROJECT: "project-id", GCLOUD_SECRET_PREFIX: "   " },
-      new MockSource({ "jeo-claw-discord-bot-token": "xoxb-live", "jeo-claw-control-event-secret": "control-secret" }),
+      new MockSource({ "jeo-claw-discord-bot-token": "xoxb-live", "jeo-claw-control-event-secret": "control-secret", "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret" }),
     ),
   ).rejects.toThrow("GCLOUD_SECRET_PREFIX is missing or empty");
 });
@@ -59,7 +60,7 @@ test("resolveControlEnvironment rejects blank loaded secrets", async () => {
     resolveControlEnvironment(
       "discord-bot",
       { GCLOUD_PROJECT: "project-id", GCLOUD_SECRET_PREFIX: "jeo-claw" },
-      new MockSource({ "jeo-claw-discord-bot-token": "   ", "jeo-claw-control-event-secret": "control-secret" }),
+      new MockSource({ "jeo-claw-discord-bot-token": "   ", "jeo-claw-control-event-secret": "control-secret", "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret" }),
     ),
   ).rejects.toThrow("jeo-claw-discord-bot-token resolved empty");
 });

@@ -30,6 +30,7 @@ const fullStore = {
   "jeo-claw-github-webhook-secret": "whsec_fake",
   "jeo-claw-discord-bot-token": "xoxb_fake_discord",
   "jeo-claw-control-event-secret": "control-secret",
+  "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
 };
 
 test("all runtime roles receive only read-only startup github token", async () => {
@@ -79,7 +80,7 @@ test("control services receive only control-plane secrets", async () => {
   expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("control-secret");
   expect(glue.GITHUB_TOKEN).toBeUndefined();
   expect(glue.OPENAI_API_KEY).toBeUndefined();
-  expect(glueSrc.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret"]);
+  expect(glueSrc.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret", "jeo-claw-runtime-dispatch-secret"]);
 
   const discordSrc = new MockSource(fullStore);
   const discord = await loadSecretsForControl("discord-bot", discordSrc, { prefix: "jeo-claw" });

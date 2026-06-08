@@ -8,7 +8,7 @@
   <img alt="secrets" src="https://img.shields.io/badge/secrets-gcloud%20Secret%20Manager-4285F4?logo=googlecloud&logoColor=white">
 </p>
 <p>
-  <img alt="tests" src="https://img.shields.io/badge/tests-117%20passing-brightgreen">
+  <img alt="tests" src="https://img.shields.io/badge/tests-120%20passing-brightgreen">
   <img alt="type-check" src="https://img.shields.io/badge/tsc--noEmit-0%20errors-brightgreen">
   <img alt="security gates" src="https://img.shields.io/badge/check%3Acompose-176%2F176-brightgreen">
   <img alt="A/B fairness" src="https://img.shields.io/badge/config%20validate-16%2F16-brightgreen">
@@ -82,21 +82,22 @@ docker compose ps          # egress-proxy/glue-webhook/discord-bot + 10개 runti
 
 ### 1. 검증 / 정적 게이트 (Docker 불필요)
 
-오케스트레이션 글루는 Bun+TypeScript이며, 실제 컨테이너 없이도 아래 4개 게이트로 동작을 검증한다.
+오케스트레이션 글루는 Bun+TypeScript이며, 실제 컨테이너 없이도 아래 5개 게이트로 동작을 검증한다.
 
 ```bash
-bunx tsc --noEmit            # 타입 체크 (strict; noEmit)
-bun test                     # 전체 단위/통합/레드팀 테스트
-bun run check:compose        # docker-compose 정적 보안 검사
-bun run config/validate.ts   # A/B 공정성 + 런타임 config 검사
+bunx tsc --noEmit                              # 타입 체크 (strict; noEmit)
+bun test                                       # 전체 단위/통합/레드팀 테스트
+bun run check:compose                          # docker-compose 정적 보안 검사
+bun run config/validate.ts                     # A/B 공정성 + 런타임 config 검사
+docker compose --env-file .env.example config --quiet  # compose 환경 구성 검증
 ```
 
-마지막 검증 기준(green): `tsc` 0 errors · `bun test` 117 pass / 0 fail (16 files) · `check:compose` 176/176 · `config/validate.ts` 16/16 · `docker compose --env-file .env.example config --quiet` success.
+마지막 검증 기준(green): `tsc` 0 errors · `bun test` 120 pass / 0 fail (16 files) · `check:compose` 176/176 · `config/validate.ts` 16/16 · `docker compose --env-file .env.example config --quiet` success.
 
 ### 2. 로컬에서 글루 서버 띄우기
 
 ```bash
-GCLOUD_PROJECT=dev-project GCLOUD_SECRET_PREFIX=jeo-claw TARGET_REPO=akillness/jeo-claw TARGET_BRANCH=main GITHUB_WEBHOOK_SECRET=dev-secret JEO_CONTROL_EVENT_SECRET=dev-control-secret bun run glue   # glue/server.ts, 기본 :8787
+GCLOUD_PROJECT=dev-project GCLOUD_SECRET_PREFIX=jeo-claw TARGET_REPO=akillness/jeo-claw TARGET_BRANCH=main GITHUB_WEBHOOK_SECRET=dev-secret JEO_CONTROL_EVENT_SECRET=dev-control-secret JEO_RUNTIME_DISPATCH_SECRET=runtime-dispatch-secret bun run glue   # glue/server.ts, 기본 :8787
 ```
 
 HTTP 서피스(`glue/server.ts`):
@@ -118,7 +119,7 @@ curl -s -XPOST localhost:8787/control-event \
   -H 'content-type: application/json' \
   -H 'x-control-event-secret: dev-control-secret' \
   -d '{"type":"request","runtime":"zeroclaw","request":"fix flaky test"}'
-# → {"success":true,"workflow":{"id":"wf-...","stage":"research-code","status":"running",...}}
+# → {"success":true,"workflow":{"id":"wf-...","stage":"pr-create","status":"awaiting-approval",...}}
 ```
 
 ### 3. Discord 제어 명령어
@@ -140,7 +141,7 @@ curl -s -XPOST localhost:8787/control-event \
 research-code → review → pr-create → pr-review-schedule → merge
 ```
 
-- 각 stage는 5개 역할(`researcher-coder` … `merger`)에 1:1 매핑되고, 실제 작업은 각 런타임 내장 SOP/subagent가 수행한다.
+- 각 stage는 5개 역할(`researcher-coder` … `merger`)에 1:1 매핑되고, 실제 stage 실행은 각 런타임 컨테이너의 dispatch wrapper가 work artifact + receipt를 만들고, 승인된 GitHub write만 `glue-webhook`이 직접 수행한다.
 - **PR 생성**(`pr.create`)과 **머지**(`pr.merge`)는 진행 전 Discord 승인이 필요하며, 승인은 1회용으로 소비된다.
 - **머지 게이트**(`glue/merge-gate.ts`)는 `ciPassed && reviewPassed && discordApproved`가 **모두 boolean `true`**일 때만 main 머지를 허용한다(엄격 비교 — truthy 우회 차단). 하나라도 빠지면 차단 사유를 반환한다.
 
@@ -214,8 +215,8 @@ bun run ops/scripts/capture-knowledge.ts \
 ## 라이브 실행에 필요한 사용자 자격증명
 
 다음은 사용자가 `GCLOUD_SECRET_PREFIX` 기준으로 gcloud Secret Manager에 등록해야 하며(역할별 최소권한), 코드/이미지에 평문으로 두지 않는다:
-`<prefix>-openai-api-key`, `<prefix>-github-token-ro`, `<prefix>-github-token-rw`(control-plane approved writes용), `<prefix>-github-webhook-secret`, `<prefix>-discord-bot-token`, `<prefix>-control-event-secret`.
+`<prefix>-openai-api-key`, `<prefix>-github-token-ro`, `<prefix>-github-token-rw`(control-plane approved writes용), `<prefix>-github-webhook-secret`, `<prefix>-discord-bot-token`, `<prefix>-control-event-secret`, `<prefix>-runtime-dispatch-secret`.
 
 ## 상태
 
-현재 승인된 ralplan 기반 ultragoal(G001~G004)을 실행 중이며, 진행/검수 이력은 `.gjc/ultragoal/ledger.jsonl`. 작업별 지식 적재 이력은 `ops/vault/log.md`.
+최신 ultragoal 실행은 complete 상태이며, 진행/검수 이력은 `.gjc/ultragoal/ledger.jsonl`에 남는다. 작업별 지식 적재 이력은 `ops/vault/log.md`.
