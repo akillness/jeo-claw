@@ -7,6 +7,7 @@
   "scripts": {
     "test": "bun test",
     "check:compose": "bun run scripts/check-compose.ts",
+    "smoke:glue": "bun run scripts/smoke-glue.ts",
     "glue": "bun run glue/server.ts",
     "discord": "bun run discord/bot.ts",
     "compare": "bun run compare/runner.ts",

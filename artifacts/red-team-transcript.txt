@@ -36,3 +36,8 @@ qa\red-team.test.ts:
  0 fail
  113 expect() calls
 Ran 25 tests across 1 file. [414.00ms]
+
+## spec-kit operation guide follow-up
+Command: bun test qa/red-team.test.ts
+Exit code: 0
+Result: 25 pass / 0 fail, 113 expect() calls

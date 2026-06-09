@@ -69,6 +69,7 @@ Run all commands from this directory (`jeo-claw/`). **Use Bun, not npm/node.**
 bun install                # install deps (discord.js, yaml, @types/bun)
 bun test                   # run all *.test.ts (Bun native test runner)
 bun run check:compose      # static Docker/security validation (no Docker needed)
+bun run smoke:glue         # local HTTP lifecycle smoke: request→approval→brokered write→merge
 bun run glue               # start webhook server (glue/server.ts, :8787)
 bun run discord            # start Discord control bot (discord/bot.ts)
 bun run compare            # run A/B comparison runner (compare/runner.ts)
@@ -81,7 +82,15 @@ docker compose ps          # expect zeroclaw/nullclaw/egress-proxy healthy
 ```
 
 There is **no separate lint step**; correctness is enforced by `tsc --noEmit`, `bun test`,
-and `bun run check:compose`.
+`bun run check:compose`, `bun run config/validate.ts`, and targeted smoke checks.
+
+## Claw Operation Guide
+
+- Treat `/skill:spec-kit` as the repo-local `ops/WORKFLOW.md` pipeline: review `ops/RULES.md`, `ops/CONSTITUTION.md`, and existing vault entries before non-trivial changes; keep implementation, verification, capture, and README guidance in one cycle.
+- Use `bun run smoke:glue` for reproducible behavior verification without Docker/gcloud. It starts `glue/server.ts` as a local HTTP server with injected fake Secret Manager, runtime wrappers, and GitHub write calls, then proves request→runtime dispatch→`pr.create` approval→CI/review webhook→`pr.merge` approval.
+- Live operation requires gcloud Secret Manager entries for `openai-api-key`, `github-token-ro`, `github-token-rw`, `github-webhook-secret`, `discord-bot-token`, `control-event-secret`, and `runtime-dispatch-secret` under the configured prefix. `.env` contains IDs/config only.
+- Runtime roles never get write credentials at startup. `glue-webhook` brokers `github-token-rw` only for approved `pr.create`/`pr.merge`; the approval is action-scoped and single-use.
+- `401` means missing/wrong control or webhook secret; `403` means workflow/action/role mismatch or missing approval; `501 config-set` is intentional until a safe config mutation design exists.
 
 ## Code Conventions & Common Patterns
 

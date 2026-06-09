@@ -40,7 +40,7 @@
 ## 2. 불변 규칙 (MUST)
 
 1. **모든 비자명 작업은 `WORKFLOW.md` 파이프라인을 통과한다.** 명세 없는 product source 변경 금지.
-2. **검증 4대 게이트 통과 전 완료 선언 금지** — `tsc --noEmit` · `bun test` · `check:compose` · `config/validate.ts`.
+2. **검증 게이트 통과 전 완료 선언 금지** — `tsc --noEmit` · `bun test` · `check:compose` · `config/validate.ts`; glue/runtime/control-plane 동작 변경은 `smoke:glue`도 필수.
 3. **모든 완료 작업은 9단계 CAPTURE로 지식적재된다.** 적재 없는 작업은 미완으로 본다.
 4. **다음 작업은 vault 검색으로 시작한다**(10단계 EVOLVE). 같은 조사·실수 반복 금지.
 5. **보안·A/B 공정성은 약화 불가**(`CONSTITUTION.md` I·IV). 고위험 액션은 Discord 승인.

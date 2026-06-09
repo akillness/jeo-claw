@@ -25,7 +25,7 @@ spec-kit 파이프라인을 jeo-claw에 이식한 **모든 작업의 표준 절�
    │
 7. IMPLEMENT   task 단위 실행 (고위험은 Discord 승인 게이트)
    │
-8. VERIFY      4대 정적 게이트 통과 (tsc/test/check:compose/validate) + checklist
+8. VERIFY      4대 정적 게이트 + 동작 스모크(해당 시) + checklist
    │
 9. CAPTURE     지식적재: graphify 그래프 → vault(raw+wiki) → llm-wiki index/log 갱신
    │
@@ -79,6 +79,7 @@ bunx tsc --noEmit
 bun test
 bun run check:compose
 bun run config/validate.ts
+bun run smoke:glue        # glue/runtime 동작 변경 시 필수
 ```
 
 `templates/checklist.md`로 품질 게이트를 채점. 통과 전 완료 선언 금지. 결과(green/red)를 `ops/specs/<slug>/`에 기록.

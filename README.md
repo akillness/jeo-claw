@@ -82,31 +82,32 @@ docker compose ps          # egress-proxy/glue-webhook/discord-bot + 10개 runti
 
 ### 1. 검증 / 정적 게이트 (Docker 불필요)
 
-오케스트레이션 글루는 Bun+TypeScript이며, 실제 컨테이너 없이도 아래 5개 게이트로 동작을 검증한다.
+오케스트레이션 글루는 Bun+TypeScript이며, 실제 컨테이너 없이도 아래 게이트로 동작을 검증한다.
 
 ```bash
 bunx tsc --noEmit                              # 타입 체크 (strict; noEmit)
 bun test                                       # 전체 단위/통합/레드팀 테스트
 bun run check:compose                          # docker-compose 정적 보안 검사
 bun run config/validate.ts                     # A/B 공정성 + 런타임 config 검사
+bun run smoke:glue                             # 로컬 HTTP+승인+brokered write 스모크
 docker compose --env-file .env.example config --quiet  # compose 환경 구성 검증
 ```
 
-마지막 검증 기준(green): `tsc` 0 errors · `bun test` 120 pass / 0 fail (16 files) · `check:compose` 176/176 · `config/validate.ts` 16/16 · `docker compose --env-file .env.example config --quiet` success.
+마지막 검증 기준(green): `tsc` 0 errors · `bun test` 120 pass / 0 fail (16 files) · `check:compose` 176/176 · `config/validate.ts` 16/16 · `smoke:glue` pass · `docker compose --env-file .env.example config --quiet` success.
 
-**런타임 스모크 (실 서버 기동 검증, Docker 불필요)**: `glue/server.ts`를 로컬 기동(`bun run glue`)해 HTTP 서피스를 실제 호출로 검증한다 — **7/7 pass**:
+**런타임 스모크 (실 서버 기동 검증, Docker/gcloud 불필요)**: `bun run smoke:glue`는 `glue/server.ts`를 로컬 HTTP 서버로 띄우고, 주입식 fake Secret/GitHub/runtime wrapper로 아래 전체 라이프사이클을 검증한다.
 
-| 호출 | 기대 | 결과 |
-|------|------|------|
-| `GET /health` | `200 {ok:true}` | ✅ |
-| `POST /control-event` (시크릿 없음) | `401` | ✅ |
-| `POST /control-event` (잘못된 시크릿) | `401` | ✅ |
-| `POST /webhook/github` (위조 HMAC) | `401` | ✅ |
-| `POST /webhook/github` (유효 HMAC·미매칭 wf) | `202` no-op | ✅ |
-| `POST /dispatch` (시크릿 없음) | `401` | ✅ |
-| `POST /dispatch` (금지 필드 `token`) | `400 forbidden dispatch field` | ✅ |
-
-승인→브로커→GitHub write 전체 파이프라인과 stage dispatch는 120개 자동화 테스트(주입식 fake)로 커버된다(실 런타임 컨테이너·gcloud 없이 검증).
+| 검증 | 기대 |
+|------|------|
+| `GET /health` | `200 {ok:true}` |
+| `POST /control-event` (시크릿 없음/오류) | `401` |
+| `POST /webhook/github` (위조 HMAC) | `401` |
+| `POST /webhook/github` (유효 HMAC·미매칭 wf) | `202` no-op |
+| `POST /dispatch` (시크릿 없음/금지 필드 `token`) | `401` / `400` |
+| `request zeroclaw ...` | `research-code`·`review` wrapper dispatch 후 `pr.create` 승인 대기 |
+| `approve <wf> pr.create` | brokered RW token으로 GitHub PR 생성, `pr-review-schedule` dispatch 후 `pr.merge` 승인 대기 |
+| CI/review webhook | boolean `true`만 기록, merge 승인 우회 없음 |
+| `approve <wf> pr.merge` | brokered RW token으로 merge, 최종 `merged` |
 
 ### 2. 로컬에서 글루 서버 띄우기
 
@@ -136,7 +137,18 @@ curl -s -XPOST localhost:8787/control-event \
 # → {"success":true,"workflow":{"id":"wf-...","stage":"pr-create","status":"awaiting-approval",...}}
 ```
 
-### 3. Discord 제어 명령어
+### 3. claw 실제 동작 절차
+
+1. **비밀 등록** — `GCLOUD_SECRET_PREFIX` 기준으로 gcloud Secret Manager에 `<prefix>-openai-api-key`, `<prefix>-github-token-ro`, `<prefix>-github-token-rw`, `<prefix>-github-webhook-secret`, `<prefix>-discord-bot-token`, `<prefix>-control-event-secret`, `<prefix>-runtime-dispatch-secret`를 등록한다. 평문 토큰은 `.env`·이미지·로그에 두지 않는다.
+2. **비-비밀 환경 설정** — `.env.example`을 `.env`로 복사하고 `GCLOUD_PROJECT`, `GCLOUD_SECRET_PREFIX`, `TARGET_REPO`, `TARGET_BRANCH` 같은 ID/설정만 채운다.
+3. **사전 검증** — `bunx tsc --noEmit`, `bun test`, `bun run check:compose`, `bun run config/validate.ts`, `bun run smoke:glue`, `docker compose --env-file .env.example config --quiet`를 모두 통과시킨다.
+4. **기동** — Docker 환경에서 `docker compose up -d --build`를 실행한다. 정상 구성은 `egress-proxy`, `glue-webhook`, `discord-bot`, ZeroClaw 5개 role service, NullClaw 5개 role service다.
+5. **요청 시작** — Discord에서 `request <zeroclaw|nullclaw> <요청>`을 보낸다. `research-code`, `review`, `pr-review-schedule`은 내부 runtime wrapper가 artifact/receipt를 만들고, glue가 다음 stage로 진행시킨다.
+6. **고위험 승인** — `pr.create`와 `pr.merge`는 각각 `approve <workflowId> pr.create`, `approve <workflowId> pr.merge`로 단건 승인한다. 승인은 1회용으로 소비되며 workflow/action/role이 맞지 않으면 거부된다.
+7. **merge 조건** — `ciPassed === true`, `reviewPassed === true`, Discord `pr.merge` 승인 세 조건이 모두 strict boolean `true`일 때만 merge가 실행된다. truthy 값·누락 값은 차단된다.
+8. **문제 대응** — `401`은 secret/header 불일치, `403`은 workflow/action/role mismatch 또는 미승인, `501 config-set`은 의도된 미구현이다. 상태 저장소는 in-memory라 재기동 시 진행 중 workflow는 보존되지 않는다.
+
+### 4. Discord 제어 명령어
 
 봇은 `discord/commands.ts`의 `parseCommand`로 슬래시(`/cmd`)·평문 양쪽을 파싱한다. 고위험 액션은 **workflow id + action**을 모두 명시해야 승인된다.
 
@@ -149,7 +161,7 @@ curl -s -XPOST localhost:8787/control-event \
 - `<action>` 허용값: `pr.create`, `pr.merge`.
 - `config set`은 현재 미구현이며, 봇과 glue 모두 명시적으로 거부한다(`not implemented`).
 
-### 4. 워크플로우 라이프사이클
+### 5. 워크플로우 라이프사이클
 
 ```
 research-code → review → pr-create → pr-review-schedule → merge
@@ -159,7 +171,7 @@ research-code → review → pr-create → pr-review-schedule → merge
 - **PR 생성**(`pr.create`)과 **머지**(`pr.merge`)는 진행 전 Discord 승인이 필요하며, 승인은 1회용으로 소비된다.
 - **머지 게이트**(`glue/merge-gate.ts`)는 `ciPassed && reviewPassed && discordApproved`가 **모두 boolean `true`**일 때만 main 머지를 허용한다(엄격 비교 — truthy 우회 차단). 하나라도 빠지면 차단 사유를 반환한다.
 
-### 5. A/B 비교 러너
+### 6. A/B 비교 러너
 
 동일 E2E 시나리오를 두 런타임에서 N회(`COMPARE_RUNS`, 기본 5) 반복하고 6개 지표를 집계한다.
 

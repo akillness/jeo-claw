@@ -16,13 +16,14 @@
     "status": "passed",
     "e2eStatus": "passed",
     "redTeamStatus": "passed",
-    "evidence": "Targeted verification passed: bun run check:compose 176/176, bun run config/validate.ts 16/16, bun test 120 pass / 0 fail, bunx tsc --noEmit success, docker compose --env-file .env.example config --quiet success, and bun test qa/red-team.test.ts 25 pass / 0 fail.",
+    "evidence": "Targeted verification passed: bun run check:compose 176/176, bun run config/validate.ts 16/16, bun test 120 pass / 0 fail, bunx tsc --noEmit success, bun run smoke:glue success (request\u2192runtime dispatch\u2192approved pr.create\u2192CI/review webhook\u2192approved pr.merge), docker compose --env-file .env.example config --quiet success, and bun test qa/red-team.test.ts 25 pass / 0 fail.",
     "e2eCommands": [
       "bun run check:compose",
       "bun run config/validate.ts",
       "bun test",
       "bunx tsc --noEmit",
-      "docker compose --env-file .env.example config --quiet"
+      "docker compose --env-file .env.example config --quiet",
+      "bun run smoke:glue"
     ],
     "redTeamCommands": [
       "bun test qa/red-team.test.ts"
@@ -32,7 +33,7 @@
         "id": "verify-cli",
         "kind": "terminal-transcript",
         "path": "jeo-claw/artifacts/verify-transcript.txt",
-        "description": "terminal transcript for compose-static, config-validate, full bun test, typecheck, and docker compose config"
+        "description": "terminal transcript for compose-static, config-validate, full bun test, typecheck, glue smoke, and docker compose config"
       },
       {
         "id": "package-suite",
@@ -57,6 +58,12 @@
         "kind": "failure-mode-test",
         "path": "jeo-claw/artifacts/red-team-transcript.txt",
         "description": "adversarial test transcript with 25 passing cases"
+      },
+      {
+        "id": "glue-smoke",
+        "kind": "api-black-box-smoke",
+        "path": "jeo-claw/artifacts/verify-transcript.txt",
+        "description": "local HTTP lifecycle smoke covering request, runtime dispatch, action-scoped approvals, brokered GitHub write calls, CI/review webhook, and merge completion"
       }
     ],
     "contractCoverage": [
@@ -116,6 +123,19 @@
         "obligation": "GUI/browser evidence is intentionally out of scope for this backend/Discord orchestrator story.",
         "status": "not_applicable",
         "reason": "The implemented system exposes CLI, API, package, and Discord surfaces only."
+      },
+      {
+        "id": "contract-operation-guide-smoke",
+        "contractRef": "README/AGENTS operation guide reproducibility",
+        "obligation": "Documented claw operation path has a runnable local smoke command that proves the documented request\u2192approval\u2192brokered write\u2192merge lifecycle without Docker/gcloud.",
+        "status": "covered",
+        "surfaceEvidenceRefs": [
+          "surface-api-smoke"
+        ],
+        "adversarialCaseRefs": [
+          "case-unauth-control",
+          "case-broker-auth"
+        ]
       }
     ],
     "surfaceEvidence": [
@@ -176,6 +196,16 @@
         "surface": "gui",
         "status": "not_applicable",
         "reason": "No GUI/browser surface exists in this orchestration repository."
+      },
+      {
+        "id": "surface-api-smoke",
+        "contractRef": "Documented claw operation lifecycle",
+        "surface": "api",
+        "invocation": "bun run smoke:glue",
+        "verdict": "passed",
+        "artifactRefs": [
+          "glue-smoke"
+        ]
       }
     ],
     "adversarialCases": [
@@ -248,7 +278,7 @@
   },
   "iteration": {
     "status": "passed",
-    "evidence": "Blocking findings were resolved iteratively, then the full five-gate verification bundle and adversarial suite were rerun cleanly. Final blocker sweeps reported zero blockers and a final architect review returned CLEAR/APPROVE.",
+    "evidence": "Blocking findings were resolved iteratively, then the full verification bundle, glue lifecycle smoke, compose config check, and adversarial suite were rerun cleanly. Final blocker sweeps reported zero blockers and a final architect review returned CLEAR/APPROVE.",
     "fullRerun": true,
     "rerunCommands": [
       "bun run check:compose",
@@ -256,7 +286,8 @@
       "bun test",
       "bunx tsc --noEmit",
       "docker compose --env-file .env.example config --quiet",
-      "bun test qa/red-team.test.ts"
+      "bun test qa/red-team.test.ts",
+      "bun run smoke:glue"
     ],
     "blockers": []
   }
