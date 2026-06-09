@@ -34,7 +34,8 @@ x-runtime-common: &runtime-common
 x-zeroclaw-common: &zeroclaw-common
   <<: *runtime-common
   build:
-    context: ./runtimes/zeroclaw
+    context: .
+    dockerfile: runtimes/zeroclaw/Dockerfile
   command: ["bun", "run", "runtimes/start.ts", "zeroclaw"]
   volumes:
     - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
@@ -47,7 +48,8 @@ x-zeroclaw-common: &zeroclaw-common
 x-nullclaw-common: &nullclaw-common
   <<: *runtime-common
   build:
-    context: ./runtimes/nullclaw
+    context: .
+    dockerfile: runtimes/nullclaw/Dockerfile
   command: ["bun", "run", "runtimes/start.ts", "nullclaw"]
   volumes:
     - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro

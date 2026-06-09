@@ -7,11 +7,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates xz-utils git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" \
+RUN curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" \
       -o /tmp/zig.tar.xz \
     && mkdir -p /opt \
     && tar -xJf /tmp/zig.tar.xz -C /opt \
-    && mv /opt/zig-linux-x86_64-${ZIG_VERSION} /opt/zig \
+    && mv /opt/zig-x86_64-linux-${ZIG_VERSION} /opt/zig \
     && ln -s /opt/zig/zig /usr/local/bin/zig
 
 RUN git clone --depth 1 https://github.com/nullclaw/nullclaw.git /src
