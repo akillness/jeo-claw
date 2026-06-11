@@ -14,6 +14,10 @@ function hasApprovedAction(state: WorkflowState, action: HighRiskAction): boolea
   return state.actionApprovals?.[action]?.status === "approved";
 }
 
+function acceptsActionDecision(state: WorkflowState, action: HighRiskAction): boolean {
+  return state.status === "awaiting-approval" && state.pendingAction === action;
+}
+
 function markAction(state: WorkflowState, action: HighRiskAction, status: ApprovalSnapshot["status"], user?: string): WorkflowState {
   const previous = state.actionApprovals?.[action];
   return {
@@ -133,16 +137,24 @@ export function applyEvent(
 ): WorkflowState {
   let nextState = { ...state };
 
+  if (terminal(nextState)) {
+    return nextState;
+  }
+
   if (event && typeof event === "object") {
     if (event.type === "approve" && event.action) {
-      nextState = markAction(nextState, event.action, "approved", event.user);
-      nextState.approved = event.action === "pr.merge" ? true : nextState.approved;
-      if (nextState.pendingAction === event.action) nextState.pendingAction = undefined;
+      if (acceptsActionDecision(nextState, event.action)) {
+        nextState = markAction(nextState, event.action, "approved", event.user);
+        nextState.approved = event.action === "pr.merge" ? true : nextState.approved;
+        if (nextState.pendingAction === event.action) nextState.pendingAction = undefined;
+      }
     } else if (event.type === "reject" && event.action) {
-      nextState = markAction(nextState, event.action, "rejected", event.user);
-      nextState.approved = false;
-      nextState.status = "rejected";
-      nextState.pendingAction = event.action;
+      if (acceptsActionDecision(nextState, event.action)) {
+        nextState = markAction(nextState, event.action, "rejected", event.user);
+        nextState.approved = false;
+        nextState.status = "rejected";
+        nextState.pendingAction = event.action;
+      }
     }
 
     if (event.prNumber !== undefined) {

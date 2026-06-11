@@ -80,6 +80,7 @@ bun test
 bun run check:compose
 bun run config/validate.ts
 bun run smoke:glue        # glue/runtime 동작 변경 시 필수
+bun run preflight:live     # live Secret Manager/Discord 경로 변경 시 필수
 ```
 
 `templates/checklist.md`로 품질 게이트를 채점. 통과 전 완료 선언 금지. 결과(green/red)를 `ops/specs/<slug>/`에 기록.

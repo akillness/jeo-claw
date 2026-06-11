@@ -1,0 +1,42 @@
+x-real-secret-file: &real-secret-file
+  volumes:
+    - ${JEO_SECRETS_HOST_FILE:-./secrets/live.json}:/run/secrets/jeo-claw-secrets.json:ro
+
+services:
+  glue-webhook:
+    <<: *real-secret-file
+    ports:
+      - "127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"
+
+  discord-bot:
+    <<: *real-secret-file
+
+  zeroclaw-researcher-coder:
+    <<: *real-secret-file
+
+  zeroclaw-reviewer:
+    <<: *real-secret-file
+
+  zeroclaw-pr-creator:
+    <<: *real-secret-file
+
+  zeroclaw-pr-review-scheduler:
+    <<: *real-secret-file
+
+  zeroclaw-merger:
+    <<: *real-secret-file
+
+  nullclaw-researcher-coder:
+    <<: *real-secret-file
+
+  nullclaw-reviewer:
+    <<: *real-secret-file
+
+  nullclaw-pr-creator:
+    <<: *real-secret-file
+
+  nullclaw-pr-review-scheduler:
+    <<: *real-secret-file
+
+  nullclaw-merger:
+    <<: *real-secret-file

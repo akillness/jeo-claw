@@ -3,6 +3,7 @@ import type { HighRiskAction, WorkflowState } from "./contract.ts";
 export interface GitHubWriteDeps {
   targetRepo: string;
   targetBranch: string;
+  apiBaseUrl?: string;
   fetchImpl?: typeof fetch;
 }
 
@@ -25,12 +26,13 @@ function headRefFor(workflow: WorkflowState): string {
 }
 
 async function githubRequest(
+  baseUrl: string,
   path: string,
   token: string,
   init: RequestInit,
   fetchImpl: typeof fetch,
 ): Promise<any> {
-  const res = await fetchImpl(`https://api.github.com${path}`, {
+  const res = await fetchImpl(`${baseUrl}${path}`, {
     ...init,
     headers: {
       Accept: "application/vnd.github+json",
@@ -48,6 +50,27 @@ async function githubRequest(
   return data;
 }
 
+async function findExistingOpenPullRequest(
+  baseUrl: string,
+  owner: string,
+  repo: string,
+  head: string,
+  base: string,
+  token: string,
+  fetchImpl: typeof fetch,
+): Promise<{ number: number; html_url?: string } | undefined> {
+  const headQuery = encodeURIComponent(`${owner}:${head}`);
+  const baseQuery = encodeURIComponent(base);
+  const data = await githubRequest(
+    baseUrl,
+    `/repos/${owner}/${repo}/pulls?state=open&head=${headQuery}&base=${baseQuery}`,
+    token,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return Array.isArray(data) && data.length > 0 ? data[0] : undefined;
+}
+
 export async function executeApprovedWriteAction(
   workflow: WorkflowState,
   action: Extract<HighRiskAction, "pr.create" | "pr.merge">,
@@ -56,17 +79,21 @@ export async function executeApprovedWriteAction(
 ): Promise<{ workflow: WorkflowState; result: GitHubWriteResult }> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const { owner, repo } = requireTargetRepo(deps.targetRepo);
+  const apiBaseUrl = deps.apiBaseUrl ?? "https://api.github.com";
 
   if (action === "pr.create") {
     const head = headRefFor(workflow);
-    const payload = {
-      title: workflow.request,
-      body: `Automated PR for workflow ${workflow.id} (${workflow.runtime})`,
-      head,
-      base: deps.targetBranch,
-      draft: false,
-    };
-    const data = await githubRequest(`/repos/${owner}/${repo}/pulls`, token, { method: "POST", body: JSON.stringify(payload) }, fetchImpl);
+    const existing = await findExistingOpenPullRequest(apiBaseUrl, owner, repo, head, deps.targetBranch, token, fetchImpl);
+    const data = existing ?? await githubRequest(apiBaseUrl, `/repos/${owner}/${repo}/pulls`, token, {
+      method: "POST",
+      body: JSON.stringify({
+        title: workflow.request,
+        body: `Automated PR for workflow ${workflow.id} (${workflow.runtime})`,
+        head,
+        base: deps.targetBranch,
+        draft: false,
+      }),
+    }, fetchImpl);
     return {
       workflow: {
         ...workflow,
@@ -87,6 +114,7 @@ export async function executeApprovedWriteAction(
     throw new Error(`Workflow ${workflow.id} cannot merge without prNumber`);
   }
   const data = await githubRequest(
+    apiBaseUrl,
     `/repos/${owner}/${repo}/pulls/${prNumber}/merge`,
     token,
     {

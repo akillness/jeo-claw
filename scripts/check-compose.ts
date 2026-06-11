@@ -3,7 +3,7 @@
 //  - no host Docker socket or host workspace binds
 //  - exactly 10 runtime-role services on claw_internal only
 //  - split internal control plane with loopback webhook and no role secrets/mounts
-//  - egress-proxy is the only edge service and allowlist is exclusive
+//  - egress-proxy is the default edge gateway; discord-bot is the only direct edge exception because Discord gateway WebSockets do not honor the HTTP proxy in this runtime
 //  - every long-lived service has restart, healthcheck, hardening, read-only rootfs, and tmpfs scratch
 import { parse } from "yaml";
 import { readFileSync, existsSync } from "node:fs";
@@ -21,8 +21,8 @@ export const CONTROL_SERVICES = ["glue-webhook", "discord-bot"] as const;
 
 const SOCKET_RE = /docker\.sock/i;
 const SECRET_RE = /(sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/;
-const RUNTIME_FORBIDDEN_ENV = new Set(["DISCORD_BOT_TOKEN", "GITHUB_WEBHOOK_SECRET", "GITHUB_TOKEN", "OPENAI_API_KEY"]);
-const CONTROL_FORBIDDEN_ENV = new Set(["GITHUB_TOKEN", "OPENAI_API_KEY", "LLM_PROVIDER", "LLM_MODEL", "OPENAI_WIRE_API", "GITHUB_WEBHOOK_SECRET", "DISCORD_BOT_TOKEN"]);
+const RUNTIME_FORBIDDEN_ENV = new Set(["DISCORD_BOT_TOKEN", "GITHUB_WEBHOOK_SECRET", "GITHUB_TOKEN", "OPENAI_API_KEY", "OPENAI_CODEX_AUTH"]);
+const CONTROL_FORBIDDEN_ENV = new Set(["GITHUB_TOKEN", "OPENAI_API_KEY", "OPENAI_CODEX_AUTH", "LLM_PROVIDER", "LLM_MODEL", "OPENAI_WIRE_API", "GITHUB_WEBHOOK_SECRET", "DISCORD_BOT_TOKEN"]);
 const CONTROL_REQUIRED_ENV = new Set(["GCLOUD_PROJECT", "GCLOUD_SECRET_PREFIX"]);
 
 
@@ -142,7 +142,8 @@ export function runChecks(root = ROOT): Check[] {
       const target = volumeTarget(v);
       if (SOCKET_RE.test(vs)) socketFound = `${svc}: ${vs}`;
       const allowedBind = source.startsWith("./config/") || source.startsWith("./compose/egress-proxy/");
-      if ((source === "." || source === "./" || source.startsWith("../") || source === "$PWD") && !allowedBind) {
+      const hostPathLike = source === "." || source === "./" || source.startsWith("./") || source.startsWith("../") || source.startsWith("/") || source === "$PWD" || /^[A-Za-z]:[\\/]/.test(source);
+      if (hostPathLike && !allowedBind) {
         forbiddenHostBind = `${svc}: ${source}:${target}`;
       }
     }
@@ -154,8 +155,8 @@ export function runChecks(root = ROOT): Check[] {
   add("exact 10 runtime-role services are defined", missingRuntimeServices.length === 0, missingRuntimeServices.join(",") || "ok");
   add("legacy shared runtime services removed", !services.zeroclaw && !services.nullclaw, serviceNames.filter((s) => s === "zeroclaw" || s === "nullclaw").join(",") || "ok");
 
-  const edgeMembers = serviceNames.filter((svc) => serviceNetworks(services[svc]).includes("edge"));
-  add("egress-proxy is the only edge service", edgeMembers.length === 1 && edgeMembers[0] === "egress-proxy", edgeMembers.join(",") || "none");
+  const edgeMembers = serviceNames.filter((svc) => serviceNetworks(services[svc]).includes("edge")).sort();
+  add("only egress-proxy and discord-bot attach to edge", JSON.stringify(edgeMembers) === JSON.stringify(["discord-bot", "egress-proxy"]), edgeMembers.join(",") || "none");
 
   add("claw_internal network is internal:true", networks?.claw_internal?.internal === true, JSON.stringify(networks?.claw_internal ?? null));
 
@@ -188,8 +189,9 @@ export function runChecks(root = ROOT): Check[] {
     const def = services[svc];
     add(`control service ${svc} defined`, !!def, def ? "ok" : "missing");
     if (!def) continue;
-    const nets = serviceNetworks(def);
-    add(`${svc} uses only claw_internal`, nets.length === 1 && nets[0] === "claw_internal", `networks=[${nets.join(",")}]`);
+    const nets = serviceNetworks(def).sort();
+    const expectedNets = svc === "discord-bot" ? ["claw_internal", "edge"] : ["claw_internal"];
+    add(`${svc} uses expected networks`, JSON.stringify(nets) === JSON.stringify(expectedNets), `networks=[${nets.join(",")}]`);
     add(`${svc} has restart policy`, def.restart === "unless-stopped", String(def.restart));
     add(`${svc} has healthcheck`, !!def.healthcheck, def.healthcheck ? "ok" : "missing");
     add(`${svc} drops all caps`, hasAllCapsDropped(def), "cap_drop ALL");

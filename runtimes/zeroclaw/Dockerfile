@@ -16,6 +16,9 @@ RUN apt-get update \
 RUN curl -fsSL https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/master/install.sh \
       | bash -s -- --prebuilt --skip-quickstart
 
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN command -v zeroclaw
+
 WORKDIR /app
 COPY runtimes ./runtimes
 COPY secrets ./secrets

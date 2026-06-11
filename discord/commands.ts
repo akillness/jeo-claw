@@ -1,4 +1,4 @@
-import { HIGH_RISK_ACTIONS, type ControlEvent, type Runtime, type ConfigKey, type HighRiskAction } from "../glue/contract.ts";
+import { HIGH_RISK_ACTIONS, parseLLMProvider, type ControlEvent, type Runtime, type ConfigKey, type HighRiskAction } from "../glue/contract.ts";
 
 const VALID_ACTIONS = new Set<string>(HIGH_RISK_ACTIONS);
 
@@ -11,29 +11,29 @@ export function validateConfigValue(key: ConfigKey, value: string): { ok: boolea
   const trimmed = value.trim();
   if (key === "autonomy") {
     if (trimmed !== "supervised") {
-      return { ok: false, reason: `Invalid autonomy value: '${trimmed}'. Only 'supervised' is allowed.` };
+      return { ok: false, reason:  };
     }
   } else if (key === "scaleout") {
     const num = Number(trimmed);
     if (!/^\d+$/.test(trimmed) || isNaN(num) || num < 1 || num > 3) {
-      return { ok: false, reason: `Invalid scaleout value: '${trimmed}'. Must be an integer between 1 and 3.` };
+      return { ok: false, reason:  };
     }
-  } else if (key === "provider" || key === "model") {
+  } else if (key === "provider") {
+    if (!parseLLMProvider(trimmed)) {
+      return { ok: false, reason:  };
+    }
+  } else if (key === "model") {
     if (trimmed.length === 0) {
-      return { ok: false, reason: `Value for ${key} cannot be empty.` };
+      return { ok: false, reason: "Value for model cannot be empty." };
     }
   }
   return { ok: true };
 }
 
-/**
- * Parses a Discord slash-style or plain text command into a ControlEvent.
- * High-risk approvals must name both workflow id and action, e.g.
- * `approve wf-123 pr.create` or `reject wf-123 pr.merge`.
- */
 export function parseCommand(
   input: string,
-  user?: string
+  user?: string,
+  mentioned?: boolean
 ): ControlEvent | { type: "unknown"; raw: string } {
   const trimmed = input.trim();
   const normalized = trimmed.startsWith("/") ? trimmed.slice(1).trim() : trimmed;
@@ -99,6 +99,14 @@ export function parseCommand(
       };
     }
     return { type: "unknown", raw: input };
+  }
+
+  if (mentioned) {
+    return {
+      type: "request",
+      runtime: "zeroclaw",
+      request: normalized,
+    };
   }
 
   return { type: "unknown", raw: input };

@@ -1,0 +1,89 @@
+# jeo-claw 20x live verification loop
+Generated: 2026-06-10T07:10:15.501Z
+
+Checks per iteration:
+- plain mention returns the actionable multi-claw guide only
+- `request both ...` returns two real workflow creation lines (zeroclaw + nullclaw)
+- stack healthy before and after the loop
+
+## Iteration 1
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075378141-669 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075378146-277 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 2
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075379627-782 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075379631-739 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 3
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075381111-105 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075381115-498 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 4
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075382790-27 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075382794-19 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 5
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075384414-38 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075384420-526 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 6
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075385987-293 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075385993-339 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 7
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075387825-47 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075387864-735 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 8
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075389526-705 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075389530-493 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 9
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075391067-546 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075391078-659 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 10
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075392715-873 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075392721-641 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 11
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075394152-346 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075394156-137 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 12
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075395901-305 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075395905-279 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 13
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075397758-367 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075397762-487 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 14
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075399753-645 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075399758-32 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 15
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075401627-389 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075401663-247 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 16
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075403055-558 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075403068-794 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 17
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075404540-569 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075404547-397 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 18
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075406162-742 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075406166-241 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 19
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075408174-835 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075408194-103 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+## Iteration 20
+PLAIN: 실행 명령 형식:\n- `request zeroclaw <요청>`\n- `request nullclaw <요청>`\n- `request both <요청>`  ← 두 runtime 모두 시작\n- `/request` slash command도 사용 가능
+BOTH: Workflow wf-1781075410368-989 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075410375-846 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+
+All 20 iterations passed.

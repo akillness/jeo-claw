@@ -33,6 +33,10 @@ test("parseWebhook handles pull_request event", () => {
   expect(parsed.prNumber).toBe(101);
 });
 
+test("parseWebhook validates pull_request number shape", () => {
+  expect(() => parseWebhook(JSON.stringify({ pull_request: { number: "101" } }))).toThrow("number must be an integer");
+});
+
 test("parseWebhook handles check_suite conclusion success", () => {
   const payload = {
     check_suite: {
@@ -80,6 +84,28 @@ test("parseWebhook handles status failure", () => {
   const parsed = parseWebhook(JSON.stringify(payload));
   expect(parsed.event).toBe("status");
   expect(parsed.ciPassed).toBe(false);
+});
+
+test("parseWebhook handles pull_request_review approved and changes requested", () => {
+  const approved = parseWebhook(JSON.stringify({
+    pull_request: { number: 101 },
+    review: { state: "approved" },
+  }));
+  expect(approved.event).toBe("pull_request_review");
+  expect(approved.prNumber).toBe(101);
+  expect(approved.reviewPassed).toBe(true);
+
+  const changesRequested = parseWebhook(JSON.stringify({
+    pull_request: { number: 101 },
+    review: { state: "changes_requested" },
+  }));
+  expect(changesRequested.reviewPassed).toBe(false);
+});
+
+test("parseWebhook exposes workflowId without a second JSON parse", () => {
+  const parsed = parseWebhook(JSON.stringify({ workflowId: "wf-1", ciPassed: true }));
+  expect(parsed.workflowId).toBe("wf-1");
+  expect(parsed.ciPassed).toBe(true);
 });
 test("parseWebhook rejects truthy-but-not-boolean direct status fields", () => {
   expect(() => parseWebhook(JSON.stringify({ event: "status", ciPassed: "yes" }))).toThrow("ciPassed must be a boolean");

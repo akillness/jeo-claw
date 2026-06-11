@@ -1,9 +1,7 @@
 # Egress allowlist — claw runtimes may ONLY reach these domains.
-# GitHub (repo ops, PRs, webhooks)
+# GitHub (repo ops, PRs, archives, webhooks)
 .github.com
 .githubusercontent.com
-api.github.com
-codeload.github.com
 # OpenAI (gpt-5 provider)
 api.openai.com
 # gcloud Secret Manager
@@ -11,5 +9,4 @@ secretmanager.googleapis.com
 oauth2.googleapis.com
 # Discord (control surface / bot gateway)
 discord.com
-.discord.com
 gateway.discord.gg

@@ -6,10 +6,24 @@ import { ApprovalRegistry, guardHighRisk } from "../discord/approval";
 import { parseCommand } from "../discord/commands";
 import { buildHandlers } from "../discord/bot";
 import { handleControlEventRequest, handleControlDispatchRequest } from "../glue/server";
-import { createWorkflow, applyEvent } from "../glue/state-machine";
+import { createWorkflow, applyEvent, advanceStage } from "../glue/state-machine";
 import { summarize } from "../compare/metrics";
 import type { MetricSample, WorkflowState, ControlEvent } from "../glue/contract";
 
+
+function pendingPrCreateWorkflow(id: string): WorkflowState {
+  let wf = createWorkflow(id, "zeroclaw", "build secure feature");
+  wf = advanceStage(wf);
+  wf = advanceStage(wf);
+  return advanceStage(wf);
+}
+
+function pendingMergeWorkflow(id: string): WorkflowState {
+  let wf = pendingPrCreateWorkflow(id);
+  wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
+  wf = advanceStage(wf);
+  return advanceStage(wf);
+}
 // ==========================================
 // 1. MERGE GATE BYPASS ATTEMPTS
 // ==========================================
@@ -130,10 +144,10 @@ class SpySource implements SecretSource {
 
 test("3.1 Secret loader - read-only roles must NEVER trigger access to the write token id", async () => {
   const store = {
-    "jeo-claw-openai-api-key": "sk-fake",
+    "jeo-claw-openai-codex-oauth": '{"tokens":{"access_token":"fake"}}',
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-github-token-rw": "ghp_rw",
-    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
   };
   
   const readOnlyRoles: Role[] = ["reviewer", "researcher-coder", "pr-review-scheduler"];
@@ -147,10 +161,10 @@ test("3.1 Secret loader - read-only roles must NEVER trigger access to the write
 });
 test("3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release", async () => {
   const store = {
-    "jeo-claw-openai-api-key": "sk-fake",
+    "jeo-claw-openai-codex-oauth": '{"tokens":{"access_token":"fake"}}',
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-github-token-rw": "ghp_rw",
-    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
   };
 
   for (const role of ["pr-creator", "merger"] as Role[]) {
@@ -169,17 +183,17 @@ test("3.1b Secret loader - write roles use read-only startup env and require med
 test("3.2 Secret loader - missing required secret and empty value throws MissingSecretError", async () => {
   const incompleteStore = {
     "jeo-claw-github-token-ro": "ghp_ro",
-    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
-    // openai-api-key is missing
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
+    // openai-codex-oauth is missing
   };
   
   const spy = new SpySource(incompleteStore);
   expect(loadSecretsForRole("reviewer", spy, { prefix: "jeo-claw" })).rejects.toThrow(MissingSecretError);
   
   const emptyValueStore = {
-    "jeo-claw-openai-api-key": "",
+    "jeo-claw-openai-codex-oauth": "",
     "jeo-claw-github-token-ro": "ghp_ro",
-    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
   };
   const spyEmpty = new SpySource(emptyValueStore);
   expect(loadSecretsForRole("reviewer", spyEmpty, { prefix: "jeo-claw" })).rejects.toThrow(MissingSecretError);
@@ -195,10 +209,10 @@ test("3.3 Secret loader - redact() must mask values even when they contain regex
 });
 
 test("3.4 Secret loader - confirm no secret value appears in thrown error messages", async () => {
-  const secretValue = "sensitive-openai-key-999";
+  const secretValue = '{"tokens":{"access_token":"sensitive-openai-key-999"}}';
   const failingSource: SecretSource = {
     async access(id: string): Promise<string> {
-      if (id.endsWith("openai-api-key")) {
+      if (id.endsWith("openai-codex-oauth")) {
         return secretValue;
       }
       throw new Error("Database timeout reading next secret");
@@ -215,11 +229,11 @@ test("3.4 Secret loader - confirm no secret value appears in thrown error messag
 });
 test("3.5 Control secret loader - control services receive only their own control-plane credentials", async () => {
   const store = {
-    "jeo-claw-github-webhook-secret": "whsec_control",
+    "jeo-claw-github-webhook-secret": "whsec_generated_secret_value",
     "jeo-claw-discord-bot-token": "xoxb_control",
-    "jeo-claw-control-event-secret": "ctrl_secret",
-    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret",
-    "jeo-claw-openai-api-key": "sk-fake",
+    "jeo-claw-control-event-secret": "control-event-secret-value",
+    "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
+    "jeo-claw-openai-codex-oauth": '{"tokens":{"access_token":"fake"}}',
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-github-token-rw": "ghp_rw",
   };
@@ -227,18 +241,18 @@ test("3.5 Control secret loader - control services receive only their own contro
 
   const glueSpy = new SpySource(store);
   const glue = await loadSecretsForControl("glue-webhook", glueSpy, { prefix: "jeo-claw" });
-  expect(glue.GITHUB_WEBHOOK_SECRET).toBe("whsec_control");
-  expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("ctrl_secret");
-  expect(glue.OPENAI_API_KEY).toBeUndefined();
+  expect(glue.GITHUB_WEBHOOK_SECRET).toBe("whsec_generated_secret_value");
+  expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("control-event-secret-value");
+  expect(glue.OPENAI_CODEX_AUTH).toBeUndefined();
   expect(glue.GITHUB_TOKEN).toBeUndefined();
   expect(glueSpy.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret", "jeo-claw-runtime-dispatch-secret"]);
 
   const discordSpy = new SpySource(store);
   const discord = await loadSecretsForControl("discord-bot", discordSpy, { prefix: "jeo-claw" });
   expect(discord.DISCORD_BOT_TOKEN).toBe("xoxb_control");
-  expect(discord.JEO_CONTROL_EVENT_SECRET).toBe("ctrl_secret");
+  expect(discord.JEO_CONTROL_EVENT_SECRET).toBe("control-event-secret-value");
   expect(discord.GITHUB_TOKEN).toBeUndefined();
-  expect(discord.OPENAI_API_KEY).toBeUndefined();
+  expect(discord.OPENAI_CODEX_AUTH).toBeUndefined();
   expect(discordSpy.accessed).toEqual(["jeo-claw-discord-bot-token", "jeo-claw-control-event-secret"]);
 });
 
@@ -337,8 +351,7 @@ test("4.6 Dispatch broker - unauthenticated write-secret release is rejected", a
 
 test("4.7 Dispatch broker - approved write-secret release is scoped and consumes approval", async () => {
   const store = new Map<string, WorkflowState>();
-  let wf = createWorkflow("wf-broker", "zeroclaw", "build secure feature");
-  wf.stage = "pr-create";
+  let wf = pendingPrCreateWorkflow("wf-broker");
   wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
   store.set(wf.id, wf);
 
@@ -360,9 +373,40 @@ test("4.7 Dispatch broker - approved write-secret release is scoped and consumes
   );
 
   expect(res.status).toBe(200);
-  const data = (await res.json()) as { credentials: Record<string, string> };
-  expect(data.credentials.GITHUB_TOKEN).toBe("ghp_rw");
+  const data = (await res.json()) as { credentials?: Record<string, string>; credentialReleased?: boolean };
+  expect(data.credentials).toBeUndefined();
+  expect(data.credentialReleased).toBe(false);
   expect(store.get(wf.id)?.actionApprovals?.["pr.create"]?.status).toBe("consumed");
+});
+
+test("4.7b Dispatch broker - approved merge release is scoped and consumed only when merge is ready", async () => {
+  const store = new Map<string, WorkflowState>();
+  let wf = pendingMergeWorkflow("wf-broker-merge");
+  wf.prNumber = 101;
+  wf = applyEvent(wf, { ciPassed: true, reviewPassed: true });
+  wf = advanceStage(wf);
+  wf = applyEvent(wf, { type: "approve", action: "pr.merge", user: "alice" });
+  store.set(wf.id, wf);
+
+  const res = await handleControlDispatchRequest(
+    new Request("http://localhost/dispatch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-control-event-secret": "control-secret",
+      },
+      body: JSON.stringify({ workflowId: wf.id, runtime: "zeroclaw", role: "merger", stage: "merge", action: "pr.merge" }),
+    }),
+    {
+      store,
+      controlEventSecret: "control-secret",
+      prefix: "jeo-claw",
+      sourceFactory: () => new SpySource({ "jeo-claw-github-token-rw": "ghp_rw" }),
+    },
+  );
+
+  expect(res.status).toBe(200);
+  expect(store.get(wf.id)?.actionApprovals?.["pr.merge"]?.status).toBe("consumed");
 });
 
 test("4.2 High-risk guard - unknown or non-high-risk action always allowed", () => {

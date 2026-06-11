@@ -20,6 +20,7 @@ COPY discord ./discord
 COPY compare ./compare
 COPY secrets ./secrets
 COPY config ./config
+COPY scripts ./scripts
 COPY tsconfig.json ./tsconfig.json
 
 USER bun

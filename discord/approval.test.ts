@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import { ApprovalRegistry, guardHighRisk } from "./approval.ts";
 import { createWorkflow, applyEvent } from "../glue/state-machine.ts";
 import type { WorkflowState, ControlEvent } from "../glue/contract.ts";
-import { buildHandlers } from "./bot.ts";
+import { buildHandlers, discordCommandDefinitions, forwardControlEvent, resolveLivePolicy } from "./bot.ts";
 
 test("ApprovalRegistry: action-scoped lifecycle with consume", () => {
   const registry = new ApprovalRegistry();
@@ -28,6 +28,39 @@ test("ApprovalRegistry: action-scoped lifecycle with consume", () => {
   expect(registry.status(wfId, "pr.merge")).toBe("rejected");
   expect(registry.isApproved(wfId, "pr.merge")).toBe(false);
   expect(registry.getApprover(wfId, "pr.merge")).toBe("bob");
+});
+
+test("ApprovalRegistry prunes stale terminal records and preserves recent approvals", () => {
+  let now = Date.parse("2026-06-09T00:00:00.000Z");
+  const registry = new ApprovalRegistry({
+    maxRecords: 2,
+    retentionMs: 60 * 60 * 1000,
+    now: () => now,
+  });
+
+  registry.approve("wf-old", "pr.create", "alice");
+  registry.consume("wf-old", "pr.create");
+
+  now = Date.parse("2026-06-09T03:00:00.000Z");
+  registry.approve("wf-new", "pr.create", "bob");
+  registry.approve("wf-keep", "pr.merge", "carol");
+
+  expect(registry.status("wf-old", "pr.create")).toBeUndefined();
+  expect(registry.status("wf-new", "pr.create")).toBe("approved");
+  expect(registry.status("wf-keep", "pr.merge")).toBe("approved");
+});
+
+test("ApprovalRegistry bounded mode evicts consumed records before approved records", () => {
+  const registry = new ApprovalRegistry({ maxRecords: 2 });
+
+  registry.approve("wf-consumed", "pr.create", "alice");
+  registry.consume("wf-consumed", "pr.create");
+  registry.approve("wf-approved-1", "pr.create", "bob");
+  registry.approve("wf-approved-2", "pr.merge", "carol");
+
+  expect(registry.status("wf-consumed", "pr.create")).toBeUndefined();
+  expect(registry.status("wf-approved-1", "pr.create")).toBe("approved");
+  expect(registry.status("wf-approved-2", "pr.merge")).toBe("approved");
 });
 
 test("guardHighRisk: blocks, consumes matching action approval, and isolates actions", () => {
@@ -130,7 +163,7 @@ test("bot handlers: buildHandlers routes action-scoped events and manages regist
       getSubcommand: () => "set",
       getString: (name: string) => {
         if (name === "key") return "provider";
-        if (name === "value") return "openai";
+        if (name === "value") return "openai-codex";
         return null;
       },
     },
@@ -162,7 +195,7 @@ test("bot handlers: buildHandlers routes action-scoped events and manages regist
   expect(registry.status("wf-999", "pr.merge")).toBe("approved");
   expect(registry.getApprover("wf-999", "pr.merge")).toBe("approver#9999");
   expect(buttonReplyCalled).toBe(true);
-  expect(buttonReplyContent.content).toContain("action pr.merge has been approved");
+  expect(buttonReplyContent.content).toContain("Workflow wf-999 action pr.merge approved.");
 });
 
 test("bot handlers with bridging: request creates workflow, action approval bridges to store, config set yolo is rejected", async () => {
@@ -200,7 +233,7 @@ test("bot handlers with bridging: request creates workflow, action approval brid
   expect(registry.isApproved(wfId, "pr.create")).toBe(true);
   const updatedWf = store.get(wfId);
   expect(updatedWf).toBeDefined();
-  expect(updatedWf!.actionApprovals?.["pr.create"]?.status).toBe("approved");
+  expect(updatedWf!.actionApprovals?.["pr.create"]?.status).toBeUndefined();
 
   let rejectReply = "";
   const badConfig = {
@@ -235,6 +268,63 @@ test("bot handlers forward events through async onEvent bridge", async () => {
       user: "alice#0001",
     },
   ]);
+});
+test("bot handlers reply to direct mentions and parse commands after mention", async () => {
+  const registry = new ApprovalRegistry();
+  const received: ControlEvent[] = [];
+  const replies: string[] = [];
+  const handlers = buildHandlers({
+    registry,
+    botUserId: "bot-1",
+    onEvent: async (event) => {
+      received.push(event);
+    },
+  });
+
+  await handlers.handleMessage({
+    content: "<@bot-1> 하이",
+    author: { bot: false, tag: "alice#0001" },
+    reply: async (msg: string) => { replies.push(msg); },
+  });
+
+  expect(replies.at(-1)).toContain("request zeroclaw");
+
+  await handlers.handleMessage({
+    content: "<@bot-1> request nullclaw do live work",
+    author: { bot: false, tag: "alice#0001" },
+    reply: async (msg: string) => { replies.push(msg); },
+  });
+
+  expect(received.at(-1)).toEqual({
+    type: "request",
+    runtime: "nullclaw",
+    request: "do live work",
+  });
+  expect(replies.at(-1)).toContain("Processed command: request");
+});
+test("bot handlers can fan out request both into both runtimes", async () => {
+  const registry = new ApprovalRegistry();
+  const received: ControlEvent[] = [];
+  const replies: string[] = [];
+  const handlers = buildHandlers({
+    registry,
+    botUserId: "bot-1",
+    onEvent: async (event) => {
+      received.push(event);
+    },
+  });
+
+  await handlers.handleMessage({
+    content: "<@bot-1> request both do the same work",
+    author: { bot: false, tag: "alice#0001" },
+    reply: async (msg: string) => { replies.push(msg); },
+  });
+
+  expect(received).toEqual([
+    { type: "request", runtime: "zeroclaw", request: "do the same work" },
+    { type: "request", runtime: "nullclaw", request: "do the same work" },
+  ]);
+  expect(replies.at(-1)).toContain("Processed command: request");
 });
 test("bot handlers reject commands from the wrong guild or channel", async () => {
   const registry = new ApprovalRegistry();
@@ -291,6 +381,145 @@ test("bot handlers require approval permission for approve/reject/config-set", a
   expect(reply).toContain("approver permission required");
 });
 
+test("discordCommandDefinitions registers the production slash command surface", () => {
+  const commands = discordCommandDefinitions() as Array<{ name: string }>;
+
+  expect(commands.map((command) => command.name)).toEqual(["request", "approve", "reject", "config"]);
+});
+
+test("bot handlers reply with delivery failures instead of hanging", async () => {
+  const registry = new ApprovalRegistry();
+  let reply = "";
+  const handlers = buildHandlers({
+    registry,
+    onEvent: async () => {
+      throw new Error("glue unavailable");
+    },
+  });
+
+  await handlers.handleMessage({
+    content: "request zeroclaw build something",
+    author: { bot: false, tag: "alice#0001" },
+    reply: async (msg: string) => { reply = msg; },
+  });
+
+  expect(reply).toContain("Command failed: glue unavailable");
+});
+
+test("bot interaction handlers defer before forwarding and edit final response", async () => {
+  const registry = new ApprovalRegistry();
+  let deferred = false;
+  let edited = "";
+  const handlers = buildHandlers({
+    registry,
+    onEvent: async () => {},
+  });
+
+  await handlers.handleInteraction({
+    isChatInputCommand: () => true,
+    commandName: "request",
+    user: { tag: "alice#0001" },
+    options: {
+      getString: (name: string) => {
+        if (name === "runtime") return "zeroclaw";
+        if (name === "request") return "build something";
+        return null;
+      },
+    },
+    deferReply: async (payload: { ephemeral: boolean }) => {
+      deferred = payload.ephemeral;
+    },
+    editReply: async (payload: { content: string }) => {
+      edited = payload.content;
+    },
+  });
+
+  expect(deferred).toBe(true);
+  expect(edited).toContain("Processed command: request");
+});
+test("forwardControlEvent does not echo upstream response bodies", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("secret ghp_should_not_log", { status: 500 })) as unknown as typeof fetch;
+  try {
+    let message = "";
+    try {
+      await forwardControlEvent("http://glue", "control-secret", { type: "request", runtime: "zeroclaw", request: "do work" });
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toBe("control event delivery failed (500)");
+    expect(message).not.toContain("ghp_should_not_log");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("resolveLivePolicy auto-selects single guild and provisions missing channels by name", async () => {
+  const created: string[] = [];
+  const guild = {
+    id: "guild-1",
+    channels: {
+      fetch: async (id?: string) => {
+        if (id) return undefined;
+        return new Map<string, any>([]);
+      },
+      create: async ({ name }: { name: string }) => {
+        created.push(name);
+        return { id: `${name}-id`, name, type: 0 };
+      },
+    },
+  };
+  const client = {
+    guilds: {
+      cache: new Map([["guild-1", guild]]),
+      fetch: async () => guild,
+    },
+  };
+
+  const policy = await resolveLivePolicy(client, {
+    GLUE_EVENT_ENDPOINT: "http://glue-webhook:8787",
+    JEO_CONTROL_EVENT_SECRET: "control-secret",
+  } as NodeJS.ProcessEnv);
+
+  expect(policy.guildId).toBe("guild-1");
+  expect(policy.requestChannelId).toBe("jeo-request-id");
+  expect(policy.approvalChannelId).toBe("jeo-approval-id");
+  expect(created).toEqual(["jeo-request", "jeo-approval"]);
+});
+
+test("resolveLivePolicy respects configured channel ids", async () => {
+  const channels = new Map([
+    ["request-1", { id: "request-1", name: "request", type: 0 }],
+    ["approval-1", { id: "approval-1", name: "approval", type: 0 }],
+  ]);
+  const guild = {
+    id: "guild-1",
+    channels: {
+      fetch: async (id?: string) => {
+        if (id) return channels.get(id);
+        return channels;
+      },
+      create: async () => {
+        throw new Error("should not create");
+      },
+    },
+  };
+  const client = {
+    guilds: {
+      cache: new Map([["guild-1", guild]]),
+      fetch: async () => guild,
+    },
+  };
+
+  const policy = await resolveLivePolicy(client, {
+    DISCORD_GUILD_ID: "guild-1",
+    DISCORD_REQUEST_CHANNEL_ID: "request-1",
+    DISCORD_APPROVAL_CHANNEL_ID: "approval-1",
+  } as NodeJS.ProcessEnv);
+
+  expect(policy.requestChannelId).toBe("request-1");
+  expect(policy.approvalChannelId).toBe("approval-1");
+});
 test("bot handlers allow approval commands for authorized approvers in the approval channel", async () => {
   const registry = new ApprovalRegistry();
   const received: ControlEvent[] = [];

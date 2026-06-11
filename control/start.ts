@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import {
-  GcloudSecretSource,
   loadSecretsForControl,
+  secretSourceFromEnv,
   type ControlService,
   type SecretSource,
 } from "../secrets/loader.ts";
@@ -30,6 +30,9 @@ const COMMON_BOOTSTRAP_ENV = [
   "NO_PROXY",
   "TARGET_REPO",
   "TARGET_BRANCH",
+  "JEO_SECRET_SOURCE",
+  "JEO_SECRETS_FILE",
+  "GITHUB_API_BASE_URL",
 ] as const;
 
 const SERVICE_BOOTSTRAP_ENV: Record<ControlService, readonly string[]> = {
@@ -44,6 +47,31 @@ const SERVICE_BOOTSTRAP_ENV: Record<ControlService, readonly string[]> = {
     "GLUE_EVENT_ENDPOINT",
   ],
 };
+
+const TERMINATION_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+
+type SignalHandler = () => void;
+type SignalRegistrar = (signal: NodeJS.Signals, handler: SignalHandler) => void;
+type SignalUnregistrar = (signal: NodeJS.Signals, handler: SignalHandler) => void;
+
+export function bindTerminationHandlers(
+  register: SignalRegistrar,
+  unregister: SignalUnregistrar,
+  onSignal: (signal: NodeJS.Signals) => void,
+): () => void {
+  const handlers = new Map<NodeJS.Signals, SignalHandler>();
+  for (const signal of TERMINATION_SIGNALS) {
+    const handler = () => onSignal(signal);
+    handlers.set(signal, handler);
+    register(signal, handler);
+  }
+
+  return () => {
+    for (const [signal, handler] of handlers) {
+      unregister(signal, handler);
+    }
+  };
+}
 
 
 function requireTrimmed(name: string, value: string | undefined): string {
@@ -88,10 +116,10 @@ export async function resolveControlEnvironment(
 export async function startControlService(
   service: ControlService,
   env: NodeJS.ProcessEnv = process.env,
-  sourceFactory: (project: string) => SecretSource = (project) => new GcloudSecretSource(project),
+  sourceFactory: (project: string, env: NodeJS.ProcessEnv) => SecretSource = (project, sourceEnv) => secretSourceFromEnv(sourceEnv, project),
 ): Promise<void> {
   const project = requireTrimmed("GCLOUD_PROJECT", env.GCLOUD_PROJECT);
-  const source = sourceFactory(project);
+  const source = sourceFactory(project, env);
   const childEnv = await resolveControlEnvironment(service, env, source);
   const [command, ...args] = commandForService(service);
 
@@ -100,8 +128,19 @@ export async function startControlService(
       env: childEnv,
       stdio: "inherit",
     });
-    child.on("error", reject);
+    const cleanupSignals = bindTerminationHandlers(
+      (signal, handler) => process.on(signal, handler),
+      (signal, handler) => process.off(signal, handler),
+      (signal) => {
+        if (!child.killed) child.kill(signal);
+      },
+    );
+    child.on("error", (err) => {
+      cleanupSignals();
+      reject(err);
+    });
     child.on("close", (code) => {
+      cleanupSignals();
       if (code === 0) resolve();
       else reject(new Error(`${service} exited with code ${code ?? 1}`));
     });

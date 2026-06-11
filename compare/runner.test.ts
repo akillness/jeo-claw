@@ -31,12 +31,12 @@ test("runComparison invokes RunFn correct number of times and with correct run i
   expect(calls.length).toBe(runtimes.length * runs);
   expect(samples.length).toBe(runtimes.length * runs);
 
-  // Verify indices and runtimes
+  // Verify paired run ordering keeps A/B samples interleaved
   expect(calls[0]).toEqual({ runtime: "zeroclaw", run: 1 });
-  expect(calls[1]).toEqual({ runtime: "zeroclaw", run: 2 });
-  expect(calls[2]).toEqual({ runtime: "zeroclaw", run: 3 });
-  expect(calls[3]).toEqual({ runtime: "nullclaw", run: 1 });
-  expect(calls[4]).toEqual({ runtime: "nullclaw", run: 2 });
+  expect(calls[1]).toEqual({ runtime: "nullclaw", run: 1 });
+  expect(calls[2]).toEqual({ runtime: "zeroclaw", run: 2 });
+  expect(calls[3]).toEqual({ runtime: "nullclaw", run: 2 });
+  expect(calls[4]).toEqual({ runtime: "zeroclaw", run: 3 });
   expect(calls[5]).toEqual({ runtime: "nullclaw", run: 3 });
 
   // Verify returned samples
@@ -45,6 +45,25 @@ test("runComparison invokes RunFn correct number of times and with correct run i
   expect(firstSample!.runtime).toBe("zeroclaw");
   expect(firstSample!.run).toBe(1);
   expect(firstSample!.latencyMs).toBe(100);
+});
+
+test("runComparison rejects invalid or unsafe run counts", async () => {
+  const run = async (runtime: Runtime, run: number): Promise<MetricSample> => ({
+    runtime,
+    run,
+    latencyMs: 1,
+    ramMb: 1,
+    cpuPct: 1,
+    ciPassed: false,
+    tokenCost: 0,
+    failed: true,
+  });
+
+  await expect(runComparison({ runtimes: ["zeroclaw"], runs: 0, run })).rejects.toThrow("COMPARE_RUNS");
+  await expect(runComparison({ runtimes: ["zeroclaw"], runs: -1, run })).rejects.toThrow("COMPARE_RUNS");
+  await expect(runComparison({ runtimes: ["zeroclaw"], runs: 1.5, run })).rejects.toThrow("COMPARE_RUNS");
+  await expect(runComparison({ runtimes: ["zeroclaw"], runs: Infinity, run })).rejects.toThrow("COMPARE_RUNS");
+  await expect(runComparison({ runtimes: ["zeroclaw"], runs: 51, run })).rejects.toThrow("COMPARE_RUNS");
 });
 
 test("compareAndSummarize returns both samples and summaries correctly", async () => {

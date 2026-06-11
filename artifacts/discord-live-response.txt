@@ -1,0 +1,19 @@
+# Discord UX repair evidence
+Generated: 2026-06-10T07:03:32.133Z
+
+## Corrected behavior
+- Plain mention like `<@1484763709762048121> 안녕` no longer creates a fake/nullclaw workflow.
+- It now returns an actionable guide:
+  - `request zeroclaw <요청>`
+  - `request nullclaw <요청>`
+  - `request both <요청>`
+  - `/request`
+- `request both <요청>` now creates two real workflows, one for `zeroclaw`, one for `nullclaw`.
+
+## Live container-path verification
+- Plain mention reply observed from the running `discord-bot` container: usage guide text.
+- `request both 모든 클로 상태 보고` reply observed from the running `discord-bot` container:
+  - `Workflow wf-1781074989250-261 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create`
+  - `Workflow wf-1781074989303-856 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create`
+
+RESULT: PASS — the bot now distinguishes guide-only mentions from explicit execution requests, and supports both claws in one command.

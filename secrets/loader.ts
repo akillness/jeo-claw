@@ -2,10 +2,11 @@
 // Invariants:
 //  - Every runtime role gets only read-only startup credentials plus the runtime-dispatch secret.
 //  - Write-capable GitHub credentials are released separately for approved write actions.
-//  - Control services receive only control-plane credentials, never role GitHub/OpenAI bundles.
+//  - Control services receive only control-plane credentials, never role GitHub/OpenAI-Codex-OAuth bundles.
 //  - Missing or blank required secrets are a hard failure.
 //  - Plaintext secret values and upstream secret-store messages are never logged or embedded in errors.
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 export type Role =
   | "researcher-coder"
@@ -21,31 +22,35 @@ type SecretSpec = { name: string; scope: Scope };
 
 const WRITE_SECRET: SecretSpec = { name: "github-token-rw", scope: "write" };
 const RUNTIME_DISPATCH_SECRET: SecretSpec = { name: "runtime-dispatch-secret", scope: "read" };
+const OPENAI_OAUTH_SECRET: SecretSpec = { name: "openai-codex-oauth", scope: "read" };
 const WRITE_ELIGIBLE_ROLES = new Set<Role>(["pr-creator", "merger"]);
+
+const GENERATED_SHARED_SECRETS = new Set(["github-webhook-secret", "control-event-secret", "runtime-dispatch-secret"]);
+const MIN_SHARED_SECRET_LENGTH = 24;
 
 export const ROLE_SECRETS: Record<Role, SecretSpec[]> = {
   "researcher-coder": [
-    { name: "openai-api-key", scope: "read" },
+    OPENAI_OAUTH_SECRET,
     { name: "github-token-ro", scope: "read" },
     RUNTIME_DISPATCH_SECRET,
   ],
   reviewer: [
-    { name: "openai-api-key", scope: "read" },
+    OPENAI_OAUTH_SECRET,
     { name: "github-token-ro", scope: "read" },
     RUNTIME_DISPATCH_SECRET,
   ],
   "pr-creator": [
-    { name: "openai-api-key", scope: "read" },
+    OPENAI_OAUTH_SECRET,
     { name: "github-token-ro", scope: "read" },
     RUNTIME_DISPATCH_SECRET,
   ],
   "pr-review-scheduler": [
-    { name: "openai-api-key", scope: "read" },
+    OPENAI_OAUTH_SECRET,
     { name: "github-token-ro", scope: "read" },
     RUNTIME_DISPATCH_SECRET,
   ],
   merger: [
-    { name: "openai-api-key", scope: "read" },
+    OPENAI_OAUTH_SECRET,
     { name: "github-token-ro", scope: "read" },
     RUNTIME_DISPATCH_SECRET,
   ],
@@ -64,7 +69,7 @@ export const CONTROL_SECRETS: Record<ControlService, SecretSpec[]> = {
 };
 
 export const ENV_FOR: Record<string, string> = {
-  "openai-api-key": "OPENAI_API_KEY",
+  "openai-codex-oauth": "OPENAI_CODEX_AUTH",
   "github-token-ro": "GITHUB_TOKEN",
   "github-token-rw": "GITHUB_TOKEN",
   "github-webhook-secret": "GITHUB_WEBHOOK_SECRET",
@@ -100,12 +105,47 @@ export class GcloudSecretSource implements SecretSource {
   }
 }
 
+export class FileSecretSource implements SecretSource {
+  private readonly secrets: Record<string, string>;
+
+  constructor(path: string) {
+    const raw = readFileSync(path, "utf8");
+    this.secrets = JSON.parse(raw) as Record<string, string>;
+  }
+
+  async access(secretId: string): Promise<string> {
+    const value = this.secrets[secretId];
+    if (value === undefined) {
+      throw new Error(`file secret missing for ${secretId}`);
+    }
+    return value;
+  }
+}
+
+export function secretSourceFromEnv(env: NodeJS.ProcessEnv, project: string): SecretSource {
+  const mode = env.JEO_SECRET_SOURCE?.trim().toLowerCase();
+  if (mode === "file") {
+    const path = env.JEO_SECRETS_FILE?.trim();
+    if (!path) throw new MissingSecretError("JEO_SECRETS_FILE is required when JEO_SECRET_SOURCE=file");
+    return new FileSecretSource(path);
+  }
+  return new GcloudSecretSource(project);
+}
+
 export class MissingSecretError extends Error {}
 
 function requireTrimmedSecret(label: string, value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
     throw new MissingSecretError(`${label} resolved empty`);
+  }
+  return trimmed;
+}
+
+function validateSecretValue(spec: SecretSpec, label: string, value: string): string {
+  const trimmed = requireTrimmedSecret(label, value);
+  if (GENERATED_SHARED_SECRETS.has(spec.name) && trimmed.length < MIN_SHARED_SECRET_LENGTH) {
+    throw new MissingSecretError(`${label} must be at least ${MIN_SHARED_SECRET_LENGTH} characters`);
   }
   return trimmed;
 }
@@ -129,7 +169,7 @@ async function loadSpecs(
     if (!envVarName) {
       throw new Error(`unknown secret spec name: ${spec.name}`);
     }
-    env[envVarName] = requireTrimmedSecret(`${label}: ${secretId}`, value);
+    env[envVarName] = validateSecretValue(spec, `${label}: ${secretId}`, value);
   }
   return env;
 }
@@ -175,6 +215,7 @@ export function controlSecretNames(service: ControlService): string[] {
 
 export function redact(s: string, secrets: string[]): string {
   let r = s;
-  for (const v of secrets) if (v) r = r.split(v).join("***REDACTED***");
+  const uniqueSecrets = [...new Set(secrets.filter(Boolean))].sort((a, b) => b.length - a.length);
+  for (const v of uniqueSecrets) r = r.split(v).join("***REDACTED***");
   return r;
 }

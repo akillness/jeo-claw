@@ -70,9 +70,9 @@ bun install                # install deps (discord.js, yaml, @types/bun)
 bun test                   # run all *.test.ts (Bun native test runner)
 bun run check:compose      # static Docker/security validation (no Docker needed)
 bun run smoke:glue         # local HTTP lifecycle smoke: request→approval→brokered write→merge
+bun run preflight:live      # live Secret Manager/Discord readiness preflight
 bun run glue               # start webhook server (glue/server.ts, :8787)
 bun run discord            # start Discord control bot (discord/bot.ts)
-bun run compare            # run A/B comparison runner (compare/runner.ts)
 bunx tsc --noEmit          # type-check only (tsconfig has noEmit: true)
 
 # Docker (only in a Docker environment)
@@ -82,15 +82,18 @@ docker compose ps          # expect zeroclaw/nullclaw/egress-proxy healthy
 ```
 
 There is **no separate lint step**; correctness is enforced by `tsc --noEmit`, `bun test`,
-`bun run check:compose`, `bun run config/validate.ts`, and targeted smoke checks.
+`bun run check:compose`, `bun run config/validate.ts`, `bun run preflight:live`, and targeted smoke checks.
 
 ## Claw Operation Guide
 
 - Treat `/skill:spec-kit` as the repo-local `ops/WORKFLOW.md` pipeline: review `ops/RULES.md`, `ops/CONSTITUTION.md`, and existing vault entries before non-trivial changes; keep implementation, verification, capture, and README guidance in one cycle.
-- Use `bun run smoke:glue` for reproducible behavior verification without Docker/gcloud. It starts `glue/server.ts` as a local HTTP server with injected fake Secret Manager, runtime wrappers, and GitHub write calls, then proves request→runtime dispatch→`pr.create` approval→CI/review webhook→`pr.merge` approval.
-- Live operation requires gcloud Secret Manager entries for `openai-api-key`, `github-token-ro`, `github-token-rw`, `github-webhook-secret`, `discord-bot-token`, `control-event-secret`, and `runtime-dispatch-secret` under the configured prefix. `.env` contains IDs/config only.
-- Runtime roles never get write credentials at startup. `glue-webhook` brokers `github-token-rw` only for approved `pr.create`/`pr.merge`; the approval is action-scoped and single-use.
-- `401` means missing/wrong control or webhook secret; `403` means workflow/action/role mismatch or missing approval; `501 config-set` is intentional until a safe config mutation design exists.
+- Use `bun run smoke:glue` for reproducible behavior verification without Docker/gcloud. It starts `glue/server.ts` as a local HTTP server with injected fake Secret Manager, runtime wrappers, and GitHub write calls, then proves request→runtime dispatch→`pr.create` approval→early `pr.merge` approval wait→CI/review webhook→merge.
+- Use `bun run preflight:live` before Docker live operation to validate required non-secret env, Discord auto-provision overrides, and required Secret Manager entries without printing secret values.
+- Live operation requires Secret Manager entries for external credentials (`openai-codex-oauth` — ChatGPT subscription OAuth in Codex `auth.json` format, `github-token-ro`, `github-token-rw`, `discord-bot-token`) plus generated internal shared secrets (`github-webhook-secret`, `control-event-secret`, `runtime-dispatch-secret`) under the configured prefix. Static OpenAI API keys are no longer used (OAuth migration: `ops/specs/oauth-provider-auth/`). `.env` contains IDs/config only; guild/request/approval channel IDs are optional overrides because the bot can auto-select a single guild and provision channels by name.
+- For local/CI container bring-up without gcloud ADC, the wrappers also accept `JEO_SECRET_SOURCE=file` with a read-only mounted JSON secret file at `JEO_SECRETS_FILE`; treat that as a non-production bootstrap path, not the default operating mode.
+- Local/CI container end-to-end can point `GITHUB_API_BASE_URL` at `scripts/mock-github.ts` on the internal network to exercise approved `pr.create` / `pr.merge` without live GitHub writes.
+- Runtime roles never get write credentials at startup. `glue-webhook` loads `github-token-rw` internally only for approved `pr.create`/`pr.merge`; `/dispatch` never returns credential material.
+- `401` means missing/wrong control or webhook secret; `403` means workflow/runtime/stage/action mismatch or missing approval/readiness; `413` means oversized webhook/runtime dispatch payload; `501 config-set` is intentional until a safe config mutation design exists.
 
 ## Code Conventions & Common Patterns
 
@@ -123,7 +126,7 @@ There is **no separate lint step**; correctness is enforced by `tsc --noEmit`, `
 ## Important Files
 
 - **Entry points** (gated by `if (import.meta.main)`): `glue/server.ts`,
-  `discord/bot.ts`, `compare/runner.ts`, `config/validate.ts`.
+  `discord/bot.ts`, `config/validate.ts`. `compare/runner.ts` is intentionally library-only until a real sample collector is wired.
 - **Type contract**: `glue/contract.ts` (single source of truth for shared types).
 - **Policy core**: `glue/merge-gate.ts`, `glue/state-machine.ts`.
 - **Security**: `glue/github-webhook.ts` (HMAC), `discord/approval.ts` (high-risk guard),

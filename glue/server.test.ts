@@ -5,13 +5,28 @@ import {
   validateRuntimeDispatchPayload,
   handleControlEventRequest,
   handleControlDispatchRequest,
+  pruneWorkflowStore,
 } from "./server";
-import { createWorkflow, applyEvent } from "./state-machine";
+import { createWorkflow, applyEvent, advanceStage } from "./state-machine";
 import type { WorkflowState } from "./contract";
 import { createHmac } from "node:crypto";
 import type { SecretSource } from "../secrets/loader.ts";
 
 const CONTROL_SECRET = "control-shared-secret";
+
+function pendingPrCreateWorkflow(id: string, request = "impl feature"): WorkflowState {
+  let wf = createWorkflow(id, "zeroclaw", request);
+  wf = advanceStage(wf);
+  wf = advanceStage(wf);
+  return advanceStage(wf);
+}
+
+function pendingMergeWorkflow(id: string, request = "merge feature"): WorkflowState {
+  let wf = pendingPrCreateWorkflow(id, request);
+  wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
+  wf = advanceStage(wf);
+  return advanceStage(wf);
+}
 
 class MockSource implements SecretSource {
   constructor(private store: Record<string, string>) {}
@@ -61,6 +76,29 @@ test("handleWebhookRequest returns 401 on bad signature", async () => {
   expect(res.status).toBe(401);
   const data = (await res.json()) as { error?: string };
   expect(data.error).toBe("Unauthorized");
+});
+
+test("handleWebhookRequest rejects oversized webhook payloads before signature parsing", async () => {
+  const body = "x".repeat(300 * 1024);
+  const res = await handleWebhookRequest(new Request("http://localhost/webhook", {
+    method: "POST",
+    headers: {
+      "x-hub-signature-256": "sha256=invalid",
+      "content-length": String(body.length),
+    },
+    body,
+  }), {
+    secret: "test_webhook_secret",
+    controlEventSecret: CONTROL_SECRET,
+    prefix: "jeo-claw",
+    sourceFactory,
+    writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
+    store: new Map(),
+  });
+
+  expect(res.status).toBe(413);
 });
 
 test("handleWebhookRequest exposes health without webhook signature", async () => {
@@ -176,7 +214,7 @@ test("handleControlEventRequest rejects unauthenticated mutations", async () => 
   expect(res.status).toBe(401);
 });
 
-test("handleControlEventRequest creates workflows and updates approval state when authenticated", async () => {
+test("handleControlEventRequest creates workflows and ignores early approvals", async () => {
   const localStore = new Map<string, WorkflowState>();
   const createReq = new Request("http://localhost/control-event", {
     method: "POST",
@@ -200,12 +238,11 @@ test("handleControlEventRequest creates workflows and updates approval state whe
   });
   const approveRes = await handleControlEventRequest(approveReq, { store: localStore, controlEventSecret: CONTROL_SECRET });
   expect(approveRes.status).toBe(200);
-  expect(localStore.get(created.workflow.id)?.actionApprovals?.["pr.create"]?.status).toBe("approved");
+  expect(localStore.get(created.workflow.id)?.actionApprovals?.["pr.create"]?.status).toBeUndefined();
 });
 test("handleControlEventRequest executes approved PR creation through the live write path", async () => {
   const localStore = new Map<string, WorkflowState>();
-  let wf = createWorkflow("wf-live-pr", "zeroclaw", "Build secure feature");
-  wf.stage = "pr-create";
+  const wf = pendingPrCreateWorkflow("wf-live-pr", "Build secure feature");
   localStore.set(wf.id, wf);
 
   const calls: Array<{ url: string; body: any }> = [];
@@ -214,6 +251,12 @@ test("handleControlEventRequest executes approved PR creation through the live w
       url: String(url),
       body: init?.body ? JSON.parse(String(init.body)) : null,
     });
+    if (String(url).includes("/pulls?state=open")) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ number: 77, html_url: "https://github.com/acme/repo/pull/77" }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
@@ -243,16 +286,16 @@ test("handleControlEventRequest executes approved PR creation through the live w
   expect(updated.stage).toBe("merge");
   expect(updated.status).toBe("awaiting-approval");
   expect(updated.actionApprovals?.["pr.create"]?.status).toBe("consumed");
-  expect(calls[0]?.url).toContain("/repos/acme/repo/pulls");
-  expect(calls[0]?.body.head).toBe(`jeo/${wf.runtime}/pr-creator/${wf.id}`);
+  expect(calls.some((call) => call.url.includes("/repos/acme/repo/pulls?state=open"))).toBe(true);
+  expect(calls.find((call) => call.body?.head)?.body.head).toBe(`jeo/${wf.runtime}/pr-creator/${wf.id}`);
 });
 
 test("handleWebhookRequest executes approved merge through the live write path", async () => {
   const localStore = new Map<string, WorkflowState>();
-  let wf = createWorkflow("wf-live-merge", "zeroclaw", "Merge secure feature");
-  wf.stage = "merge";
+  let wf = pendingMergeWorkflow("wf-live-merge", "Merge secure feature");
   wf.prNumber = 77;
   wf = applyEvent(wf, { reviewPassed: true });
+  wf = advanceStage(wf);
   wf = applyEvent(wf, { type: "approve", action: "pr.merge", user: "alice" });
   localStore.set(wf.id, wf);
 
@@ -298,18 +341,51 @@ test("config-set through control-event is explicit not-implemented", async () =>
       "Content-Type": "application/json",
       "x-control-event-secret": CONTROL_SECRET,
     },
-    body: JSON.stringify({ type: "config-set", key: "provider", value: "openai" }),
+    body: JSON.stringify({ type: "config-set", key: "provider", value: "openai-codex" }),
   }), {
     store: new Map(),
     controlEventSecret: CONTROL_SECRET,
   });
   expect(res.status).toBe(501);
 });
+test("debug workflows endpoint lists current workflow summaries", async () => {
+  const localStore = new Map<string, WorkflowState>();
+  const wf = createWorkflow("wf-debug", "nullclaw", "browser verification");
+  wf.stage = "pr-create";
+  wf.status = "awaiting-approval";
+  wf.pendingAction = "pr.create";
+  wf.headRef = "jeo/nullclaw/pr-creator/wf-debug";
+  localStore.set(wf.id, wf);
+
+  const res = await handleWebhookRequest(new Request("http://localhost/debug/workflows"), {
+    secret: "test_webhook_secret",
+    controlEventSecret: CONTROL_SECRET,
+    prefix: "jeo-claw",
+    sourceFactory,
+    writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
+    store: localStore,
+  });
+
+  expect(res.status).toBe(200);
+  const body = await res.json() as { workflows: Array<{ id: string; runtime: string; request: string; stage: string; status: string; pendingAction?: string; headRef?: string }> };
+  expect(body.workflows).toEqual([
+    {
+      id: "wf-debug",
+      runtime: "nullclaw",
+      request: "browser verification",
+      stage: "pr-create",
+      status: "awaiting-approval",
+      pendingAction: "pr.create",
+      headRef: "jeo/nullclaw/pr-creator/wf-debug",
+    },
+  ]);
+});
 
 test("handleControlDispatchRequest rejects unauthenticated or unapproved write release", async () => {
   const localStore = new Map<string, WorkflowState>();
-  const wf = createWorkflow("wf-dispatch", "zeroclaw", "impl feature");
-  wf.stage = "pr-create";
+  const wf = pendingPrCreateWorkflow("wf-dispatch");
   localStore.set(wf.id, wf);
 
   const unauthReq = new Request("http://localhost/dispatch", {
@@ -329,8 +405,7 @@ test("handleControlDispatchRequest rejects unauthenticated or unapproved write r
 
 test("handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval", async () => {
   const localStore = new Map<string, WorkflowState>();
-  let wf = createWorkflow("wf-dispatch", "zeroclaw", "impl feature");
-  wf.stage = "pr-create";
+  let wf = pendingPrCreateWorkflow("wf-dispatch");
   wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
   localStore.set(wf.id, wf);
 
@@ -341,16 +416,15 @@ test("handleControlDispatchRequest releases write secret only for approved match
   });
   const res = await handleControlDispatchRequest(req, { store: localStore, controlEventSecret: CONTROL_SECRET, prefix: "jeo-claw", sourceFactory });
   expect(res.status).toBe(200);
-  const data = (await res.json()) as { credentials: Record<string, string> };
-  expect(data.credentials.GITHUB_TOKEN).toBe("ghp_write_live");
+  const data = (await res.json()) as { credentials?: Record<string, string>; credentialReleased?: boolean };
+  expect(data.credentials).toBeUndefined();
+  expect(data.credentialReleased).toBe(false);
   expect(localStore.get(wf.id)?.actionApprovals?.["pr.create"]?.status).toBe("consumed");
 });
 
 test("handleControlDispatchRequest rejects role/action mismatch", async () => {
   const localStore = new Map<string, WorkflowState>();
-  let wf = createWorkflow("wf-dispatch", "zeroclaw", "impl feature");
-  wf.stage = "merge";
-  wf = applyEvent(wf, { type: "approve", action: "pr.merge", user: "alice" });
+  const wf = pendingMergeWorkflow("wf-dispatch");
   localStore.set(wf.id, wf);
 
   const req = new Request("http://localhost/dispatch", {
@@ -360,6 +434,51 @@ test("handleControlDispatchRequest rejects role/action mismatch", async () => {
   });
   const res = await handleControlDispatchRequest(req, { store: localStore, controlEventSecret: CONTROL_SECRET, prefix: "jeo-claw", sourceFactory });
   expect(res.status).toBe(403);
+});
+
+test("handleControlDispatchRequest binds release to stored workflow runtime stage and readiness", async () => {
+  const localStore = new Map<string, WorkflowState>();
+  let wf = pendingPrCreateWorkflow("wf-bound");
+  wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
+  localStore.set(wf.id, wf);
+
+  const runtimeMismatch = new Request("http://localhost/dispatch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-control-event-secret": CONTROL_SECRET },
+    body: JSON.stringify({ workflowId: wf.id, runtime: "nullclaw", role: "pr-creator", stage: "pr-create", action: "pr.create" }),
+  });
+  const runtimeRes = await handleControlDispatchRequest(runtimeMismatch, { store: localStore, controlEventSecret: CONTROL_SECRET, prefix: "jeo-claw", sourceFactory });
+  expect(runtimeRes.status).toBe(403);
+  expect(((await runtimeRes.json()) as { error: string }).error).toContain("runtime/workflow mismatch");
+
+  const stageMismatch = new Request("http://localhost/dispatch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-control-event-secret": CONTROL_SECRET },
+    body: JSON.stringify({ workflowId: wf.id, runtime: "zeroclaw", role: "pr-creator", stage: "merge", action: "pr.create" }),
+  });
+  const stageRes = await handleControlDispatchRequest(stageMismatch, { store: localStore, controlEventSecret: CONTROL_SECRET, prefix: "jeo-claw", sourceFactory });
+  expect(stageRes.status).toBe(403);
+  expect(((await stageRes.json()) as { error: string }).error).toContain("stage/workflow mismatch");
+});
+
+test("handleControlDispatchRequest refuses merge credential release before CI and review are true", async () => {
+  const localStore = new Map<string, WorkflowState>();
+  let wf = pendingMergeWorkflow("wf-merge-not-ready", "merge feature");
+  wf.prNumber = 99;
+  wf = advanceStage(wf);
+  wf = applyEvent(wf, { type: "approve", action: "pr.merge", user: "alice" });
+  localStore.set(wf.id, wf);
+
+  const req = new Request("http://localhost/dispatch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-control-event-secret": CONTROL_SECRET },
+    body: JSON.stringify({ workflowId: wf.id, runtime: "zeroclaw", role: "merger", stage: "merge", action: "pr.merge" }),
+  });
+  const res = await handleControlDispatchRequest(req, { store: localStore, controlEventSecret: CONTROL_SECRET, prefix: "jeo-claw", sourceFactory });
+
+  expect(res.status).toBe(403);
+  expect(((await res.json()) as { error: string }).error).toContain("not ready for pr.merge");
+  expect(localStore.get(wf.id)?.actionApprovals?.["pr.merge"]?.status).toBe("approved");
 });
 
 test("unmatched signed webhook reports non-success body", async () => {
@@ -407,4 +526,64 @@ test("start throws when required secrets/bootstrap inputs are missing or blank",
     process.env.GCLOUD_PROJECT = originalProject;
     process.env.GCLOUD_SECRET_PREFIX = originalPrefix;
   }
+});
+
+test("pruneWorkflowStore evicts stale terminal workflows before active workflows", () => {
+  const localStore = new Map<string, WorkflowState>();
+  const active = createWorkflow("wf-active", "zeroclaw", "active");
+  active.history = [{ stage: "review", at: "2026-06-09T10:00:00.000Z", status: "running" }];
+
+  const staleMerged = createWorkflow("wf-stale", "zeroclaw", "old merged");
+  staleMerged.status = "merged";
+  staleMerged.mergedAt = "2026-06-08T00:00:00.000Z";
+  staleMerged.history = [{ stage: "merge", at: "2026-06-08T00:00:00.000Z", status: "merged" }];
+
+  const freshMerged = createWorkflow("wf-fresh", "zeroclaw", "fresh merged");
+  freshMerged.status = "merged";
+  freshMerged.mergedAt = "2026-06-09T09:59:00.000Z";
+  freshMerged.history = [{ stage: "merge", at: "2026-06-09T09:59:00.000Z", status: "merged" }];
+
+  localStore.set(active.id, active);
+  localStore.set(staleMerged.id, staleMerged);
+  localStore.set(freshMerged.id, freshMerged);
+
+  pruneWorkflowStore(localStore, {
+    terminalRetentionMs: 60 * 60 * 1000,
+    maxWorkflows: 2,
+    now: () => Date.parse("2026-06-09T10:00:00.000Z"),
+  });
+
+  expect(localStore.has("wf-stale")).toBe(false);
+  expect(localStore.has("wf-active")).toBe(true);
+  expect(localStore.has("wf-fresh")).toBe(true);
+});
+
+test("handleControlEventRequest prunes workflow store after mutations", async () => {
+  const localStore = new Map<string, WorkflowState>();
+  const oldMerged = createWorkflow("wf-old", "zeroclaw", "old");
+  oldMerged.status = "merged";
+  oldMerged.mergedAt = "2026-06-08T00:00:00.000Z";
+  oldMerged.history = [{ stage: "merge", at: "2026-06-08T00:00:00.000Z", status: "merged" }];
+  localStore.set(oldMerged.id, oldMerged);
+
+  const res = await handleControlEventRequest(new Request("http://localhost/control-event", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-control-event-secret": CONTROL_SECRET,
+    },
+    body: JSON.stringify({ type: "request", runtime: "zeroclaw", request: "new work" }),
+  }), {
+    store: localStore,
+    controlEventSecret: CONTROL_SECRET,
+    storePolicy: {
+      terminalRetentionMs: 1,
+      maxWorkflows: 5,
+      now: () => Date.parse("2026-06-09T10:00:00.000Z"),
+    },
+  });
+
+  expect(res.status).toBe(201);
+  expect(localStore.has("wf-old")).toBe(false);
+  expect(localStore.size).toBe(1);
 });

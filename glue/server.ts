@@ -1,11 +1,105 @@
 import { verifySignature, parseWebhook } from "./github-webhook";
 import { applyEvent, advanceStage, createWorkflow } from "./state-machine";
 import type { WorkflowState, ControlEvent, HighRiskAction } from "./contract";
-import { GcloudSecretSource, loadWriteSecretsForRole, type Role, type SecretSource } from "../secrets/loader.ts";
+import { loadWriteSecretsForRole, secretSourceFromEnv, type Role, type SecretSource } from "../secrets/loader.ts";
 import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
 import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
+import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
 
-export const store = new Map<string, WorkflowState>();
+export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
+export const pendingQueue: string[] = [];
+
+function isAnyWorkflowRunning(): boolean {
+  for (const workflow of store.values()) {
+    if (workflow.status === "running" || workflow.status === "pending") return true;
+  }
+  return false;
+}
+
+async function processQueue(opts: WorkflowExecutionOpts) {
+  if (isAnyWorkflowRunning()) return;
+  const nextWfId = pendingQueue.shift();
+  if (!nextWfId) return;
+  const wf = store.get(nextWfId);
+  if (wf) {
+    wf.status = "pending";
+    const updated = await progressWorkflowState(wf, opts);
+    store.set(updated.id, updated);
+    if (workflowTerminal(updated)) {
+      processQueue(opts).catch(console.error);
+    }
+  }
+}
+
+const DEFAULT_MAX_WORKFLOWS = 500;
+const DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+export interface WorkflowStorePolicy {
+  maxWorkflows?: number;
+  terminalRetentionMs?: number;
+  now?: () => number;
+}
+
+function workflowTerminal(state: WorkflowState): boolean {
+  return state.status === "merged" || state.status === "rejected" || state.status === "failed";
+}
+
+function timestampMs(value: string | undefined): number {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function workflowLastTouchedMs(state: WorkflowState): number {
+  let latest = timestampMs(state.mergedAt);
+  for (const item of state.history) {
+    latest = Math.max(latest, timestampMs(item.at));
+  }
+  for (const approval of Object.values(state.actionApprovals ?? {})) {
+    latest = Math.max(
+      latest,
+      timestampMs(approval.requestedAt),
+      timestampMs(approval.decidedAt),
+      timestampMs(approval.consumedAt),
+    );
+  }
+  return latest;
+}
+
+export function pruneWorkflowStore(storeToPrune: Map<string, WorkflowState>, policy: WorkflowStorePolicy = {}): void {
+  const now = policy.now?.() ?? Date.now();
+  const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
+  for (const [id, workflow] of storeToPrune) {
+    if (workflowTerminal(workflow) && now - workflowLastTouchedMs(workflow) > terminalRetentionMs) {
+      storeToPrune.delete(id);
+    }
+  }
+
+  const maxWorkflows = Math.max(1, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
+  if (storeToPrune.size <= maxWorkflows) return;
+
+  const candidates = [...storeToPrune.values()].sort((a, b) => {
+    const terminalDelta = Number(!workflowTerminal(a)) - Number(!workflowTerminal(b));
+    if (terminalDelta !== 0) return terminalDelta;
+    return workflowLastTouchedMs(a) - workflowLastTouchedMs(b);
+  });
+
+  while (storeToPrune.size > maxWorkflows) {
+    const candidate = candidates.shift();
+    if (!candidate) break;
+    storeToPrune.delete(candidate.id);
+  }
+}
+
+
+const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
+
+function bodyTooLarge(req: Request, maxBytes: number): boolean {
+  const contentLength = req.headers.get("content-length");
+  if (!contentLength) return false;
+  const parsed = Number(contentLength);
+  return Number.isFinite(parsed) && parsed > maxBytes;
+}
 
 const FORBIDDEN_RUNTIME_DISPATCH_FIELDS = new Set([
   "url",
@@ -85,6 +179,29 @@ function readyForMerge(state: WorkflowState): boolean {
   );
 }
 
+function brokerRequestMismatch(body: RuntimeDispatchPayload, workflow: WorkflowState): string | undefined {
+  if (body.runtime !== workflow.runtime) {
+    return "Dispatch runtime/workflow mismatch";
+  }
+  if (body.stage !== workflow.stage) {
+    return "Dispatch stage/workflow mismatch";
+  }
+
+  const expectedAction = createActionForStage(workflow);
+  if (expectedAction !== body.action) {
+    return "Dispatch action/workflow stage mismatch";
+  }
+
+  if (body.action === "pr.create" && !readyForCreate(workflow)) {
+    return "Workflow is not ready for pr.create credential release";
+  }
+  if (body.action === "pr.merge" && !readyForMerge(workflow)) {
+    return "Workflow is not ready for pr.merge credential release";
+  }
+
+  return undefined;
+}
+
 export function validateRuntimeDispatchPayload(payload: unknown): { ok: boolean; reason?: string } {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     return { ok: false, reason: "dispatch payload must be an object" };
@@ -120,6 +237,7 @@ interface WorkflowBrokerOpts {
   controlEventSecret: string;
   prefix: string;
   sourceFactory: () => SecretSource;
+  storePolicy?: WorkflowStorePolicy;
 }
 
 interface WorkflowExecutionOpts extends WorkflowBrokerOpts {
@@ -234,16 +352,21 @@ export async function handleControlDispatchRequest(
     return json(404, { error: "Workflow not found" });
   }
 
+  const mismatch = brokerRequestMismatch(body, workflow);
+  if (mismatch) {
+    return json(403, { error: mismatch });
+  }
+
   try {
-    const { credentials } = await brokerApprovedWriteCredentials(workflow, body.action, opts);
     const updated = consumeApprovedAction(workflow, body.action);
     opts.store.set(updated.id, updated);
+    pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
       success: true,
       workflowId: updated.id,
       role: expectedRole,
       action: body.action,
-      credentials,
+      credentialReleased: false,
     });
   } catch (err) {
     return json(403, { error: err instanceof Error ? err.message : String(err) });
@@ -268,20 +391,17 @@ export async function handleControlEventRequest(
 
   if (event.type === "request") {
     const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    let wf = createWorkflow(wfId, event.runtime, event.request);
-    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-      wf = await progressWorkflowState(wf, {
-        store: opts.store,
-        controlEventSecret: opts.controlEventSecret,
-        prefix: opts.prefix,
-        sourceFactory: opts.sourceFactory,
-        writeDeps: opts.writeDeps,
-        runtimeDispatchSecret: opts.runtimeDispatchSecret,
-        dispatchFetchImpl: opts.dispatchFetchImpl,
-      });
-    }
+    const wf = createWorkflow(wfId, event.runtime, event.request);
+    wf.status = "queued";
     opts.store.set(wfId, wf);
-    return json(201, { success: true, workflow: wf });
+    pendingQueue.push(wfId);
+
+    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+      processQueue(opts as WorkflowExecutionOpts).catch(console.error);
+    }
+
+    pruneWorkflowStore(opts.store, opts.storePolicy);
+    return json(201, { success: true, workflow: wf, queuePosition: pendingQueue.length });
   }
 
   if (event.type === "approve" || event.type === "reject") {
@@ -302,6 +422,7 @@ export async function handleControlEventRequest(
       });
     }
     opts.store.set(event.workflowId, updated);
+    pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, { success: true, workflow: updated });
   }
 
@@ -321,6 +442,21 @@ export async function handleWebhookRequest(
     return json(200, { ok: true });
   }
 
+  if (req.method === "GET" && url.pathname === "/debug/workflows") {
+    return json(200, {
+      workflows: [...opts.store.values()].map((workflow) => ({
+        id: workflow.id,
+        runtime: workflow.runtime,
+        request: workflow.request,
+        stage: workflow.stage,
+        status: workflow.status,
+        pendingAction: workflow.pendingAction,
+        prNumber: workflow.prNumber,
+        headRef: workflow.headRef,
+      })),
+    });
+  }
+
   if (url.pathname === "/dispatch") {
     return handleControlDispatchRequest(req, opts);
   }
@@ -329,8 +465,15 @@ export async function handleWebhookRequest(
     return handleControlEventRequest(req, opts);
   }
 
+  if (bodyTooLarge(req, MAX_WEBHOOK_BODY_BYTES)) {
+    return json(413, { error: "Webhook payload too large" });
+  }
+
   const signatureHeader = req.headers.get("x-hub-signature-256") || req.headers.get("x-hub-signature") || "";
   const rawBody = await req.text();
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_WEBHOOK_BODY_BYTES) {
+    return json(413, { error: "Webhook payload too large" });
+  }
 
   if (!verifySignature(rawBody, signatureHeader, opts.secret)) {
     return json(401, { error: "Unauthorized" });
@@ -349,14 +492,8 @@ export async function handleWebhookRequest(
     workflowState = opts.store.get(queryId);
   }
 
-  if (!workflowState) {
-    try {
-      const payloadObj = JSON.parse(rawBody);
-      const bodyId = payloadObj.workflowId ?? payloadObj.id;
-      if (bodyId && typeof bodyId === "string") {
-        workflowState = opts.store.get(bodyId);
-      }
-    } catch (_) {}
+  if (!workflowState && parsed.workflowId) {
+    workflowState = opts.store.get(parsed.workflowId);
   }
 
   if (!workflowState && parsed.prNumber !== undefined) {
@@ -372,6 +509,7 @@ export async function handleWebhookRequest(
     let nextState = applyEvent(workflowState, parsed);
     nextState = await progressWorkflowState(nextState, opts);
     opts.store.set(nextState.id, nextState);
+    pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, { success: true, workflow: nextState });
   }
 
@@ -393,6 +531,7 @@ export function start() {
   const targetRepo = process.env.TARGET_REPO?.trim();
   const targetBranch = process.env.TARGET_BRANCH?.trim();
   const runtimeDispatchSecret = process.env.JEO_RUNTIME_DISPATCH_SECRET?.trim();
+  const githubApiBaseUrl = process.env.GITHUB_API_BASE_URL?.trim() || undefined;
   if (!project || !prefix || !targetRepo || !targetBranch || !runtimeDispatchSecret) {
     throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, TARGET_BRANCH, and JEO_RUNTIME_DISPATCH_SECRET are required");
   }
@@ -404,10 +543,11 @@ export function start() {
         secret,
         controlEventSecret,
         prefix,
-        sourceFactory: () => new GcloudSecretSource(project),
+        sourceFactory: () => secretSourceFromEnv(process.env, project),
         writeDeps: {
           targetRepo,
           targetBranch,
+          apiBaseUrl: githubApiBaseUrl,
         },
         runtimeDispatchSecret,
         store,

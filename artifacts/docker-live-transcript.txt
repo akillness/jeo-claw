@@ -1,0 +1,21 @@
+# jeo-claw live Docker verification transcript
+Generated: 2026-06-10T07:47:25.243Z
+
+Requested mode: no mock data; live Secret Manager/GitHub/Discord path only.
+
+## Completed
+- Docker engine ready: Docker 29.5.2, Compose v5.1.4.
+- Full compose image rebuild completed successfully for control (glue-webhook, discord-bot), ZeroClaw runtime-role, and NullClaw runtime-role.
+- Credentials from Secret Manager downloaded successfully to gitignored `secrets/live.json`.
+- Live preflight script passed against the local file source.
+- Live compose stack started and became healthy with `JEO_SECRET_SOURCE=file` and `JEO_SECRETS_FILE=/run/secrets/jeo-claw-secrets.json` mounted read-only.
+- Discord bot connected and successfully registered slash commands.
+- Control event POST requests dispatched correctly to `glue-webhook:8787` on `claw_internal` network.
+- ZeroClaw and NullClaw runtime containers successfully executed research-code and review stages, writing receipts to `/workspace/.jeo-runtime-work/`.
+
+## Review follow-up (2026-06-10)
+- Found: ZeroClaw gateway booted without a configured model (`503 needs_onboarding`) because the legacy `onboard --quick` step was removed during OAuth migration.
+- Fixed: `runtimes/start.ts` now seeds `[providers]` fallback + `[providers.models.openai-codex]` into `/root/.zeroclaw/config.toml` after auth import; schema verified against the live binary; unit tests added; images rebuilt; all 13 containers healthy; control-path E2E re-verified (201, stage pr-create).
+
+## Result
+PASSED — E2E workflow verified successfully on real data.

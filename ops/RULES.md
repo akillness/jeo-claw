@@ -38,9 +38,10 @@
 | **deepinit** | 계층형 `AGENTS.md` 문서 자동 생성/갱신 | 각 디렉터리 `AGENTS.md` | 루트 `AGENTS.md` 규칙 |
 
 ## 2. 불변 규칙 (MUST)
+## 2.1 Web Automation Rule 1. **Default Agent**: browser-harness 를 웹 자동화(Discord Dev Portal, 채널 모니터링 등)의 기본 에이전트로 사용한다. 2. **Verification**: 모든 웹 기반 작업은 캡처 이미지(MEDIA:...)와 DOM 상태 확인을 통해 실시간으로 검증한다. 3. **Endpoint**:    - Discord Dev Portal: https://discord.com/developers/applications    - Bot Home Channel: https://discord.com/channels/1483450880198971414/1483454454350221472
 
 1. **모든 비자명 작업은 `WORKFLOW.md` 파이프라인을 통과한다.** 명세 없는 product source 변경 금지.
-2. **검증 게이트 통과 전 완료 선언 금지** — `tsc --noEmit` · `bun test` · `check:compose` · `config/validate.ts`; glue/runtime/control-plane 동작 변경은 `smoke:glue`도 필수.
+2. **검증 게이트 통과 전 완료 선언 금지** — `tsc --noEmit` · `bun test` · `check:compose` · `config/validate.ts`; glue/runtime/control-plane 동작 변경은 `smoke:glue`, 라이브 운영 경로 변경은 `preflight:live`도 필수.
 3. **모든 완료 작업은 9단계 CAPTURE로 지식적재된다.** 적재 없는 작업은 미완으로 본다.
 4. **다음 작업은 vault 검색으로 시작한다**(10단계 EVOLVE). 같은 조사·실수 반복 금지.
 5. **보안·A/B 공정성은 약화 불가**(`CONSTITUTION.md` I·IV). 고위험 액션은 Discord 승인.

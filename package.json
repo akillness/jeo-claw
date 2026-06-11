@@ -8,10 +8,14 @@
     "test": "bun test",
     "check:compose": "bun run scripts/check-compose.ts",
     "smoke:glue": "bun run scripts/smoke-glue.ts",
+    "preflight:live": "bun run scripts/preflight-live.ts",
     "glue": "bun run glue/server.ts",
     "discord": "bun run discord/bot.ts",
     "compare": "bun run compare/runner.ts",
-    "capture": "bun run ops/scripts/capture-knowledge.ts"
+    "mock:github": "bun run scripts/mock-github.ts",
+    "browser:status": "bun run scripts/browser-status.ts",
+    "capture": "bun run ops/scripts/capture-knowledge.ts",
+    "tui": "bun run scripts/tui.ts"
   },
   "dependencies": {
     "discord.js": "^14.26.4",

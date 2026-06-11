@@ -1,19 +1,18 @@
 {
-  "$comment": "NullClaw config — identical OpenAI gpt-5 model to ZeroClaw for fair A/B. Secrets via ${ENV} only; Discord control is externalized to glue/discord services.",
+  "$comment": "NullClaw config — identical OpenAI gpt-5 model to ZeroClaw for fair A/B comparison using openai-codex OAuth. Secrets via ${ENV} only; Discord control is externalized to glue/discord services.",
   "provider": {
-    "type": "openai",
+    "type": "openai-codex",
     "model": "gpt-5-codex",
-    "wire_api": "responses",
-    "api_key": "${OPENAI_API_KEY}"
+    "wire_api": "responses"
   },
   "autonomy": "supervised",
   "high_risk": ["pr.create", "pr.merge"],
   "agents": {
-    "researcher_coder": { "role": "researcher-coder", "provider": "openai", "risk": "supervised" },
-    "reviewer": { "role": "reviewer", "provider": "openai", "risk": "supervised" },
-    "pr_creator": { "role": "pr-creator", "provider": "openai", "risk": "supervised" },
-    "pr_review_scheduler": { "role": "pr-review-scheduler", "provider": "openai", "risk": "supervised" },
-    "merger": { "role": "merger", "provider": "openai", "risk": "supervised" }
+    "researcher_coder": { "role": "researcher-coder", "provider": "openai-codex", "risk": "supervised" },
+    "reviewer": { "role": "reviewer", "provider": "openai-codex", "risk": "supervised" },
+    "pr_creator": { "role": "pr-creator", "provider": "openai-codex", "risk": "supervised" },
+    "pr_review_scheduler": { "role": "pr-review-scheduler", "provider": "openai-codex", "risk": "supervised" },
+    "merger": { "role": "merger", "provider": "openai-codex", "risk": "supervised" }
   },
   "sop": {
     "pr_flow": {

@@ -1,11 +1,245 @@
-# verify transcript
-Generated: 2026-06-08T16:43:19.179741+00:00
+# jeo-claw OAuth provider verification transcript
+Generated: 2026-06-10T04:06:18.344Z
+
+Scope: openai-codex OAuth migration; static OPENAI_API_KEY removed; OAuth auth.json seeded at runtime startup.
+
+## TypeScript noEmit
+Command: bun x tsc --noEmit
+Started: 2026-06-10T04:06:12.000Z
+Finished: 2026-06-10T04:06:16.286Z
+Exit: 0
+
+```text
+(no output)
+```
+
+## Full Bun test suite
+Command: bun test
+Started: 2026-06-10T04:06:16.286Z
+Finished: 2026-06-10T04:06:17.540Z
+Exit: 0
+
+```text
+bun test v1.3.14 (0d9b296a)
 
 
-## compose-static
+runtimes\start.test.ts:
+(pass) commandForRuntime maps runtimes to startup commands [1.75ms]
+(pass) runtime termination helpers forward signals and stop the server [0.61ms]
+(pass) resolveRuntimeEnvironment loads least-privilege role secrets [1.51ms]
+(pass) resolveRuntimeEnvironment drops ambient secrets outside the role allowlist [0.23ms]
+(pass) resolveRuntimeEnvironment rejects missing role/project/prefix [0.16ms]
+(pass) prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh [6.78ms]
+(pass) prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it [7.13ms]
+(pass) prepareRuntimeConfig redacts OAuth payloads from startup failures [4.23ms]
+(pass) validateRuntimeDispatchPayload enforces runtime/role/stage matching [0.44ms]
+(pass) validateRuntimeDispatchPayload rejects oversized request text [0.10ms]
+(pass) validateRuntimeDispatchPayload rejects write-stage dispatch at runtime boundary [0.06ms]
+(pass) executeStageWork writes a tangible stage artifact [11.38ms]
+(pass) handleDispatchRequest authenticates and writes artifact plus receipt [22.80ms]
+(pass) handleDispatchRequest rejects oversized bodies before writing artifacts [2.31ms]
+
+compare\dashboard.test.ts:
+(pass) dashboard renders both runtime names and all 5 metric families and is non-empty with static data [1.18ms]
+(pass) dashboard rendering with summaries generated from a deterministic mock RunFn [1.14ms]
+
+compare\metrics.test.ts:
+(pass) summarize - empty input returns empty array [0.09ms]
+(pass) summarize - math correct with known samples [0.61ms]
+(pass) summarize - a runtime with zero samples handled gracefully [0.33ms]
+
+compare\runner.test.ts:
+(pass) runComparison invokes RunFn correct number of times and with correct run indices [0.47ms]
+(pass) runComparison rejects invalid or unsafe run counts [0.30ms]
+(pass) compareAndSummarize returns both samples and summaries correctly [0.31ms]
+
+config\validate.test.ts:
+(pass) both runtime configs pass every validation check [3.92ms]
+(pass) A/B fairness: identical model id [1.04ms]
+(pass) runtime configs keep only env-referenced provider secrets and no embedded Discord control block [0.66ms]
+(pass) exactly 5 roles in each runtime [0.80ms]
+
+discord\approval.test.ts:
+(pass) ApprovalRegistry: action-scoped lifecycle with consume [7.71ms]
+(pass) ApprovalRegistry prunes stale terminal records and preserves recent approvals [0.18ms]
+(pass) ApprovalRegistry bounded mode evicts consumed records before approved records [0.44ms]
+(pass) guardHighRisk: blocks, consumes matching action approval, and isolates actions [0.40ms]
+(pass) bot handlers: buildHandlers routes action-scoped events and manages registry [3.65ms]
+(pass) bot handlers with bridging: request creates workflow, action approval bridges to store, config set yolo is rejected [1.24ms]
+(pass) bot handlers forward events through async onEvent bridge [0.36ms]
+(pass) bot handlers reject commands from the wrong guild or channel [0.26ms]
+(pass) bot handlers require approval permission for approve/reject/config-set [0.34ms]
+(pass) discordCommandDefinitions registers the production slash command surface [6.40ms]
+(pass) bot handlers reply with delivery failures instead of hanging [0.73ms]
+(pass) bot interaction handlers defer before forwarding and edit final response [0.54ms]
+(pass) forwardControlEvent does not echo upstream response bodies [1.01ms]
+(pass) resolveLivePolicy auto-selects single guild and provisions missing channels by name [1.20ms]
+(pass) resolveLivePolicy respects configured channel ids [0.45ms]
+(pass) bot handlers allow approval commands for authorized approvers in the approval channel [0.80ms]
+
+discord\commands.test.ts:
+(pass) parseCommand: request command [0.27ms]
+(pass) parseCommand: approve command requires workflow id and action [0.31ms]
+(pass) parseCommand: reject command requires workflow id and action [0.22ms]
+(pass) parseCommand: config set command [0.23ms]
+(pass) parseCommand: unknown commands [0.21ms]
+(pass) validateConfigValue validations [0.46ms]
+
+qa\red-team.test.ts:
+(pass) 1.1 Merge gate - all 2-of-3 combinations must be blocked [0.12ms]
+(pass) 1.2 Merge gate - truthy-but-not-true values should be blocked [0.03ms]
+(pass) 2.1 Webhook signature forgery - tampered body with valid old signature [0.33ms]
+(pass) 2.2 Webhook signature forgery - wrong secret [0.07ms]
+(pass) 2.3 Webhook signature forgery - malformed headers [0.17ms]
+(pass) 2.4 Webhook signature - correctly-signed body must be accepted [0.09ms]
+(pass) 3.1 Secret loader - read-only roles must NEVER trigger access to the write token id [0.37ms]
+(pass) 3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release [0.31ms]
+(pass) 3.2 Secret loader - missing required secret and empty value throws MissingSecretError [0.28ms]
+(pass) 3.3 Secret loader - redact() must mask values even when they contain regex-special chars [0.11ms]
+(pass) 3.4 Secret loader - confirm no secret value appears in thrown error messages [0.19ms]
+(pass) 3.5 Control secret loader - control services receive only their own control-plane credentials [0.36ms]
+(pass) 4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize [0.23ms]
+(pass) 4.4 Control event path - unauthenticated approval mutation is rejected [0.63ms]
+(pass) 4.5 Discord control plane - approval command outside approval policy is rejected [0.39ms]
+(pass) 4.6 Dispatch broker - unauthenticated write-secret release is rejected [0.61ms]
+(pass) 4.7 Dispatch broker - approved write-secret release is scoped and consumes approval [1.76ms]
+(pass) 4.7b Dispatch broker - approved merge release is scoped and consumed only when merge is ready [0.54ms]
+(pass) 4.2 High-risk guard - unknown or non-high-risk action always allowed [0.09ms]
+(pass) 4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B [0.21ms]
+(pass) 5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash [0.25ms]
+(pass) 5.2 Command parser fuzz - extra whitespace handled correctly [0.18ms]
+(pass) 6.1 Metric math - empty samples returns empty array [0.04ms]
+(pass) 6.2 Metric math - single runtime only [0.19ms]
+(pass) 6.3 Metric math - all-failed batch [0.13ms]
+(pass) 6.4 Metric math - mixed exact averages [0.18ms]
+
+scripts\check-compose.test.ts:
+(pass) compose security posture: every static check passes [110.24ms]
+(pass) no service mounts the host Docker socket or host workspace [28.46ms]
+(pass) runtime-role services are isolated from the edge network [21.00ms]
+(pass) only egress-proxy attaches to edge [23.03ms]
+(pass) both control services are internal-only and hardened [16.43ms]
+(pass) runtime-role services have unique state and worktree volumes [23.44ms]
+(pass) runChecks detects forbidden environment variables [11.09ms]
+
+scripts\mock-github.test.ts:
+(pass) mock github service supports PR create, list, and merge [8.96ms]
+
+scripts\preflight-live.test.ts:
+(pass) checkLiveEnv reports missing required bootstrap inputs only [0.25ms]
+(pass) checkLiveEnv in file mode drops the GCP project requirement but requires the file path [0.07ms]
+(pass) checkLiveEnv warns on plaintext secret env and Discord auto-provisioning [0.27ms]
+(pass) requiredSecretIds derives the live Secret Manager manifest [0.11ms]
+(pass) runLivePreflight succeeds when env and all required secrets are present [0.69ms]
+(pass) runLivePreflight fails closed on missing or empty secrets [0.39ms]
+(pass) runLivePreflight supports file-backed secrets without GCLOUD_PROJECT [4.14ms]
+
+secrets\loader.test.ts:
+(pass) all runtime roles receive only read-only startup github token [0.50ms]
+(pass) write roles are eligible for mediated write secret release [0.19ms]
+(pass) non-write roles cannot request mediated write secrets [0.18ms]
+(pass) runtime roles never receive control-plane secrets [0.18ms]
+(pass) control services receive only control-plane secrets [0.18ms]
+(pass) missing required secret is a hard failure with sanitized upstream details [0.21ms]
+(pass) blank and whitespace-only secret values are rejected [0.14ms]
+(pass) generated shared secrets enforce minimum length [0.18ms]
+(pass) redact masks every secret value [0.13ms]
+(pass) redact masks overlapping secret values longest-first [0.08ms]
+(pass) FileSecretSource and secretSourceFromEnv support local file-backed secrets [8.85ms]
+(pass) every runtime role requires the OpenAI Codex OAuth key and not the legacy API key, and control services do not require either [0.51ms]
+
+glue\github-webhook.test.ts:
+(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.20ms]
+(pass) parseWebhook handles pull_request event [0.27ms]
+(pass) parseWebhook validates pull_request number shape [0.07ms]
+(pass) parseWebhook handles check_suite conclusion success [0.04ms]
+(pass) parseWebhook handles check_suite conclusion failure [0.03ms]
+(pass) parseWebhook handles status success [0.03ms]
+(pass) parseWebhook handles status pending [0.03ms]
+(pass) parseWebhook handles status failure [0.03ms]
+(pass) parseWebhook handles pull_request_review approved and changes requested [0.07ms]
+(pass) parseWebhook exposes workflowId without a second JSON parse [0.04ms]
+(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.10ms]
+(pass) parseWebhook accepts strict direct boolean fields [0.07ms]
+
+glue\merge-gate.test.ts:
+(pass) merge gate allows when all true [0.14ms]
+(pass) merge gate blocks when each single condition is false [0.13ms]
+
+glue\runtime-dispatch.test.ts:
+(pass) dispatchStageWork reports contextual error for non-JSON runtime failures [0.72ms]
+
+glue\server.test.ts:
+(pass) handleWebhookRequest returns 401 on bad signature [0.77ms]
+(pass) handleWebhookRequest rejects oversized webhook payloads before signature parsing [0.35ms]
+(pass) handleWebhookRequest exposes health without webhook signature [0.13ms]
+(pass) handleWebhookRequest returns 200 on valid pull_request event [0.84ms]
+(pass) handleWebhookRequest rejects non-boolean webhook fields without mutating workflow [0.33ms]
+(pass) validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields [0.10ms]
+(pass) handleControlEventRequest rejects unauthenticated mutations [0.12ms]
+(pass) handleControlEventRequest creates workflows and ignores early approvals [0.25ms]
+(pass) handleControlEventRequest executes approved PR creation through the live write path [1.36ms]
+(pass) handleWebhookRequest executes approved merge through the live write path [0.69ms]
+(pass) config-set through control-event is explicit not-implemented [0.12ms]
+(pass) handleControlDispatchRequest rejects unauthenticated or unapproved write release [0.22ms]
+(pass) handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval [0.21ms]
+(pass) handleControlDispatchRequest rejects role/action mismatch [0.20ms]
+(pass) handleControlDispatchRequest binds release to stored workflow runtime stage and readiness [0.33ms]
+(pass) handleControlDispatchRequest refuses merge credential release before CI and review are true [0.33ms]
+(pass) unmatched signed webhook reports non-success body [0.42ms]
+(pass) start throws when required secrets/bootstrap inputs are missing or blank [1.68ms]
+(pass) pruneWorkflowStore evicts stale terminal workflows before active workflows [0.33ms]
+(pass) handleControlEventRequest prunes workflow store after mutations [0.44ms]
+
+glue\state-machine.test.ts:
+(pass) createWorkflow sets up initial state [0.22ms]
+(pass) advanceStage walks automatic stages until PR creation approval is required [0.32ms]
+(pass) pr-create requires pr.create approval before scheduling review [0.15ms]
+(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.34ms]
+(pass) merge stage merges when CI, review, and pr.merge approval are true [0.22ms]
+(pass) applyEvent sets fields and matching pending action approvals correctly [0.35ms]
+(pass) advanceStage does not resurrect rejected or merged states [0.20ms]
+(pass) legacy approved boolean cannot synthesize merge approvals [0.14ms]
+(pass) applyEvent ignores early approvals before matching pending action [0.12ms]
+(pass) applyEvent does not mutate terminal workflows [0.21ms]
+
+glue\write-executor.test.ts:
+(pass) executeApprovedWriteAction reuses an existing open PR for the deterministic head [1.08ms]
+(pass) executeApprovedWriteAction honors custom GitHub API base URL [0.74ms]
+
+control\start.test.ts:
+(pass) commandForService maps control services to startup commands [0.08ms]
+(pass) bindTerminationHandlers forwards registered signals and unregisters on cleanup [0.26ms]
+(pass) resolveControlEnvironment loads control secrets from Secret Manager inputs [0.70ms]
+(pass) resolveControlEnvironment rejects missing project or prefix [0.24ms]
+(pass) resolveControlEnvironment rejects blank loaded secrets [0.13ms]
+(pass) resolveControlEnvironment drops ambient non-control secrets from child env [0.19ms]
+
+ops\scripts\capture-knowledge.test.ts:
+(pass) slugify normalizes to kebab-case and keeps 한글 [0.24ms]
+(pass) validateInput requires title/slug/summary [0.20ms]
+(pass) buildArtifacts emits raw + wiki + log + index content [0.73ms]
+(pass) applyCapture writes raw, wiki, appends log, inserts index link [0.98ms]
+(pass) applyCapture preserves existing raw source (immutable) [0.28ms]
+(pass) applyCapture preserves existing wiki page (LLM-owned) [0.24ms]
+(pass) applyCapture is idempotent for index link and log line [0.32ms]
+(pass) parseArgs reads flags and derives slug from title when omitted [0.25ms]
+(pass) runCapture returns failure result on invalid input [0.27ms]
+
+ 163 pass
+ 0 fail
+ 791 expect() calls
+Ran 163 tests across 20 files. [1213.00ms]
+
+```
+
+## Compose/static security validator
 Command: bun run check:compose
-Exit code: 0
+Started: 2026-06-10T04:06:17.540Z
+Finished: 2026-06-10T04:06:17.877Z
+Exit: 0
 
+```text
 [PASS] compose parses as valid YAML  (docker-compose.yml)
 [PASS] no host Docker socket mounted  (none)
 [PASS] no host workspace bind mounted  (none)
@@ -17,8 +251,8 @@ Exit code: 0
 [PASS] zeroclaw-researcher-coder uses only claw_internal  (networks=[claw_internal])
 [PASS] zeroclaw-researcher-coder has restart policy  (unless-stopped)
 [PASS] zeroclaw-researcher-coder has healthcheck  (ok)
-[PASS] zeroclaw-researcher-coder routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] zeroclaw-researcher-coder declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-researcher-coder routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-researcher-coder declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] zeroclaw-researcher-coder drops all caps  (cap_drop ALL)
 [PASS] zeroclaw-researcher-coder no-new-privileges  (security_opt)
 [PASS] zeroclaw-researcher-coder read-only rootfs  (true)
@@ -30,8 +264,8 @@ Exit code: 0
 [PASS] zeroclaw-reviewer uses only claw_internal  (networks=[claw_internal])
 [PASS] zeroclaw-reviewer has restart policy  (unless-stopped)
 [PASS] zeroclaw-reviewer has healthcheck  (ok)
-[PASS] zeroclaw-reviewer routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] zeroclaw-reviewer declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-reviewer routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-reviewer declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] zeroclaw-reviewer drops all caps  (cap_drop ALL)
 [PASS] zeroclaw-reviewer no-new-privileges  (security_opt)
 [PASS] zeroclaw-reviewer read-only rootfs  (true)
@@ -43,8 +277,8 @@ Exit code: 0
 [PASS] zeroclaw-pr-creator uses only claw_internal  (networks=[claw_internal])
 [PASS] zeroclaw-pr-creator has restart policy  (unless-stopped)
 [PASS] zeroclaw-pr-creator has healthcheck  (ok)
-[PASS] zeroclaw-pr-creator routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] zeroclaw-pr-creator declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-pr-creator routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-pr-creator declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] zeroclaw-pr-creator drops all caps  (cap_drop ALL)
 [PASS] zeroclaw-pr-creator no-new-privileges  (security_opt)
 [PASS] zeroclaw-pr-creator read-only rootfs  (true)
@@ -56,8 +290,8 @@ Exit code: 0
 [PASS] zeroclaw-pr-review-scheduler uses only claw_internal  (networks=[claw_internal])
 [PASS] zeroclaw-pr-review-scheduler has restart policy  (unless-stopped)
 [PASS] zeroclaw-pr-review-scheduler has healthcheck  (ok)
-[PASS] zeroclaw-pr-review-scheduler routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] zeroclaw-pr-review-scheduler declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-pr-review-scheduler routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-pr-review-scheduler declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] zeroclaw-pr-review-scheduler drops all caps  (cap_drop ALL)
 [PASS] zeroclaw-pr-review-scheduler no-new-privileges  (security_opt)
 [PASS] zeroclaw-pr-review-scheduler read-only rootfs  (true)
@@ -69,8 +303,8 @@ Exit code: 0
 [PASS] zeroclaw-merger uses only claw_internal  (networks=[claw_internal])
 [PASS] zeroclaw-merger has restart policy  (unless-stopped)
 [PASS] zeroclaw-merger has healthcheck  (ok)
-[PASS] zeroclaw-merger routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] zeroclaw-merger declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-merger routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] zeroclaw-merger declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] zeroclaw-merger drops all caps  (cap_drop ALL)
 [PASS] zeroclaw-merger no-new-privileges  (security_opt)
 [PASS] zeroclaw-merger read-only rootfs  (true)
@@ -82,8 +316,8 @@ Exit code: 0
 [PASS] nullclaw-researcher-coder uses only claw_internal  (networks=[claw_internal])
 [PASS] nullclaw-researcher-coder has restart policy  (unless-stopped)
 [PASS] nullclaw-researcher-coder has healthcheck  (ok)
-[PASS] nullclaw-researcher-coder routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] nullclaw-researcher-coder declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-researcher-coder routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-researcher-coder declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] nullclaw-researcher-coder drops all caps  (cap_drop ALL)
 [PASS] nullclaw-researcher-coder no-new-privileges  (security_opt)
 [PASS] nullclaw-researcher-coder read-only rootfs  (true)
@@ -95,8 +329,8 @@ Exit code: 0
 [PASS] nullclaw-reviewer uses only claw_internal  (networks=[claw_internal])
 [PASS] nullclaw-reviewer has restart policy  (unless-stopped)
 [PASS] nullclaw-reviewer has healthcheck  (ok)
-[PASS] nullclaw-reviewer routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] nullclaw-reviewer declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-reviewer routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-reviewer declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] nullclaw-reviewer drops all caps  (cap_drop ALL)
 [PASS] nullclaw-reviewer no-new-privileges  (security_opt)
 [PASS] nullclaw-reviewer read-only rootfs  (true)
@@ -108,8 +342,8 @@ Exit code: 0
 [PASS] nullclaw-pr-creator uses only claw_internal  (networks=[claw_internal])
 [PASS] nullclaw-pr-creator has restart policy  (unless-stopped)
 [PASS] nullclaw-pr-creator has healthcheck  (ok)
-[PASS] nullclaw-pr-creator routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] nullclaw-pr-creator declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-pr-creator routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-pr-creator declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] nullclaw-pr-creator drops all caps  (cap_drop ALL)
 [PASS] nullclaw-pr-creator no-new-privileges  (security_opt)
 [PASS] nullclaw-pr-creator read-only rootfs  (true)
@@ -121,8 +355,8 @@ Exit code: 0
 [PASS] nullclaw-pr-review-scheduler uses only claw_internal  (networks=[claw_internal])
 [PASS] nullclaw-pr-review-scheduler has restart policy  (unless-stopped)
 [PASS] nullclaw-pr-review-scheduler has healthcheck  (ok)
-[PASS] nullclaw-pr-review-scheduler routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] nullclaw-pr-review-scheduler declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-pr-review-scheduler routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-pr-review-scheduler declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] nullclaw-pr-review-scheduler drops all caps  (cap_drop ALL)
 [PASS] nullclaw-pr-review-scheduler no-new-privileges  (security_opt)
 [PASS] nullclaw-pr-review-scheduler read-only rootfs  (true)
@@ -134,8 +368,8 @@ Exit code: 0
 [PASS] nullclaw-merger uses only claw_internal  (networks=[claw_internal])
 [PASS] nullclaw-merger has restart policy  (unless-stopped)
 [PASS] nullclaw-merger has healthcheck  (ok)
-[PASS] nullclaw-merger routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
-[PASS] nullclaw-merger declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-merger routes egress via proxy  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
+[PASS] nullclaw-merger declares runtime and role  (HTTP_PROXY,HTTPS_PROXY,NO_PROXY,LLM_PROVIDER,LLM_MODEL,OPENAI_WIRE_API,TARGET_REPO,TARGET_BRANCH,GCLOUD_PROJECT,GCLOUD_SECRET_PREFIX,JEO_BRANCH_NAMESPACE,JEO_SECRET_SOURCE,JEO_SECRETS_FILE,JEO_RUNTIME,JEO_ROLE,JEO_WORKTREE)
 [PASS] nullclaw-merger drops all caps  (cap_drop ALL)
 [PASS] nullclaw-merger no-new-privileges  (security_opt)
 [PASS] nullclaw-merger read-only rootfs  (true)
@@ -167,7 +401,7 @@ Exit code: 0
 [PASS] discord-bot has Secret Manager bootstrap env  (ok)
 [PASS] discord-bot boots through control/start.ts  (["bun","run","control/start.ts","discord-bot"])
 [PASS] discord-bot has no runtime state/worktree/socket mounts  (ok)
-[PASS] glue-webhook exposes loopback webhook port only  (["127.0.0.1:${GLUE_PORT:-8787}:8787"])
+[PASS] glue-webhook exposes loopback webhook port only  (["127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"])
 [PASS] discord-bot exposes no ports  ([])
 [PASS] egress-proxy defined  (ok)
 [PASS] egress-proxy mounts squid.conf  (["./compose/egress-proxy/squid.conf:/etc/squid/squid.conf:ro","./compose/egress-proxy/allowlist.txt:/etc/squid/allowlist.txt:ro"])
@@ -184,222 +418,96 @@ Exit code: 0
 [PASS] no plaintext secrets in .env.example  (scanned)
 
 176/176 checks passed
+
 $ bun run scripts/check-compose.ts
 
+```
 
-
-## config-validate
+## Runtime config validator
 Command: bun run config/validate.ts
-Exit code: 0
+Started: 2026-06-10T04:06:17.877Z
+Finished: 2026-06-10T04:06:17.982Z
+Exit: 0
 
+```text
 [PASS] identical model (A/B fairness)  (gpt-5-codex vs gpt-5-codex)
-[PASS] identical provider type  (nullclaw=openai)
+[PASS] identical provider type  (nullclaw=openai-codex, zeroclaw=openai-codex)
+[PASS] identical wire API  (responses vs responses)
+[PASS] zeroclaw requires OpenAI auth  (true)
+[PASS] zeroclaw provider lacks api_key  (absent)
+[PASS] nullclaw provider lacks api_key  (absent)
 [PASS] zeroclaw autonomy supervised
 [PASS] nullclaw autonomy supervised
 [PASS] zeroclaw has all 5 roles  (merger,pr-creator,pr-review-scheduler,researcher-coder,reviewer)
 [PASS] nullclaw has all 5 roles  (merger,pr-creator,pr-review-scheduler,researcher-coder,reviewer)
-[PASS] zeroclaw least-privilege write access  (ok)
-[PASS] nullclaw least-privilege write access  (ok)
+[PASS] zeroclaw SOP maps to canonical stages  (research-code,review,pr-create,pr-review-schedule,merge)
+[PASS] zeroclaw SOP roles match stage contract  (research-code,review,pr-create,pr-review-schedule,merge)
+[PASS] zeroclaw approval agents map to write stages  (["pr_creator","merger"])
+[PASS] nullclaw SOP maps to canonical stages  (research-code,review,pr-create,pr-review-schedule,merge)
+[PASS] nullclaw SOP roles match stage contract  (research-code,review,pr-create,pr-review-schedule,merge)
+[PASS] nullclaw approval agents map to write stages  (["pr_creator","merger"])
+[PASS] zeroclaw no static write authority  (ok)
+[PASS] nullclaw no static write authority  (ok)
 [PASS] zeroclaw high-risk action parity  (["pr.create","pr.merge"])
 [PASS] nullclaw high-risk action parity  (["pr.create","pr.merge"])
-[PASS] zeroclaw secrets are env-refs only  (1 refs ok)
-[PASS] nullclaw secrets are env-refs only  (1 refs ok)
+[PASS] zeroclaw secrets are env-refs only  (0 refs ok)
+[PASS] nullclaw secrets are env-refs only  (0 refs ok)
 [PASS] zeroclaw pr_creator requires approval
 [PASS] nullclaw pr_creator requires approval
 [PASS] zeroclaw merger requires approval
 [PASS] nullclaw merger requires approval
 
-16/16 checks passed
+26/26 checks passed
 
+```
 
+## Glue lifecycle smoke
+Command: bun run smoke:glue
+Started: 2026-06-10T04:06:17.982Z
+Finished: 2026-06-10T04:06:18.181Z
+Exit: 0
 
-## test-suite
-Command: bun test
-Exit code: 0
+```text
+PASS health endpoint -> 200
+PASS control-event rejects missing secret -> 401
+PASS control-event rejects wrong secret -> 401
+PASS webhook rejects forged HMAC -> 401
+PASS webhook accepts valid HMAC and no-ops unmatched workflow -> 202
+PASS dispatch broker rejects missing secret -> 401
+PASS dispatch broker rejects forbidden fields -> 400
+PASS request starts workflow -> 201
+PASS request dispatches runtime stages and blocks on pr.create approval
+PASS approve pr.create executes brokered write -> 200
+PASS pr.create approval consumes brokered write credential and advances to merge gate
+PASS early approve pr.merge waits for checks -> 200
+PASS early pr.merge approval does not bypass missing CI/review
+PASS webhook records CI/review and executes approved merge -> 200
+PASS pr.merge approval merges only after CI, review, and Discord approval are true
+glue smoke complete: 3 runtime dispatches, 3 GitHub write calls
 
-bun test v1.3.14 (0d9b296a)
+$ bun run scripts/smoke-glue.ts
 
-runtimes\start.test.ts:
-(pass) commandForRuntime maps runtimes to startup commands [1.82ms]
-(pass) resolveRuntimeEnvironment loads least-privilege role secrets [1.25ms]
-(pass) resolveRuntimeEnvironment drops ambient secrets outside the role allowlist [0.17ms]
-(pass) resolveRuntimeEnvironment rejects missing role/project/prefix [0.16ms]
-(pass) validateRuntimeDispatchPayload enforces runtime/role/stage matching [0.15ms]
-(pass) executeStageWork writes a tangible stage artifact [12.90ms]
-(pass) handleDispatchRequest authenticates and writes artifact plus receipt [15.03ms]
+```
 
-compare\dashboard.test.ts:
-(pass) dashboard renders both runtime names and all 5 metric families and is non-empty with static data [0.42ms]
-(pass) dashboard rendering with summaries generated from a deterministic mock RunFn [0.52ms]
+## Live preflight file-backed manifest
+Command: bun run preflight:live
+Started: 2026-06-10T04:06:18.182Z
+Finished: 2026-06-10T04:06:18.343Z
+Exit: 0
 
-compare\metrics.test.ts:
-(pass) summarize - empty input returns empty array [0.04ms]
-(pass) summarize - math correct with known samples [0.26ms]
-(pass) summarize - a runtime with zero samples handled gracefully [0.10ms]
+```text
+jeo-claw live preflight
+PASS required non-secret env present
+Checked secret ids: jeo-claw-openai-codex-oauth, jeo-claw-github-token-ro, jeo-claw-github-token-rw, jeo-claw-github-webhook-secret, jeo-claw-discord-bot-token, jeo-claw-control-event-secret, jeo-claw-runtime-dispatch-secret
+PASS required secret entries are readable and non-empty
+WARN DISCORD_GUILD_ID is empty; startup will auto-select the guild only when the bot is installed in exactly one guild.
+WARN DISCORD_REQUEST_CHANNEL_ID is empty; startup will discover or create the request channel by name.
+WARN DISCORD_APPROVAL_CHANNEL_ID is empty; startup will discover or create the approval channel by name.
+WARN DISCORD_APPROVER_ROLE_ID is empty; approval commands will still work for Discord Administrator/Manage Guild members only.
+PASS live preflight
 
-compare\runner.test.ts:
-(pass) runComparison invokes RunFn correct number of times and with correct run indices [0.29ms]
-(pass) compareAndSummarize returns both samples and summaries correctly [0.22ms]
+$ bun run scripts/preflight-live.ts
 
-config\validate.test.ts:
-(pass) both runtime configs pass every validation check [1.50ms]
-(pass) A/B fairness: identical model id [0.35ms]
-(pass) runtime configs keep only env-referenced provider secrets and no embedded Discord control block [0.34ms]
-(pass) exactly 5 roles in each runtime [0.34ms]
+```
 
-discord\approval.test.ts:
-(pass) ApprovalRegistry: action-scoped lifecycle with consume [6.21ms]
-(pass) guardHighRisk: blocks, consumes matching action approval, and isolates actions [0.22ms]
-(pass) bot handlers: buildHandlers routes action-scoped events and manages registry [2.16ms]
-(pass) bot handlers with bridging: request creates workflow, action approval bridges to store, config set yolo is rejected [0.81ms]
-(pass) bot handlers forward events through async onEvent bridge [0.18ms]
-(pass) bot handlers reject commands from the wrong guild or channel [0.18ms]
-(pass) bot handlers require approval permission for approve/reject/config-set [0.26ms]
-(pass) bot handlers allow approval commands for authorized approvers in the approval channel [0.25ms]
-
-discord\commands.test.ts:
-(pass) parseCommand: request command [0.15ms]
-(pass) parseCommand: approve command requires workflow id and action [0.15ms]
-(pass) parseCommand: reject command requires workflow id and action [0.10ms]
-(pass) parseCommand: config set command [0.15ms]
-(pass) parseCommand: unknown commands [0.13ms]
-(pass) validateConfigValue validations [0.14ms]
-
-qa\red-team.test.ts:
-(pass) 1.1 Merge gate - all 2-of-3 combinations must be blocked [0.15ms]
-(pass) 1.2 Merge gate - truthy-but-not-true values should be blocked [0.04ms]
-(pass) 2.1 Webhook signature forgery - tampered body with valid old signature [0.32ms]
-(pass) 2.2 Webhook signature forgery - wrong secret [0.08ms]
-(pass) 2.3 Webhook signature forgery - malformed headers [0.12ms]
-(pass) 2.4 Webhook signature - correctly-signed body must be accepted [0.06ms]
-(pass) 3.1 Secret loader - read-only roles must NEVER trigger access to the write token id [0.27ms]
-(pass) 3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release [0.27ms]
-(pass) 3.2 Secret loader - missing required secret and empty value throws MissingSecretError [0.22ms]
-(pass) 3.3 Secret loader - redact() must mask values even when they contain regex-special chars [0.07ms]
-(pass) 3.4 Secret loader - confirm no secret value appears in thrown error messages [0.18ms]
-(pass) 3.5 Control secret loader - control services receive only their own control-plane credentials [0.33ms]
-(pass) 4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize [0.11ms]
-(pass) 4.4 Control event path - unauthenticated approval mutation is rejected [0.49ms]
-(pass) 4.5 Discord control plane - approval command outside approval policy is rejected [0.24ms]
-(pass) 4.6 Dispatch broker - unauthenticated write-secret release is rejected [0.37ms]
-(pass) 4.7 Dispatch broker - approved write-secret release is scoped and consumes approval [0.55ms]
-(pass) 4.2 High-risk guard - unknown or non-high-risk action always allowed [0.04ms]
-(pass) 4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B [0.06ms]
-(pass) 5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash [0.12ms]
-(pass) 5.2 Command parser fuzz - extra whitespace handled correctly [0.08ms]
-(pass) 6.1 Metric math - empty samples returns empty array [0.02ms]
-(pass) 6.2 Metric math - single runtime only [0.09ms]
-(pass) 6.3 Metric math - all-failed batch [0.07ms]
-(pass) 6.4 Metric math - mixed exact averages [0.09ms]
-
-scripts\check-compose.test.ts:
-(pass) compose security posture: every static check passes [72.48ms]
-(pass) no service mounts the host Docker socket or host workspace [16.45ms]
-(pass) runtime-role services are isolated from the edge network [17.00ms]
-(pass) only egress-proxy attaches to edge [11.98ms]
-(pass) both control services are internal-only and hardened [13.44ms]
-(pass) runtime-role services have unique state and worktree volumes [15.40ms]
-
-secrets\loader.test.ts:
-(pass) all runtime roles receive only read-only startup github token [0.51ms]
-(pass) write roles are eligible for mediated write secret release [0.25ms]
-(pass) non-write roles cannot request mediated write secrets [0.40ms]
-(pass) runtime roles never receive control-plane secrets [0.28ms]
-(pass) control services receive only control-plane secrets [0.23ms]
-(pass) missing required secret is a hard failure with sanitized upstream details [0.28ms]
-(pass) blank and whitespace-only secret values are rejected [0.17ms]
-(pass) redact masks every secret value [0.07ms]
-(pass) every runtime role requires the OpenAI key and control services do not [0.16ms]
-
-glue\github-webhook.test.ts:
-(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.19ms]
-(pass) parseWebhook handles pull_request event [0.16ms]
-(pass) parseWebhook handles check_suite conclusion success [0.05ms]
-(pass) parseWebhook handles check_suite conclusion failure [0.03ms]
-(pass) parseWebhook handles status success [0.05ms]
-(pass) parseWebhook handles status pending [0.05ms]
-(pass) parseWebhook handles status failure [0.05ms]
-(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.13ms]
-(pass) parseWebhook accepts strict direct boolean fields [0.06ms]
-
-glue\merge-gate.test.ts:
-(pass) merge gate allows when all true [0.07ms]
-(pass) merge gate blocks when each single condition is false [0.10ms]
-
-glue\server.test.ts:
-(pass) handleWebhookRequest returns 401 on bad signature [0.59ms]
-(pass) handleWebhookRequest exposes health without webhook signature [0.13ms]
-(pass) handleWebhookRequest returns 200 on valid pull_request event [1.13ms]
-(pass) handleWebhookRequest rejects non-boolean webhook fields without mutating workflow [0.30ms]
-(pass) validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields [0.11ms]
-(pass) handleControlEventRequest rejects unauthenticated mutations [0.12ms]
-(pass) handleControlEventRequest creates workflows and updates approval state when authenticated [0.21ms]
-(pass) handleControlEventRequest executes approved PR creation through the live write path [0.92ms]
-(pass) handleWebhookRequest executes approved merge through the live write path [0.41ms]
-(pass) config-set through control-event is explicit not-implemented [0.12ms]
-(pass) handleControlDispatchRequest rejects unauthenticated or unapproved write release [0.27ms]
-(pass) handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval [0.23ms]
-(pass) handleControlDispatchRequest rejects role/action mismatch [0.16ms]
-(pass) unmatched signed webhook reports non-success body [0.20ms]
-(pass) start throws when required secrets/bootstrap inputs are missing or blank [0.55ms]
-
-glue\state-machine.test.ts:
-(pass) createWorkflow sets up initial state [0.10ms]
-(pass) advanceStage walks automatic stages until PR creation approval is required [0.15ms]
-(pass) pr-create requires pr.create approval before scheduling review [0.07ms]
-(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.12ms]
-(pass) merge stage merges when CI, review, and pr.merge approval are true [0.08ms]
-(pass) applyEvent sets fields and action approvals correctly [0.08ms]
-(pass) advanceStage does not resurrect rejected or merged states [0.12ms]
-(pass) legacy approved boolean cannot synthesize merge approvals [0.17ms]
-
-control\start.test.ts:
-(pass) commandForService maps control services to startup commands [0.12ms]
-(pass) resolveControlEnvironment loads control secrets from Secret Manager inputs [0.71ms]
-(pass) resolveControlEnvironment rejects missing project or prefix [0.21ms]
-(pass) resolveControlEnvironment rejects blank loaded secrets [0.13ms]
-(pass) resolveControlEnvironment drops ambient non-control secrets from child env [0.21ms]
-
-ops\scripts\capture-knowledge.test.ts:
-(pass) slugify normalizes to kebab-case and keeps 한글 [0.16ms]
-(pass) validateInput requires title/slug/summary [0.13ms]
-(pass) buildArtifacts emits raw + wiki + log + index content [0.46ms]
-(pass) applyCapture writes raw, wiki, appends log, inserts index link [0.68ms]
-(pass) applyCapture preserves existing raw source (immutable) [0.23ms]
-(pass) applyCapture preserves existing wiki page (LLM-owned) [0.19ms]
-(pass) applyCapture is idempotent for index link and log line [0.24ms]
-(pass) parseArgs reads flags and derives slug from title when omitted [0.17ms]
-(pass) runCapture returns failure result on invalid input [0.21ms]
-
- 120 pass
- 0 fail
- 673 expect() calls
-Ran 120 tests across 16 files. [715.00ms]
-
-
-
-## typecheck
-Command: bunx tsc --noEmit
-Exit code: 0
-
-(no output)
-
-
-## compose-config
-Command: docker compose --env-file .env.example config --quiet
-Exit code: 0
-
-(no output)
-
-## spec-kit operation guide follow-up
-Generated: 2026-06-08
-
-Commands rerun after adding `scripts/smoke-glue.ts`, README operation guide, AGENTS operation guide, and ops verification doctrine updates:
-
-- `bunx tsc --noEmit` — exit 0
-- `bun test` — 120 pass / 0 fail, 673 expect() calls, 16 files
-- `bun run check:compose` — 176/176 checks passed
-- `bun run config/validate.ts` — 16/16 checks passed
-- `bun run smoke:glue` — PASS health/auth/HMAC/dispatch guards; PASS request→runtime dispatch→pr.create approval→brokered GitHub write→CI/review webhook→pr.merge approval→merged; 3 runtime dispatches, 2 GitHub write calls
-- `docker compose --env-file .env.example config --quiet` — exit 0
-- `bun test qa/red-team.test.ts` — 25 pass / 0 fail, 113 expect() calls
+RESULT: PASS

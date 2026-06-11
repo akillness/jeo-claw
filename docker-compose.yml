@@ -11,7 +11,7 @@ x-runtime-common: &runtime-common
   environment: &runtime-env
     HTTP_PROXY: ${EGRESS_PROXY_URL}
     HTTPS_PROXY: ${EGRESS_PROXY_URL}
-    NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot
+    NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot,github-api-mock,zeroclaw-researcher-coder,zeroclaw-reviewer,zeroclaw-pr-creator,zeroclaw-pr-review-scheduler,zeroclaw-merger,nullclaw-researcher-coder,nullclaw-reviewer,nullclaw-pr-creator,nullclaw-pr-review-scheduler,nullclaw-merger
     LLM_PROVIDER: ${LLM_PROVIDER}
     LLM_MODEL: ${LLM_MODEL}
     OPENAI_WIRE_API: ${OPENAI_WIRE_API}
@@ -20,6 +20,8 @@ x-runtime-common: &runtime-common
     GCLOUD_PROJECT: ${GCLOUD_PROJECT}
     GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
     JEO_BRANCH_NAMESPACE: jeo/${JEO_RUNTIME:-runtime}/${JEO_ROLE:-role}/${WORKFLOW_ID:-workflow}
+    JEO_SECRET_SOURCE: ${JEO_SECRET_SOURCE:-gcloud}
+    JEO_SECRETS_FILE: ${JEO_SECRETS_FILE:-}
   networks:
     - claw_internal
   cap_drop:
@@ -37,8 +39,7 @@ x-zeroclaw-common: &zeroclaw-common
     context: .
     dockerfile: runtimes/zeroclaw/Dockerfile
   command: ["bun", "run", "runtimes/start.ts", "zeroclaw"]
-  volumes:
-    - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
+
   healthcheck:
     test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
     interval: 30s
@@ -51,8 +52,7 @@ x-nullclaw-common: &nullclaw-common
     context: .
     dockerfile: runtimes/nullclaw/Dockerfile
   command: ["bun", "run", "runtimes/start.ts", "nullclaw"]
-  volumes:
-    - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro
+
   healthcheck:
     test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
     interval: 30s
@@ -70,6 +70,7 @@ services:
   egress-proxy:
     image: ubuntu/squid:latest
     container_name: jeo-egress-proxy
+    user: "13:13"
     restart: unless-stopped
     networks:
       - edge
@@ -83,10 +84,10 @@ services:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp
-      - /run
-      - /var/log/squid
-      - /var/spool/squid
+      - /tmp:uid=13,gid=13,mode=1777
+      - /run:uid=13,gid=13,mode=0755
+      - /var/log/squid:uid=13,gid=13,mode=0755
+      - /var/spool/squid:uid=13,gid=13,mode=0755
     healthcheck:
       test: ["CMD-SHELL", "squid -k check || exit 1"]
       interval: 30s
@@ -105,20 +106,21 @@ services:
         condition: service_healthy
     environment:
       JEO_CONTROL_SERVICE: glue-webhook
-      GLUE_PORT: ${GLUE_PORT:-8787}
+      GLUE_PORT: 8787
       GITHUB_WEBHOOK_PATH: ${GITHUB_WEBHOOK_PATH:-/webhook/github}
       GCLOUD_PROJECT: ${GCLOUD_PROJECT}
       GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
       TARGET_REPO: ${TARGET_REPO}
       TARGET_BRANCH: ${TARGET_BRANCH}
+      GITHUB_API_BASE_URL: ${GITHUB_API_BASE_URL:-}
       HTTP_PROXY: ${EGRESS_PROXY_URL}
       HTTPS_PROXY: ${EGRESS_PROXY_URL}
-      NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot
+      NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot,github-api-mock,zeroclaw-researcher-coder,zeroclaw-reviewer,zeroclaw-pr-creator,zeroclaw-pr-review-scheduler,zeroclaw-merger,nullclaw-researcher-coder,nullclaw-reviewer,nullclaw-pr-creator,nullclaw-pr-review-scheduler,nullclaw-merger
+      JEO_SECRET_SOURCE: ${JEO_SECRET_SOURCE:-gcloud}
+      JEO_SECRETS_FILE: ${JEO_SECRETS_FILE:-}
     ports:
-      - "127.0.0.1:${GLUE_PORT:-8787}:8787"
-    volumes:
-      - control_state:/var/lib/jeo-control
-      - control_audit:/var/log/jeo-control
+      - "127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"
+
     networks:
       - claw_internal
     cap_drop:
@@ -162,9 +164,12 @@ services:
       GLUE_EVENT_ENDPOINT: http://glue-webhook:8787
       HTTP_PROXY: ${EGRESS_PROXY_URL}
       HTTPS_PROXY: ${EGRESS_PROXY_URL}
-      NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot
+      NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot,github-api-mock,zeroclaw-researcher-coder,zeroclaw-reviewer,zeroclaw-pr-creator,zeroclaw-pr-review-scheduler,zeroclaw-merger,nullclaw-researcher-coder,nullclaw-reviewer,nullclaw-pr-creator,nullclaw-pr-review-scheduler,nullclaw-merger
+      JEO_SECRET_SOURCE: ${JEO_SECRET_SOURCE:-gcloud}
+      JEO_SECRETS_FILE: ${JEO_SECRETS_FILE:-}
     networks:
       - claw_internal
+      - edge
     cap_drop:
       - ALL
     security_opt:
@@ -190,7 +195,7 @@ services:
     volumes:
       - zeroclaw_researcher_coder_state:/root/.zeroclaw
       - zeroclaw_researcher_coder_worktree:/workspace
-      - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
+
 
   zeroclaw-reviewer:
     <<: *zeroclaw-common
@@ -203,7 +208,7 @@ services:
     volumes:
       - zeroclaw_reviewer_state:/root/.zeroclaw
       - zeroclaw_reviewer_worktree:/workspace
-      - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
+
 
   zeroclaw-pr-creator:
     <<: *zeroclaw-common
@@ -216,7 +221,7 @@ services:
     volumes:
       - zeroclaw_pr_creator_state:/root/.zeroclaw
       - zeroclaw_pr_creator_worktree:/workspace
-      - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
+
 
   zeroclaw-pr-review-scheduler:
     <<: *zeroclaw-common
@@ -229,7 +234,7 @@ services:
     volumes:
       - zeroclaw_pr_review_scheduler_state:/root/.zeroclaw
       - zeroclaw_pr_review_scheduler_worktree:/workspace
-      - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
+
 
   zeroclaw-merger:
     <<: *zeroclaw-common
@@ -242,7 +247,7 @@ services:
     volumes:
       - zeroclaw_merger_state:/root/.zeroclaw
       - zeroclaw_merger_worktree:/workspace
-      - ./config/zeroclaw.config.toml:/root/.zeroclaw/config.toml:ro
+
 
   nullclaw-researcher-coder:
     <<: *nullclaw-common
@@ -255,7 +260,7 @@ services:
     volumes:
       - nullclaw_researcher_coder_state:/root/.config/nullclaw
       - nullclaw_researcher_coder_worktree:/workspace
-      - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro
+
 
   nullclaw-reviewer:
     <<: *nullclaw-common
@@ -268,7 +273,7 @@ services:
     volumes:
       - nullclaw_reviewer_state:/root/.config/nullclaw
       - nullclaw_reviewer_worktree:/workspace
-      - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro
+
 
   nullclaw-pr-creator:
     <<: *nullclaw-common
@@ -281,7 +286,7 @@ services:
     volumes:
       - nullclaw_pr_creator_state:/root/.config/nullclaw
       - nullclaw_pr_creator_worktree:/workspace
-      - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro
+
 
   nullclaw-pr-review-scheduler:
     <<: *nullclaw-common
@@ -294,7 +299,7 @@ services:
     volumes:
       - nullclaw_pr_review_scheduler_state:/root/.config/nullclaw
       - nullclaw_pr_review_scheduler_worktree:/workspace
-      - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro
+
 
   nullclaw-merger:
     <<: *nullclaw-common
@@ -307,11 +312,8 @@ services:
     volumes:
       - nullclaw_merger_state:/root/.config/nullclaw
       - nullclaw_merger_worktree:/workspace
-      - ./config/nullclaw.config.json:/root/.config/nullclaw/config.json:ro
 
 volumes:
-  control_state:
-  control_audit:
   zeroclaw_researcher_coder_state:
   zeroclaw_researcher_coder_worktree:
   zeroclaw_reviewer_state:

@@ -1,6 +1,23 @@
 import { test, expect } from "bun:test";
 import { createWorkflow, advanceStage, applyEvent } from "./state-machine";
 
+function moveToPendingPrCreate(state: ReturnType<typeof createWorkflow>) {
+  state = advanceStage(state); // review
+  state = advanceStage(state); // pr-create
+  return advanceStage(state); // awaiting pr.create approval
+}
+
+function approveAndAdvancePrCreate(state: ReturnType<typeof createWorkflow>) {
+  state = moveToPendingPrCreate(state);
+  state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
+  return advanceStage(state); // pr-review-schedule
+}
+
+function moveToMerge(state: ReturnType<typeof createWorkflow>) {
+  state = approveAndAdvancePrCreate(state);
+  return advanceStage(state); // merge
+}
+
 test("createWorkflow sets up initial state", () => {
   const state = createWorkflow("wf-1", "zeroclaw", "fix bug");
   expect(state.id).toBe("wf-1");
@@ -33,9 +50,7 @@ test("advanceStage walks automatic stages until PR creation approval is required
 });
 
 test("pr-create requires pr.create approval before scheduling review", () => {
-  let state = createWorkflow("wf-1", "zeroclaw", "fix bug");
-  state = advanceStage(state); // review
-  state = advanceStage(state); // pr-create
+  let state = moveToPendingPrCreate(createWorkflow("wf-1", "zeroclaw", "fix bug"));
 
   state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
   state = advanceStage(state);
@@ -45,12 +60,7 @@ test("pr-create requires pr.create approval before scheduling review", () => {
 });
 
 test("merge stage blocks and stays awaiting-approval if conditions not met", () => {
-  let state = createWorkflow("wf-1", "zeroclaw", "fix bug");
-  state = advanceStage(state); // review
-  state = advanceStage(state); // pr-create
-  state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
-  state = advanceStage(state); // pr-review-schedule
-  state = advanceStage(state); // merge
+  let state = moveToMerge(createWorkflow("wf-1", "zeroclaw", "fix bug"));
 
   expect(state.stage).toBe("merge");
 
@@ -69,14 +79,10 @@ test("merge stage blocks and stays awaiting-approval if conditions not met", () 
 });
 
 test("merge stage merges when CI, review, and pr.merge approval are true", () => {
-  let state = createWorkflow("wf-1", "zeroclaw", "fix bug");
-  state = advanceStage(state); // review
-  state = advanceStage(state); // pr-create
-  state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
-  state = advanceStage(state); // pr-review-schedule
-  state = advanceStage(state); // merge
+  let state = moveToMerge(createWorkflow("wf-1", "zeroclaw", "fix bug"));
 
   state = applyEvent(state, { ciPassed: true, reviewPassed: true });
+  state = advanceStage(state); // awaiting pr.merge approval
   state = applyEvent(state, { type: "approve", action: "pr.merge", user: "alice" });
 
   state = advanceStage(state);
@@ -85,37 +91,38 @@ test("merge stage merges when CI, review, and pr.merge approval are true", () =>
   expect(state.actionApprovals?.["pr.merge"]?.status).toBe("consumed");
 });
 
-test("applyEvent sets fields and action approvals correctly", () => {
+test("applyEvent sets fields and matching pending action approvals correctly", () => {
   let state = createWorkflow("wf-1", "zeroclaw", "fix bug");
   state = applyEvent(state, { prNumber: 123, ciPassed: true, reviewPassed: true });
   expect(state.prNumber).toBe(123);
   expect(state.ciPassed).toBe(true);
   expect(state.reviewPassed).toBe(true);
+  expect(state.actionApprovals?.["pr.create"]?.status).toBeUndefined();
 
+  state = moveToPendingPrCreate(createWorkflow("wf-1", "zeroclaw", "fix bug"));
   state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
   expect(state.actionApprovals?.["pr.create"]?.status).toBe("approved");
 
-  state = applyEvent(state, { type: "reject", action: "pr.merge", user: "bob" });
-  expect(state.actionApprovals?.["pr.merge"]?.status).toBe("rejected");
-  expect(state.approved).toBe(false);
-  expect(state.status).toBe("rejected");
+  let mergeState = moveToMerge(createWorkflow("wf-2", "zeroclaw", "fix bug"));
+  mergeState = applyEvent(mergeState, { ciPassed: true, reviewPassed: true });
+  mergeState = advanceStage(mergeState);
+  mergeState = applyEvent(mergeState, { type: "reject", action: "pr.merge", user: "bob" });
+  expect(mergeState.actionApprovals?.["pr.merge"]?.status).toBe("rejected");
+  expect(mergeState.approved).toBe(false);
+  expect(mergeState.status).toBe("rejected");
 });
 
 test("advanceStage does not resurrect rejected or merged states", () => {
-  let state = createWorkflow("wf-1", "zeroclaw", "fix bug");
+  let state = moveToPendingPrCreate(createWorkflow("wf-1", "zeroclaw", "fix bug"));
   state = applyEvent(state, { type: "reject", action: "pr.create", user: "bob" });
   expect(state.status).toBe("rejected");
 
   const advancedReject = advanceStage(state);
   expect(advancedReject.status).toBe("rejected");
 
-  let state2 = createWorkflow("wf-2", "zeroclaw", "fix bug");
-  state2 = advanceStage(state2); // review
-  state2 = advanceStage(state2); // pr-create
-  state2 = applyEvent(state2, { type: "approve", action: "pr.create", user: "alice" });
-  state2 = advanceStage(state2); // pr-review-schedule
-  state2 = advanceStage(state2); // merge
+  let state2 = moveToMerge(createWorkflow("wf-2", "zeroclaw", "fix bug"));
   state2 = applyEvent(state2, { ciPassed: true, reviewPassed: true });
+  state2 = advanceStage(state2);
   state2 = applyEvent(state2, { type: "approve", action: "pr.merge", user: "alice" });
   state2 = advanceStage(state2);
   expect(state2.status).toBe("merged");
@@ -125,15 +132,38 @@ test("advanceStage does not resurrect rejected or merged states", () => {
 });
 
 test("legacy approved boolean cannot synthesize merge approvals", () => {
-  let state = createWorkflow("wf-legacy", "zeroclaw", "fix bug");
-  state = advanceStage(state); // review
-  state = advanceStage(state); // pr-create
-  state = applyEvent(state, { type: "approve", action: "pr.create", user: "alice" });
-  state = advanceStage(state); // pr-review-schedule
-  state = advanceStage(state); // merge
+  let state = moveToMerge(createWorkflow("wf-legacy", "zeroclaw", "fix bug"));
   state = applyEvent(state, { ciPassed: true, reviewPassed: true });
   state = applyEvent(state, { approved: true } as any);
   state = advanceStage(state);
   expect(state.status).toBe("awaiting-approval");
   expect(state.actionApprovals?.["pr.merge"]?.status).not.toBe("approved");
+});
+
+test("applyEvent ignores early approvals before matching pending action", () => {
+  let state = createWorkflow("wf-early", "zeroclaw", "fix bug");
+
+  state = applyEvent(state, { type: "approve", action: "pr.merge", user: "mallory" });
+  state = moveToMerge(state);
+  state = applyEvent(state, { ciPassed: true, reviewPassed: true });
+  state = advanceStage(state);
+
+  expect(state.status).toBe("awaiting-approval");
+  expect(state.pendingAction).toBe("pr.merge");
+  expect(state.actionApprovals?.["pr.merge"]?.status).not.toBe("approved");
+});
+
+test("applyEvent does not mutate terminal workflows", () => {
+  let state = moveToMerge(createWorkflow("wf-terminal", "zeroclaw", "fix bug"));
+  state = applyEvent(state, { ciPassed: true, reviewPassed: true });
+  state = advanceStage(state);
+  state = applyEvent(state, { type: "approve", action: "pr.merge", user: "alice" });
+  state = advanceStage(state);
+  expect(state.status).toBe("merged");
+
+  const afterReject = applyEvent(state, { type: "reject", action: "pr.merge", user: "mallory" });
+  const afterWebhook = applyEvent(state, { ciPassed: false, reviewPassed: false, prNumber: 999 });
+
+  expect(afterReject).toEqual(state);
+  expect(afterWebhook).toEqual(state);
 });

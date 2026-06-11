@@ -1,294 +1,74 @@
 {
-  "architectReview": {
-    "architectureStatus": "CLEAR",
-    "productStatus": "CLEAR",
-    "codeStatus": "CLEAR",
-    "recommendation": "APPROVE",
-    "evidence": "Final architect review is clear: split control plane, runtime wrapper dispatch, action-scoped approvals, mediated pr.create/pr.merge writes, and refreshed docs/artifacts all align with the approved plan. Final blocker sweeps reported zero blockers.",
-    "commands": [
-      "agent://27-FinalArchitectGateThree",
-      "agent://29-SlopCleanerTwenty",
-      "agent://26-SlopCleanerNineteen"
-    ],
-    "blockers": []
-  },
-  "executorQa": {
+  "generatedAt": "2026-06-10T04:06:18.346Z",
+  "scope": "oauth-provider-auth",
+  "status": "passed",
+  "checks": [
+    {
+      "label": "TypeScript noEmit",
+      "command": "bun x tsc --noEmit",
+      "exitCode": 0,
+      "ok": true
+    },
+    {
+      "label": "Full Bun test suite",
+      "command": "bun test",
+      "exitCode": 0,
+      "ok": true
+    },
+    {
+      "label": "Compose/static security validator",
+      "command": "bun run check:compose",
+      "exitCode": 0,
+      "ok": true
+    },
+    {
+      "label": "Runtime config validator",
+      "command": "bun run config/validate.ts",
+      "exitCode": 0,
+      "ok": true
+    },
+    {
+      "label": "Glue lifecycle smoke",
+      "command": "bun run smoke:glue",
+      "exitCode": 0,
+      "ok": true
+    },
+    {
+      "label": "Live preflight file-backed manifest",
+      "command": "bun run preflight:live",
+      "exitCode": 0,
+      "ok": true
+    }
+  ],
+  "note": "Direct gcloud live preflight was attempted separately and failed because configured live secret ids were unreadable in this session; the supported file-backed preflight path passed with the new openai-codex-oauth manifest.",
+  "updatedAt": "2026-06-10T10:19:54.765Z",
+  "dockerLive": {
     "status": "passed",
-    "e2eStatus": "passed",
-    "redTeamStatus": "passed",
-    "evidence": "Targeted verification passed: bun run check:compose 176/176, bun run config/validate.ts 16/16, bun test 120 pass / 0 fail, bunx tsc --noEmit success, bun run smoke:glue success (request\u2192runtime dispatch\u2192approved pr.create\u2192CI/review webhook\u2192approved pr.merge), docker compose --env-file .env.example config --quiet success, and bun test qa/red-team.test.ts 25 pass / 0 fail.",
-    "e2eCommands": [
-      "bun run check:compose",
-      "bun run config/validate.ts",
-      "bun test",
-      "bunx tsc --noEmit",
-      "docker compose --env-file .env.example config --quiet",
-      "bun run smoke:glue"
-    ],
-    "redTeamCommands": [
-      "bun test qa/red-team.test.ts"
-    ],
-    "artifactRefs": [
-      {
-        "id": "verify-cli",
-        "kind": "terminal-transcript",
-        "path": "jeo-claw/artifacts/verify-transcript.txt",
-        "description": "terminal transcript for compose-static, config-validate, full bun test, typecheck, glue smoke, and docker compose config"
-      },
-      {
-        "id": "package-suite",
-        "kind": "package-black-box-test",
-        "path": "jeo-claw/artifacts/verify-transcript.txt",
-        "description": "package-level test evidence covering state machine, loaders, runtime wrappers, and server integration through bun test"
-      },
-      {
-        "id": "api-suite",
-        "kind": "api-black-box-test",
-        "path": "jeo-claw/artifacts/verify-transcript.txt",
-        "description": "API-level control-event, webhook, dispatch, and approved-write integration evidence through glue/server.test.ts"
-      },
-      {
-        "id": "adversarial-report",
-        "kind": "failure-mode-test",
-        "path": "jeo-claw/artifacts/red-team-report.md",
-        "description": "adversarial QA report for approval, webhook, secret, broker, parser, and metric abuse cases"
-      },
-      {
-        "id": "adversarial-transcript",
-        "kind": "failure-mode-test",
-        "path": "jeo-claw/artifacts/red-team-transcript.txt",
-        "description": "adversarial test transcript with 25 passing cases"
-      },
-      {
-        "id": "glue-smoke",
-        "kind": "api-black-box-smoke",
-        "path": "jeo-claw/artifacts/verify-transcript.txt",
-        "description": "local HTTP lifecycle smoke covering request, runtime dispatch, action-scoped approvals, brokered GitHub write calls, CI/review webhook, and merge completion"
-      }
-    ],
-    "contractCoverage": [
-      {
-        "id": "contract-compose-hardening",
-        "contractRef": "approved plan / Docker hardening",
-        "obligation": "No host socket or workspace, internal-only runtime/control topology, allowlisted egress, restart, healthcheck, read_only/tmpfs/cap_drop hardening.",
-        "status": "covered",
-        "surfaceEvidenceRefs": [
-          "surface-cli-compose"
-        ],
-        "adversarialCaseRefs": [
-          "case-egress-allowlist"
-        ]
-      },
-      {
-        "id": "contract-config-roles",
-        "contractRef": "approved plan / config parity and approval stages",
-        "obligation": "Both runtimes keep the same provider/model/autonomy, five roles, approval-required pr_creator/merger stages, and env-ref secrets only.",
-        "status": "covered",
-        "surfaceEvidenceRefs": [
-          "surface-cli-config"
-        ],
-        "adversarialCaseRefs": [
-          "case-secret-least-privilege"
-        ]
-      },
-      {
-        "id": "contract-control-write-path",
-        "contractRef": "approved plan / control-plane approved write execution",
-        "obligation": "Control plane executes pr.create and pr.merge only after action-scoped approval, with brokered rw token release and strict gating.",
-        "status": "covered",
-        "surfaceEvidenceRefs": [
-          "surface-api-control"
-        ],
-        "adversarialCaseRefs": [
-          "case-unauth-control",
-          "case-broker-auth",
-          "case-merge-truthy"
-        ]
-      },
-      {
-        "id": "contract-runtime-dispatch",
-        "contractRef": "approved plan / runtime wrapper stage execution",
-        "obligation": "Non-write stages dispatch into the per-role runtime wrapper, which authenticates dispatch, validates runtime/role/stage, and materializes a stage artifact plus receipt before glue advances.",
-        "status": "covered",
-        "surfaceEvidenceRefs": [
-          "surface-package-runtime"
-        ],
-        "adversarialCaseRefs": [
-          "case-runtime-dispatch-auth"
-        ]
-      },
-      {
-        "id": "contract-gui-na",
-        "contractRef": "no GUI/browser surface in current repo scope",
-        "obligation": "GUI/browser evidence is intentionally out of scope for this backend/Discord orchestrator story.",
-        "status": "not_applicable",
-        "reason": "The implemented system exposes CLI, API, package, and Discord surfaces only."
-      },
-      {
-        "id": "contract-operation-guide-smoke",
-        "contractRef": "README/AGENTS operation guide reproducibility",
-        "obligation": "Documented claw operation path has a runnable local smoke command that proves the documented request\u2192approval\u2192brokered write\u2192merge lifecycle without Docker/gcloud.",
-        "status": "covered",
-        "surfaceEvidenceRefs": [
-          "surface-api-smoke"
-        ],
-        "adversarialCaseRefs": [
-          "case-unauth-control",
-          "case-broker-auth"
-        ]
-      }
-    ],
-    "surfaceEvidence": [
-      {
-        "id": "surface-cli-compose",
-        "contractRef": "Docker/compose posture",
-        "surface": "cli",
-        "invocation": "bun run check:compose and docker compose --env-file .env.example config --quiet",
-        "verdict": "passed",
-        "artifactRefs": [
-          "verify-cli"
-        ]
-      },
-      {
-        "id": "surface-cli-config",
-        "contractRef": "Runtime config parity",
-        "surface": "cli",
-        "invocation": "bun run config/validate.ts",
-        "verdict": "passed",
-        "artifactRefs": [
-          "verify-cli"
-        ]
-      },
-      {
-        "id": "surface-package-runtime",
-        "contractRef": "Runtime wrapper dispatch execution",
-        "surface": "package",
-        "invocation": "bun test including runtimes/start.test.ts and glue/runtime-dispatch.ts integration coverage",
-        "verdict": "passed",
-        "artifactRefs": [
-          "package-suite"
-        ]
-      },
-      {
-        "id": "surface-api-control",
-        "contractRef": "Control-event, webhook, dispatch, and approved write API path",
-        "surface": "api",
-        "invocation": "bun test including glue/server.test.ts webhook/control-event/dispatch/live write cases",
-        "verdict": "passed",
-        "artifactRefs": [
-          "api-suite"
-        ]
-      },
-      {
-        "id": "surface-algorithm-policy",
-        "contractRef": "Strict merge gate / parser / metrics / adversarial policy checks",
-        "surface": "algorithm",
-        "invocation": "bun test qa/red-team.test.ts",
-        "verdict": "passed",
-        "artifactRefs": [
-          "adversarial-report",
-          "adversarial-transcript"
-        ]
-      },
-      {
-        "id": "surface-gui-na",
-        "contractRef": "no GUI/browser surface in current repo scope",
-        "surface": "gui",
-        "status": "not_applicable",
-        "reason": "No GUI/browser surface exists in this orchestration repository."
-      },
-      {
-        "id": "surface-api-smoke",
-        "contractRef": "Documented claw operation lifecycle",
-        "surface": "api",
-        "invocation": "bun run smoke:glue",
-        "verdict": "passed",
-        "artifactRefs": [
-          "glue-smoke"
-        ]
-      }
-    ],
-    "adversarialCases": [
-      {
-        "id": "case-merge-truthy",
-        "contractRef": "Merge gate policy",
-        "scenario": "Pass truthy-but-not-boolean values to ciPassed/reviewPassed/discordApproved.",
-        "expectedBehavior": "Strict boolean checks reject the merge and do not allow bypass.",
-        "verdict": "passed",
-        "artifactRefs": [
-          "adversarial-report",
-          "adversarial-transcript"
-        ]
-      },
-      {
-        "id": "case-unauth-control",
-        "contractRef": "Control-event mutation auth",
-        "scenario": "POST approve/reject mutations without or with wrong x-control-event-secret.",
-        "expectedBehavior": "Control-event mutations are rejected with 401 and workflow state is not changed.",
-        "verdict": "passed",
-        "artifactRefs": [
-          "adversarial-transcript",
-          "api-suite"
-        ]
-      },
-      {
-        "id": "case-broker-auth",
-        "contractRef": "Approved write-secret broker",
-        "scenario": "Attempt /dispatch release without matching approval or with wrong role/action.",
-        "expectedBehavior": "Write token release is rejected unless the exact approved action/role is present; approved releases consume the approval.",
-        "verdict": "passed",
-        "artifactRefs": [
-          "adversarial-transcript",
-          "api-suite"
-        ]
-      },
-      {
-        "id": "case-secret-least-privilege",
-        "contractRef": "Least-privilege secret loading",
-        "scenario": "Load runtime and control secrets for read-only roles, write roles, and control services.",
-        "expectedBehavior": "Read-only runtime roles never access rw token, control services receive only their scoped secrets, and write scope is released only through the mediated path.",
-        "verdict": "passed",
-        "artifactRefs": [
-          "adversarial-transcript",
-          "package-suite"
-        ]
-      },
-      {
-        "id": "case-egress-allowlist",
-        "contractRef": "Compose allowlist and isolation",
-        "scenario": "Inspect compose topology, mounted volumes, env refs, and allowlist entries for forbidden sockets, binds, or wildcard egress.",
-        "expectedBehavior": "Static checks reject unsafe topology and only the intended allowlist and internal-only network model pass.",
-        "verdict": "passed",
-        "artifactRefs": [
-          "verify-cli"
-        ]
-      },
-      {
-        "id": "case-runtime-dispatch-auth",
-        "contractRef": "Runtime wrapper dispatch",
-        "scenario": "Send invalid runtime/role/stage payloads or missing x-runtime-dispatch-secret to runtime /dispatch.",
-        "expectedBehavior": "Runtime dispatch rejects bad auth/mismatched runtime-role-stage and only accepted payloads produce a work artifact plus receipt.",
-        "verdict": "passed",
-        "artifactRefs": [
-          "package-suite"
-        ]
-      }
-    ],
-    "blockers": []
+    "mode": "real-data-no-mock",
+    "imagesRebuilt": true,
+    "stackStartedWithoutMocks": true,
+    "evidence": "artifacts/docker-live-transcript.txt",
+    "details": "E2E verified on real Secret Manager data. Discord bot online + slash commands registered. Both runtimes accept control requests and write stage receipts. Review fix: ZeroClaw gateway now boots with seeded [providers.models.openai-codex] (model gpt-5-codex, wire_api responses) instead of 503 needs_onboarding; runtimes/start.ts seedZeroclawProviderModel covers it with unit tests."
   },
-  "iteration": {
-    "status": "passed",
-    "evidence": "Blocking findings were resolved iteratively, then the full verification bundle, glue lifecycle smoke, compose config check, and adversarial suite were rerun cleanly. Final blocker sweeps reported zero blockers and a final architect review returned CLEAR/APPROVE.",
-    "fullRerun": true,
-    "rerunCommands": [
-      "bun run check:compose",
-      "bun run config/validate.ts",
-      "bun test",
-      "bunx tsc --noEmit",
-      "docker compose --env-file .env.example config --quiet",
-      "bun test qa/red-team.test.ts",
-      "bun run smoke:glue"
+  "discordLiveResponse": {
+    "status": "pass-20x-live-loop",
+    "channelId": "1483454454350221472",
+    "botUserId": "1484763709762048121",
+    "iterations": 20,
+    "evidence": "artifacts/discord-20x-live-loop.txt",
+    "mode": "plain mention guide + request both dual workflow"
+  },
+  "runtimeBrowserVerification": {
+    "status": "pass-root-and-status-200",
+    "url": "http://127.0.0.1:18888/runtime-browser-status.html",
+    "html": "artifacts/runtime-browser-status.html",
+    "screenshot": "artifacts/runtime-browser-http-status.png",
+    "workflows": [
+      "wf-1781084129587-129",
+      "wf-1781084129602-817"
     ],
-    "blockers": []
+    "summary": "Static browser surface now serves both / and /runtime-browser-status.html with 200 responses; root redirects to the live status report and browser verification succeeds.",
+    "server": "bg_1 static http.server",
+    "rootUrl": "http://127.0.0.1:18888/"
   }
 }

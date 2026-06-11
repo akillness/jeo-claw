@@ -1,4 +1,4 @@
-import { STAGE_TO_ROLE, type Role, type Stage, type Runtime, type WorkflowState } from "./contract.ts";
+import { DISPATCHABLE_STAGES, STAGE_TO_ROLE, type Role, type Stage, type Runtime, type WorkflowState } from "./contract.ts";
 
 export interface RuntimeDispatchDeps {
   runtimeDispatchSecret: string;
@@ -19,7 +19,7 @@ export function dispatchServiceName(runtime: Runtime, role: Role): string {
 }
 
 export function dispatchableStage(stage: Stage): boolean {
-  return stage === "research-code" || stage === "review" || stage === "pr-review-schedule";
+  return (DISPATCHABLE_STAGES as readonly Stage[]).includes(stage);
 }
 
 export async function dispatchStageWork(
@@ -49,9 +49,14 @@ export async function dispatchStageWork(
     }),
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
+  let data: Record<string, any> = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { error: text.slice(0, 500) };
+  }
   if (!res.ok) {
-    throw new Error(`Runtime dispatch failed for ${workflow.runtime}/${role}/${workflow.stage} (${res.status}): ${data.error ?? text}`);
+    throw new Error(`Runtime dispatch failed for ${workflow.runtime}/${role}/${workflow.stage} (${res.status}): ${data.error ?? text.slice(0, 500)}`);
   }
   return data as RuntimeDispatchResult;
 }

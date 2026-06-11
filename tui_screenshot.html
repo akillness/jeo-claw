@@ -1,0 +1,95 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>GJC TUI Screenshot</title>
+    <style>
+        body {
+            background-color: #0c0c0c;
+            color: #cccccc;
+            font-family: 'Consolas', 'Courier New', monospace;
+            padding: 20px;
+            line-height: 1.4;
+        }
+        .container {
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 5px;
+            display: inline-block;
+            min-width: 600px;
+        }
+        .header {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+        .sub-header {
+            color: #888;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        .divider {
+            border-bottom: 1px solid #333;
+            margin: 10px 0;
+        }
+        .table-header {
+            font-weight: bold;
+            color: #aaa;
+            display: flex;
+        }
+        .row {
+            display: flex;
+            margin: 5px 0;
+        }
+        .col-id { width: 180px; }
+        .col-runtime { width: 120px; }
+        .col-stage { width: 180px; }
+        .col-status { width: 150px; }
+        
+        .status-running { color: #50fa7b; }
+        .status-pending { color: #8be9fd; }
+        .status-approval { color: #f1fa8c; }
+        .status-merged { color: #8be9fd; }
+        
+        .pending-action {
+            margin-left: 20px;
+            color: #f1fa8c;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">=== GJC (Global Jeoclaw Control) TUI Monitor ===</div>
+        <div class="sub-header">DB: workflows.sqlite | Refresh: 2000ms | Time: 2026-06-10 14:30:05</div>
+        
+        <div class="table-header">
+            <div class="col-id">ID</div>
+            <div class="col-runtime">Runtime</div>
+            <div class="col-stage">Stage</div>
+            <div class="col-status">Status</div>
+        </div>
+        <div class="divider"></div>
+        
+        <div class="row">
+            <div class="col-id">wf-demo-2</div>
+            <div class="col-runtime">nullclaw</div>
+            <div class="col-stage">pr-create</div>
+            <div class="col-status status-approval">awaiting-approval</div>
+        </div>
+        <div class="pending-action">└─ PENDING ACTION: pr.create</div>
+        
+        <div class="row">
+            <div class="col-id">wf-demo-1</div>
+            <div class="col-runtime">zeroclaw</div>
+            <div class="col-stage">research-code</div>
+            <div class="col-status status-running">running</div>
+        </div>
+        
+        <div class="divider"></div>
+        <div style="color: #666; font-size: 0.8em; margin-top: 10px;">Showing latest 2 active workflows.</div>
+    </div>
+</body>
+</html>

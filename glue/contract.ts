@@ -5,6 +5,22 @@ export type Runtime = "zeroclaw" | "nullclaw";
 
 export const RUNTIMES = ["zeroclaw", "nullclaw"] as const satisfies readonly Runtime[];
 
+// LLM provider identity shared by both runtimes. A/B fairness requires one identical
+// provider per comparison, so the union only contains providers BOTH runtimes support.
+// Phase 1: ChatGPT subscription OAuth ("openai-codex"). A future "gemini" (Antigravity)
+// entry is deferred until NullClaw gains Google/Gemini OAuth support upstream.
+export type LLMProvider = "openai-codex";
+
+export const LLM_PROVIDERS = ["openai-codex"] as const satisfies readonly LLMProvider[];
+
+export const DEFAULT_LLM_PROVIDER: LLMProvider = "openai-codex";
+
+export function parseLLMProvider(value: unknown): LLMProvider | undefined {
+  return typeof value === "string" && (LLM_PROVIDERS as readonly string[]).includes(value)
+    ? (value as LLMProvider)
+    : undefined;
+}
+
 export type Role =
   | "researcher-coder"
   | "reviewer"
@@ -30,6 +46,7 @@ export const STAGES = [
   "pr-review-schedule",
   "merge",
 ] as const;
+export const DISPATCHABLE_STAGES = ["research-code", "review", "pr-review-schedule"] as const satisfies readonly Stage[];
 export type Stage = (typeof STAGES)[number];
 
 export const STAGE_TO_ROLE = {
@@ -47,7 +64,7 @@ export type WorkflowAction = HighRiskAction | "research-code" | "review" | "pr-r
 export const PR_CREATE_ACTIONS = ["pr.create"] as const satisfies readonly HighRiskAction[];
 export const MERGE_ACTIONS = ["pr.merge"] as const satisfies readonly HighRiskAction[];
 
-export type WorkflowStatus = "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed";
+export type WorkflowStatus = "queued" | "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed";
 
 export interface ApprovalSnapshot {
   status: "pending" | "approved" | "rejected" | "consumed";

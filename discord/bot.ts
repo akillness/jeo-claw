@@ -1,5 +1,5 @@
-import { Client, GatewayIntentBits, PermissionFlagsBits } from "discord.js";
-import type { ControlEvent, WorkflowState, HighRiskAction } from "../glue/contract.ts";
+import { ChannelType, Client, GatewayIntentBits, PermissionFlagsBits, REST, Routes, SlashCommandBuilder } from "discord.js";
+import { RUNTIMES, type ControlEvent, type WorkflowState, type HighRiskAction } from "../glue/contract.ts";
 import { parseCommand, validateConfigValue } from "./commands.ts";
 import { ApprovalRegistry } from "./approval.ts";
 import type { applyEvent, createWorkflow } from "../glue/state-machine.ts";
@@ -31,6 +31,161 @@ function requireTrimmed(name: string, value: string | undefined): string {
   return trimmed;
 }
 
+const DEFAULT_CONTROL_EVENT_TIMEOUT_MS = 2_500;
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function deferInteraction(interaction: any, ephemeral: boolean): Promise<boolean> {
+  if (typeof interaction.deferReply !== "function") return false;
+  try {
+    await interaction.deferReply({ ephemeral });
+    return true;
+  } catch (err) {
+    console.error("Failed to defer interaction:", err);
+    return false;
+  }
+}
+
+async function replyInteraction(interaction: any, payload: any, deferred: boolean): Promise<void> {
+  const target = deferred && typeof interaction.editReply === "function" ? interaction.editReply.bind(interaction) : interaction.reply?.bind(interaction);
+  if (typeof target !== "function") return;
+  try {
+    await target(payload);
+  } catch (err) {
+    console.error("Failed to reply to interaction:", err);
+  }
+}
+
+export function discordCommandDefinitions(): unknown[] {
+  return [
+    new SlashCommandBuilder()
+      .setName("request")
+      .setDescription("Start a jeo-claw workflow")
+      .addStringOption((option) =>
+        option
+          .setName("runtime")
+          .setDescription("Runtime to execute")
+          .setRequired(true)
+          .addChoices({ name: "zeroclaw", value: "zeroclaw" }, { name: "nullclaw", value: "nullclaw" }),
+      )
+      .addStringOption((option) => option.setName("request").setDescription("Work request").setRequired(true))
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName("approve")
+      .setDescription("Approve one high-risk workflow action")
+      .addStringOption((option) => option.setName("workflowid").setDescription("Workflow id").setRequired(true))
+      .addStringOption((option) =>
+        option
+          .setName("action")
+          .setDescription("High-risk action")
+          .setRequired(true)
+          .addChoices({ name: "pr.create", value: "pr.create" }, { name: "pr.merge", value: "pr.merge" }),
+      )
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName("reject")
+      .setDescription("Reject one high-risk workflow action")
+      .addStringOption((option) => option.setName("workflowid").setDescription("Workflow id").setRequired(true))
+      .addStringOption((option) =>
+        option
+          .setName("action")
+          .setDescription("High-risk action")
+          .setRequired(true)
+          .addChoices({ name: "pr.create", value: "pr.create" }, { name: "pr.merge", value: "pr.merge" }),
+      )
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName("config")
+      .setDescription("Inspect or request safe configuration changes")
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName("set")
+          .setDescription("Request a config mutation; currently rejected by control plane")
+          .addStringOption((option) =>
+            option
+              .setName("key")
+              .setDescription("Config key")
+              .setRequired(true)
+              .addChoices(
+                { name: "provider", value: "provider" },
+                { name: "model", value: "model" },
+                { name: "autonomy", value: "autonomy" },
+                { name: "scaleout", value: "scaleout" },
+              ),
+          )
+          .addStringOption((option) => option.setName("value").setDescription("Config value").setRequired(true)),
+      )
+      .toJSON(),
+  ];
+}
+
+async function registerGuildCommands(token: string, guildId: string, applicationId: string | undefined): Promise<void> {
+  const appId = applicationId?.trim();
+  if (!appId) throw new Error("Discord application id is unavailable after login");
+  const rest = new REST({ version: "10" }).setToken(token);
+  await rest.put(Routes.applicationGuildCommands(appId, guildId), { body: discordCommandDefinitions() });
+}
+
+
+function optionalTrimmed(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+async function selectGuildId(client: any, preferredGuildId: string | undefined): Promise<string> {
+  const direct = optionalTrimmed(preferredGuildId);
+  if (direct) return direct;
+
+  const cachedGuilds = [...(client.guilds?.cache?.values?.() ?? [])];
+  const fetchedGuilds = cachedGuilds.length > 0 ? cachedGuilds : [...((await client.guilds?.fetch?.())?.values?.() ?? [])];
+  if (fetchedGuilds.length === 1) {
+    return fetchedGuilds[0]?.id;
+  }
+
+  throw new Error("DISCORD_GUILD_ID is required when the bot is connected to multiple guilds");
+}
+
+async function ensureTextChannel(guild: any, channelId: string | undefined, preferredName: string): Promise<string> {
+  const directId = optionalTrimmed(channelId);
+  if (directId) {
+    const direct = await guild.channels.fetch(directId);
+    if (!direct || direct.type !== ChannelType.GuildText) {
+      throw new Error(`Configured channel ${directId} is missing or not a text channel`);
+    }
+    return direct.id;
+  }
+
+  const fetched = await guild.channels.fetch();
+  const existing = [...fetched.values()].find((channel: any) => channel && channel.type === ChannelType.GuildText && channel.name === preferredName);
+  if (existing) return existing.id;
+
+  try {
+    const created = await guild.channels.create({
+      name: preferredName,
+      type: ChannelType.GuildText,
+      reason: "jeo-claw bootstrap channel provisioning",
+    });
+    return created.id;
+  } catch (err) {
+    throw new Error(`Unable to provision Discord text channel '${preferredName}': ${errorMessage(err)}`);
+  }
+}
+
+export async function resolveLivePolicy(client: any, env: NodeJS.ProcessEnv = process.env): Promise<CommandPolicy> {
+  const basePolicy = policyFromEnv(env);
+  const guildId = await selectGuildId(client, basePolicy.guildId);
+  const guild = await client.guilds.fetch(guildId);
+  const requestChannelId = await ensureTextChannel(guild, basePolicy.requestChannelId, optionalTrimmed(env.DISCORD_REQUEST_CHANNEL_NAME) ?? "jeo-request");
+  const approvalChannelId = await ensureTextChannel(guild, basePolicy.approvalChannelId, optionalTrimmed(env.DISCORD_APPROVAL_CHANNEL_NAME) ?? "jeo-approval");
+  return {
+    ...basePolicy,
+    guildId,
+    requestChannelId,
+    approvalChannelId,
+  };
+}
 export function policyFromEnv(env: NodeJS.ProcessEnv): CommandPolicy {
   return {
     guildId: env.DISCORD_GUILD_ID?.trim(),
@@ -94,18 +249,44 @@ export function authorizeEvent(event: ControlEvent, context: EventContext, polic
   return { ok: true };
 }
 
-async function forwardControlEvent(endpoint: string, secret: string, event: ControlEvent): Promise<void> {
-  const res = await fetch(`${endpoint.replace(/\/$/, "")}/control-event`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-control-event-secret": secret,
-    },
-    body: JSON.stringify(event),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`control event delivery failed (${res.status}): ${text}`);
+function controlEventLogSummary(event: ControlEvent): Record<string, string> {
+  if (event.type === "request") return { type: event.type, runtime: event.runtime };
+  if (event.type === "approve" || event.type === "reject") {
+    return { type: event.type, workflowId: event.workflowId, action: event.action, user: event.user };
+  }
+  return { type: event.type, key: event.key };
+}
+
+export async function forwardControlEvent(
+  endpoint: string,
+  secret: string,
+  event: ControlEvent,
+  timeoutMs = DEFAULT_CONTROL_EVENT_TIMEOUT_MS,
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${endpoint.replace(/\/$/, "")}/control-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-control-event-secret": secret,
+      },
+      body: JSON.stringify(event),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`control event delivery failed (${res.status})`);
+    }
+    const contentType = res.headers.get("content-type") ?? "";
+    return contentType.includes("application/json") ? await res.json() : await res.text();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(`control event delivery timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -113,32 +294,33 @@ async function forwardControlEvent(endpoint: string, secret: string, event: Cont
  * Builds the message and interaction handlers.
  */
 export function buildHandlers(deps: {
-  onEvent?: (e: ControlEvent) => void | Promise<void>;
+  onEvent?: (e: ControlEvent) => unknown | Promise<unknown>;
   registry: ApprovalRegistry;
   store?: Map<string, WorkflowState>;
   applyEvent?: typeof applyEvent;
   createWorkflow?: typeof createWorkflow;
   policy?: CommandPolicy;
+  botUserId?: string;
 }) {
   const processEvent = async (
     event: ControlEvent,
     context: EventContext,
     replyError: (reason: string) => Promise<void>
-  ): Promise<boolean> => {
+  ): Promise<{ ok: boolean; response?: unknown }> => {
     const auth = authorizeEvent(event, context, deps.policy);
     if (!auth.ok) {
       await replyError(auth.reason || "Unauthorized command");
-      return false;
+      return { ok: false };
     }
 
     if (event.type === "config-set") {
       const validation = validateConfigValue(event.key, event.value);
       if (!validation.ok) {
         await replyError(validation.reason || "Invalid config value");
-        return false;
+        return { ok: false };
       }
       await replyError("Command rejected: config-set is not implemented in the control plane.");
-      return false;
+      return { ok: false };
     }
 
     if (event.type === "request") {
@@ -168,41 +350,127 @@ export function buildHandlers(deps: {
     }
 
     if (deps.onEvent) {
-      await deps.onEvent(event);
+      const response = await deps.onEvent(event);
+      return { ok: true, response };
     }
-    return true;
+    return { ok: true };
   };
+
+  const replyToMessage = async (message: any, content: string): Promise<void> => {
+    if (typeof message.reply === "function") {
+      try {
+        await message.reply(content);
+      } catch (err) {
+        console.error("Failed to reply to message:", err);
+      }
+    }
+  };
+
+  const botMentionPattern = (): RegExp | undefined => {
+    const id = deps.botUserId?.trim();
+    return id ? new RegExp(`^<@!?${id}>\\s*`) : undefined;
+  };
+
+  const stripBotMention = (content: string): { mentioned: boolean; commandText: string } => {
+    const pattern = botMentionPattern();
+    if (!pattern) return { mentioned: false, commandText: content };
+    const mentioned = pattern.test(content.trim());
+    return { mentioned, commandText: content.trim().replace(pattern, "").trim() };
+  };
+
+  const eventFromMessage = (
+    rawContent: string,
+    user: string,
+  ): {
+    event: ControlEvent | { type: "unknown"; raw: string };
+    mentioned: boolean;
+    multiRequest: ControlEvent[] | null;
+    commandText: string;
+  } => {
+    const mention = stripBotMention(rawContent);
+    const commandText = mention.mentioned && mention.commandText.length > 0 ? mention.commandText : rawContent;
+    const multi = commandText.match(/^request\s+(all|both|claws)\s+(.+)$/i);
+    if (multi?.[2]?.trim()) {
+      return {
+        event: { type: "unknown", raw: commandText },
+        mentioned: mention.mentioned,
+        multiRequest: RUNTIMES.map((runtime) => ({ type: "request", runtime, request: multi[2]!.trim() })),
+        commandText,
+      };
+    }
+    const parsed = parseCommand(commandText, user, mentioned);
+    return {
+      event: parsed,
+      mentioned: mention.mentioned,
+      multiRequest: null,
+      commandText,
+    };
+  };
+
+  const workflowSummary = (response: unknown, event: ControlEvent): string => {
+    if (response && typeof response === "object" && "workflow" in response) {
+      const wf = (response as any).workflow;
+      return `Workflow ${wf.id} created: runtime=${wf.runtime}, stage=${wf.stage}, status=${wf.status}${wf.pendingAction ? `, pending=${wf.pendingAction}` : ""}`;
+    }
+    if (event.type === "approve" || event.type === "reject") {
+      return `Workflow ${event.workflowId} action ${event.action} ${event.type}d.`;
+    }
+    return ``;
+  };
+
+  const usageGuide = () =>
+    [
+      "실행 명령 형식:",
+      "- `request zeroclaw <요청>`",
+      "- `request nullclaw <요청>`",
+      "- `request both <요청>`  ← 두 runtime 모두 시작",
+      "- `/request` slash command도 사용 가능",
+    ].join("\\n");
 
   return {
     handleMessage: async (message: any) => {
       if (message.author?.bot) return;
 
       const user = message.author?.tag || message.author?.username || "unknown";
-      const event = parseCommand(message.content, user);
+      const rawContent = String(message.content ?? "");
+      const { event, mentioned, multiRequest } = eventFromMessage(rawContent, user);
+
+      const context: EventContext = {
+        guildId: message.guildId || message.guild?.id,
+        channelId: message.channelId || message.channel?.id,
+        member: message.member,
+      };
+      const replyError = async (reason: string) => replyToMessage(message, reason);
+
+      if (multiRequest) {
+        try {
+          const summaries: string[] = [];
+          for (const requestEvent of multiRequest) {
+            const result = await processEvent(requestEvent, context, replyError);
+            if (result.ok) summaries.push(workflowSummary(result.response, requestEvent));
+          }
+          if (summaries.length > 0) {
+            await replyToMessage(message, summaries.join("\\n"));
+          }
+        } catch (err) {
+          await replyError(`Command failed: ${errorMessage(err)}`);
+        }
+        return;
+      }
 
       if (event.type !== "unknown") {
-        const context: EventContext = {
-          guildId: message.guildId || message.guild?.id,
-          channelId: message.channelId || message.channel?.id,
-          member: message.member,
-        };
-        const replyError = async (reason: string) => {
-          if (typeof message.reply === "function") {
-            try {
-              await message.reply(reason);
-            } catch (err) {
-              console.error("Failed to reply to message:", err);
-            }
-          }
-        };
-        const ok = await processEvent(event, context, replyError);
-        if (ok && typeof message.reply === "function") {
-          try {
-            await message.reply(`Processed command: ${event.type}`);
-          } catch (err) {
-            console.error("Failed to reply to message:", err);
-          }
+        let result: { ok: boolean; response?: unknown } = { ok: false };
+        try {
+          result = await processEvent(event, context, replyError);
+        } catch (err) {
+          await replyError(`Command failed: ${errorMessage(err)}`);
+          return;
         }
+        if (result.ok) {
+          await replyToMessage(message, workflowSummary(result.response, event));
+        }
+      } else if (mentioned) {
+        await replyToMessage(message, usageGuide());
       }
     },
 
@@ -242,38 +510,31 @@ export function buildHandlers(deps: {
         if (cmdString) {
           const event = parseCommand(cmdString, user);
           if (event.type !== "unknown") {
+            const deferred = await deferInteraction(interaction, true);
             const replyError = async (reason: string) => {
-              if (typeof interaction.reply === "function") {
-                try {
-                  await interaction.reply({
-                    content: reason,
-                    ephemeral: true,
-                  });
-                } catch (err) {
-                  console.error("Failed to reply to interaction:", err);
-                }
-              }
-            };
-            const ok = await processEvent(event, context, replyError);
-            if (ok && typeof interaction.reply === "function") {
-              try {
-                await interaction.reply({
-                  content: `Command processed: ${cmdString}`,
-                  ephemeral: true,
-                });
-              } catch (err) {
-                console.error("Failed to reply to interaction:", err);
-              }
-            }
-          } else if (typeof interaction.reply === "function") {
-            try {
-              await interaction.reply({
-                content: `Unknown command: ${cmdString}`,
+              await replyInteraction(interaction, {
+                content: reason,
                 ephemeral: true,
-              });
+              }, deferred);
+            };
+            let result: { ok: boolean; response?: unknown } = { ok: false };
+            try {
+              result = await processEvent(event, context, replyError);
             } catch (err) {
-              console.error("Failed to reply to interaction:", err);
+              await replyError(`Command failed: ${errorMessage(err)}`);
+              return;
             }
+            if (result.ok) {
+              await replyInteraction(interaction, {
+                content: workflowSummary(result.response, event),
+                ephemeral: true,
+              }, deferred);
+            }
+          } else {
+            await replyInteraction(interaction, {
+              content: "Unknown command.",
+              ephemeral: true,
+            }, false);
           }
         }
       } else if (interaction.isButton?.()) {
@@ -287,28 +548,25 @@ export function buildHandlers(deps: {
           const cmdString = `${verb} ${workflowId ?? ""} ${approvalAction ?? ""}`;
           const event = parseCommand(cmdString, user);
           if (event.type === "approve" || event.type === "reject") {
+            const deferred = await deferInteraction(interaction, false);
             const replyError = async (reason: string) => {
-              if (typeof interaction.reply === "function") {
-                try {
-                  await interaction.reply({
-                    content: reason,
-                    ephemeral: true,
-                  });
-                } catch (err) {
-                  console.error("Failed to reply to interaction:", err);
-                }
-              }
+              await replyInteraction(interaction, {
+                content: reason,
+                ephemeral: true,
+              }, deferred);
             };
-            const ok = await processEvent(event, context, replyError);
-            if (ok && typeof interaction.reply === "function") {
-              try {
-                await interaction.reply({
-                  content: `Workflow ${event.workflowId} action ${event.action} has been ${verb}d by ${user}.`,
-                  ephemeral: false,
-                });
-              } catch (err) {
-                console.error("Failed to reply to interaction:", err);
-              }
+            let result: { ok: boolean; response?: unknown } = { ok: false };
+            try {
+              result = await processEvent(event, context, replyError);
+            } catch (err) {
+              await replyError(`Command failed: ${errorMessage(err)}`);
+              return;
+            }
+            if (result.ok) {
+              await replyInteraction(interaction, {
+                content: workflowSummary(result.response, event),
+                ephemeral: false,
+              }, deferred);
             }
           }
         }
@@ -331,10 +589,15 @@ export async function start(): Promise<Client> {
   });
 
   const token = requireTrimmed("DISCORD_BOT_TOKEN", process.env.DISCORD_BOT_TOKEN);
-  const policy = policyFromEnv(process.env);
-  requireTrimmed("DISCORD_GUILD_ID", policy.guildId);
-  requireTrimmed("DISCORD_REQUEST_CHANNEL_ID", policy.requestChannelId);
-  requireTrimmed("DISCORD_APPROVAL_CHANNEL_ID", policy.approvalChannelId);
+
+  client.on("ready", () => {
+    console.log(`[Discord Bot] Ready. Logged in as ${client.user?.tag}`); console.log("[Discord Bot] Policy:", JSON.stringify(policy));
+  });
+
+  await client.login(token);
+
+  const policy = await resolveLivePolicy(client, process.env);
+  const guildId = requireTrimmed("DISCORD_GUILD_ID", policy.guildId);
   const glueEndpoint = requireTrimmed("GLUE_EVENT_ENDPOINT", policy.controlEndpoint);
   const controlEventSecret = requireTrimmed("JEO_CONTROL_EVENT_SECRET", policy.controlEventSecret);
 
@@ -342,9 +605,11 @@ export async function start(): Promise<Client> {
   const handlers = buildHandlers({
     registry,
     policy,
+    botUserId: client.user?.id,
     onEvent: async (event) => {
-      await forwardControlEvent(glueEndpoint, controlEventSecret, event);
-      console.log("[Discord Bot] ControlEvent:", event);
+      const response = await forwardControlEvent(glueEndpoint, controlEventSecret, event);
+      console.log("[Discord Bot] ControlEvent:", controlEventLogSummary(event));
+      return response;
     },
   });
 
@@ -364,11 +629,8 @@ export async function start(): Promise<Client> {
     }
   });
 
-  client.on("ready", () => {
-    console.log(`[Discord Bot] Ready. Logged in as ${client.user?.tag}`);
-  });
-
-  await client.login(token);
+  await registerGuildCommands(token, guildId, client.application?.id ?? client.user?.id);
+  console.log(`[Discord Bot] Registered guild slash commands for ${guildId}`);
   return client;
 }
 

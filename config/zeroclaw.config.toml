@@ -2,11 +2,10 @@
 # Secrets are referenced via ${ENV} only; never inline plaintext (injected by secrets/loader.ts).
 
 # ── Provider (identical model to NullClaw for fair A/B comparison) ──
-[providers.models.openai.coding]   # type = openai; alias = coding
+[providers.models."openai-codex".coding]   # type = openai-codex; alias = coding
 model = "gpt-5-codex"
 wire_api = "responses"
-requires_openai_auth = false
-api_key = "${OPENAI_API_KEY}"
+requires_openai_auth = true
 
 # ── Risk profile (high-risk blocked → escalated to Discord approval) ──
 [risk.profiles.default]
@@ -16,31 +15,31 @@ high_risk = ["pr.create", "pr.merge"]
 
 # ── Role agents (each role = one agent; runtime drives them via SOP + subagents) ──
 [agents.researcher_coder]
-model_provider = "openai.coding"
+model_provider = "openai-codex.coding"
 risk_profile = "default"
 role = "researcher-coder"
 system = "Research the request, then write code and an initial branch."
 
 [agents.reviewer]
-model_provider = "openai.coding"
+model_provider = "openai-codex.coding"
 risk_profile = "default"
 role = "reviewer"
 system = "Review the produced code for correctness and quality before PR."
 
 [agents.pr_creator]
-model_provider = "openai.coding"
+model_provider = "openai-codex.coding"
 risk_profile = "default"
 role = "pr-creator"
 system = "Open a GitHub PR against akillness/jeo-claw."
 
 [agents.pr_review_scheduler]
-model_provider = "openai.coding"
+model_provider = "openai-codex.coding"
 risk_profile = "default"
 role = "pr-review-scheduler"
 system = "On PR open, schedule and run review inspection."
 
 [agents.merger]
-model_provider = "openai.coding"
+model_provider = "openai-codex.coding"
 risk_profile = "default"
 role = "merger"
 system = "After CI pass + review + Discord approval, merge to main."

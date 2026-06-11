@@ -1,0 +1,27 @@
+{
+  "active": true,
+  "version": 2,
+  "current_phase": "planner",
+  "skill": "ralplan",
+  "cwd": "D:\\clawWorld\\jeo-claw",
+  "updated_at": "2026-06-10T10:46:50.719Z",
+  "session_id": "019eb124-404c-7000-8916-29e18f3697e0",
+  "receipt": {
+    "version": 1,
+    "skill": "ralplan",
+    "owner": "gjc-hook",
+    "command": "gjc-skill-invocation",
+    "state_path": "D:\\clawWorld\\jeo-claw\\.gjc\\state\\sessions\\019eb124-404c-7000-8916-29e18f3697e0\\skill-active-state.json",
+    "storage_path": "D:\\clawWorld\\jeo-claw\\.gjc\\state\\sessions\\019eb124-404c-7000-8916-29e18f3697e0\\ralplan-state.json",
+    "mutated_at": "2026-06-10T10:46:50.719Z",
+    "fresh_until": "2026-06-10T11:16:50.719Z",
+    "status": "fresh",
+    "mutation_id": "ralplan:2026-06-10T10:46:50.719Z",
+    "content_sha256": {
+      "algorithm": "sha256",
+      "value": "b5acf39a53f1dcb8073549ca73e2fab8ad2ec82ae4d8033eb7c2e6b3f6addd84",
+      "covered_path": "D:\\clawWorld\\jeo-claw\\.gjc\\state\\sessions\\019eb124-404c-7000-8916-29e18f3697e0\\ralplan-state.json",
+      "computed_at": "2026-06-10T10:46:50.720Z"
+    }
+  }
+}
