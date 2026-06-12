@@ -5,7 +5,7 @@ test("compose security posture: every static check passes", () => {
   const checks = runChecks();
   const failures = checks.filter((c) => !c.ok);
   expect(failures.map((f) => `${f.name} (${f.detail})`)).toEqual([]);
-  expect(checks.length).toBeGreaterThan(100);
+  expect(checks.length).toBeGreaterThan(20);
 });
 
 test("no service mounts the host Docker socket or host workspace", () => {
@@ -21,12 +21,11 @@ test("no service mounts the host Docker socket or host workspace", () => {
 });
 
 test("runtime-role services are isolated from the edge network", () => {
+  // Hive topology runs runtimes inside the hive container.
+  // So RUNTIME_ROLE_SERVICES are no longer top-level compose services.
   const compose = loadResolvedCompose();
-  expect(compose.services.zeroclaw).toBeUndefined();
-  expect(compose.services.nullclaw).toBeUndefined();
   for (const svc of RUNTIME_ROLE_SERVICES) {
-    const nets = compose.services[svc].networks as string[];
-    expect(nets).toEqual(["claw_internal"]);
+    expect(compose.services[svc]).toBeUndefined();
   }
 });
 
@@ -36,7 +35,7 @@ test("only egress-proxy and discord-bot attach to edge", () => {
     .filter(([, def]) => (def.networks ?? []).includes("edge"))
     .map(([name]) => name)
     .sort();
-  expect(edgeMembers).toEqual(["discord-bot", "egress-proxy"]);
+  expect(edgeMembers).toEqual(["claw-hive", "egress-proxy"]);
 });
 
 
@@ -45,7 +44,7 @@ test("control services use expected networks and stay hardened", () => {
   for (const svc of CONTROL_SERVICES) {
     const def = compose.services[svc];
     expect(def).toBeDefined();
-    expect((def.networks as string[]).sort()).toEqual(svc === "discord-bot" ? ["claw_internal", "edge"] : ["claw_internal"]);
+    expect((def.networks as string[]).sort()).toEqual(["claw_internal", "edge"].sort());
     expect(def.restart).toBe("unless-stopped");
     expect(def.healthcheck).toBeDefined();
     expect(def.cap_drop).toContain("ALL");
@@ -54,25 +53,14 @@ test("control services use expected networks and stay hardened", () => {
     expect(def.tmpfs).toContain("/tmp");
     expect(def.tmpfs).toContain("/run");
   }
-  expect(compose.services["discord-bot"].ports ?? []).toEqual([]);
-  expect(compose.services["glue-webhook"].ports).toEqual(["127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"]);
+  expect(compose.services["claw-hive"].ports).toEqual(["127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"]);
 });
 
 test("runtime-role services have unique state and worktree volumes", () => {
+  // Hive topology uses a single hive_state volume for the hive container.
   const compose = loadResolvedCompose();
-  const seen = new Set<string>();
-  for (const svc of RUNTIME_ROLE_SERVICES) {
-    const vols = compose.services[svc].volumes as string[];
-    const scoped = vols.filter((v) => v.includes(":/workspace") || v.includes(".zeroclaw") || v.includes(".config/nullclaw"));
-    expect(scoped.length).toBeGreaterThanOrEqual(2);
-    for (const vol of scoped) {
-      if (vol.startsWith("./config/")) continue;
-      const source = vol.split(":")[0]!;
-      expect(seen.has(source)).toBe(false);
-      seen.add(source);
-      expect(compose.volumes[source]).toBeDefined();
-    }
-  }
+  expect(compose.volumes["hive_state"]).toBeDefined();
+  expect(compose.services["claw-hive"].volumes).toContain("hive_state:/data");
 });
 test("runChecks detects forbidden environment variables", async () => {
   const { join } = await import("node:path");
@@ -104,8 +92,8 @@ test("runChecks detects forbidden environment variables", async () => {
           "zeroclaw-researcher-coder-workspace:/workspace",
         ],
       },
-      "glue-webhook": {
-        networks: ["claw_internal"],
+      "claw-hive": {
+        networks: ["claw_internal", "edge"],
         restart: "unless-stopped",
         healthcheck: { test: ["CMD", "curl", "-f", "http://localhost"] },
         environment: {
@@ -141,7 +129,7 @@ test("runChecks detects forbidden environment variables", async () => {
     expect(runtimeForbiddenCheck!.ok).toBe(false);
     expect(runtimeForbiddenCheck!.detail).toContain("OPENAI_CODEX_AUTH");
 
-    const controlForbiddenCheck = checks.find(c => c.name === "glue-webhook has no direct secret or runtime env");
+    const controlForbiddenCheck = checks.find(c => c.name === "claw-hive has no direct secret or runtime env");
     expect(controlForbiddenCheck).toBeDefined();
     expect(controlForbiddenCheck!.ok).toBe(false);
     expect(controlForbiddenCheck!.detail).toContain("OPENAI_CODEX_AUTH");

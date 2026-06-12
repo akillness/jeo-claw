@@ -2,6 +2,8 @@
 # GitHub (repo ops, PRs, archives, webhooks)
 .github.com
 .githubusercontent.com
+# NPM (dynamic bunx usage for tools like gajae-code)
+registry.npmjs.org
 # OpenAI (gpt-5 provider)
 api.openai.com
 # gcloud Secret Manager

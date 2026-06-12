@@ -1,63 +1,7 @@
-# jeo-claw — dual-runtime agentic PR orchestration (local Docker first).
-# Security posture (2026 claw 보안 기준): no host Docker socket, no host workspace,
-# internal-only runtime/control services, allowlisted proxy egress, role-scoped state/worktrees,
+# jeo-claw — six-claw hive topology.
+# Security posture: no host Docker socket, no host workspace binds,
+# internal-only runtime/control services, allowlisted proxy egress,
 # and Discord approval for every write action.
-
-x-runtime-common: &runtime-common
-  restart: unless-stopped
-  depends_on:
-    egress-proxy:
-      condition: service_healthy
-  environment: &runtime-env
-    HTTP_PROXY: ${EGRESS_PROXY_URL}
-    HTTPS_PROXY: ${EGRESS_PROXY_URL}
-    NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot,github-api-mock,zeroclaw-researcher-coder,zeroclaw-reviewer,zeroclaw-pr-creator,zeroclaw-pr-review-scheduler,zeroclaw-merger,nullclaw-researcher-coder,nullclaw-reviewer,nullclaw-pr-creator,nullclaw-pr-review-scheduler,nullclaw-merger
-    LLM_PROVIDER: ${LLM_PROVIDER}
-    LLM_MODEL: ${LLM_MODEL}
-    OPENAI_WIRE_API: ${OPENAI_WIRE_API}
-    TARGET_REPO: ${TARGET_REPO}
-    TARGET_BRANCH: ${TARGET_BRANCH}
-    GCLOUD_PROJECT: ${GCLOUD_PROJECT}
-    GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
-    JEO_BRANCH_NAMESPACE: jeo/${JEO_RUNTIME:-runtime}/${JEO_ROLE:-role}/${WORKFLOW_ID:-workflow}
-    JEO_SECRET_SOURCE: ${JEO_SECRET_SOURCE:-gcloud}
-    JEO_SECRETS_FILE: ${JEO_SECRETS_FILE:-}
-  networks:
-    - claw_internal
-  cap_drop:
-    - ALL
-  security_opt:
-    - no-new-privileges:true
-  read_only: true
-  tmpfs:
-    - /tmp
-    - /run
-
-x-zeroclaw-common: &zeroclaw-common
-  <<: *runtime-common
-  build:
-    context: .
-    dockerfile: runtimes/zeroclaw/Dockerfile
-  command: ["bun", "run", "runtimes/start.ts", "zeroclaw"]
-
-  healthcheck:
-    test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
-
-x-nullclaw-common: &nullclaw-common
-  <<: *runtime-common
-  build:
-    context: .
-    dockerfile: runtimes/nullclaw/Dockerfile
-  command: ["bun", "run", "runtimes/start.ts", "nullclaw"]
-
-  healthcheck:
-    test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
-    interval: 30s
-    timeout: 10s
-    retries: 3
 
 networks:
   edge:
@@ -65,6 +9,9 @@ networks:
   claw_internal:
     driver: bridge
     internal: true
+
+volumes:
+  hive_state:
 
 services:
   egress-proxy:
@@ -94,82 +41,78 @@ services:
       timeout: 5s
       retries: 3
 
-  glue-webhook:
+  claw-hive:
     build:
       context: .
-      dockerfile: control/Dockerfile
-    container_name: jeo-glue-webhook
-    command: ["bun", "run", "control/start.ts", "glue-webhook"]
+      dockerfile: hive/Dockerfile
+    container_name: jeo-claw-hive
     restart: unless-stopped
     depends_on:
       egress-proxy:
         condition: service_healthy
+    networks:
+      - claw_internal
+      - edge
     environment:
-      JEO_CONTROL_SERVICE: glue-webhook
-      GLUE_PORT: 8787
+      HTTP_PROXY: ${EGRESS_PROXY_URL}
+      HTTPS_PROXY: ${EGRESS_PROXY_URL}
+      NO_PROXY: localhost,127.0.0.1,egress-proxy,github-api-mock
+      GLUE_PORT: ${GLUE_PORT:-8787}
       GITHUB_WEBHOOK_PATH: ${GITHUB_WEBHOOK_PATH:-/webhook/github}
+      GLUE_EVENT_ENDPOINT: http://127.0.0.1:8787
       GCLOUD_PROJECT: ${GCLOUD_PROJECT}
       GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
       TARGET_REPO: ${TARGET_REPO}
       TARGET_BRANCH: ${TARGET_BRANCH}
-      GITHUB_API_BASE_URL: ${GITHUB_API_BASE_URL:-}
-      HTTP_PROXY: ${EGRESS_PROXY_URL}
-      HTTPS_PROXY: ${EGRESS_PROXY_URL}
-      NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot,github-api-mock,zeroclaw-researcher-coder,zeroclaw-reviewer,zeroclaw-pr-creator,zeroclaw-pr-review-scheduler,zeroclaw-merger,nullclaw-researcher-coder,nullclaw-reviewer,nullclaw-pr-creator,nullclaw-pr-review-scheduler,nullclaw-merger
-      JEO_SECRET_SOURCE: ${JEO_SECRET_SOURCE:-gcloud}
-      JEO_SECRETS_FILE: ${JEO_SECRETS_FILE:-}
-    ports:
-      - "127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"
-
-    networks:
-      - claw_internal
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /run
-    healthcheck:
-      test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-  discord-bot:
-    build:
-      context: .
-      dockerfile: control/Dockerfile
-    container_name: jeo-discord-bot
-    command: ["bun", "run", "control/start.ts", "discord-bot"]
-    restart: unless-stopped
-    depends_on:
-      glue-webhook:
-        condition: service_healthy
-      egress-proxy:
-        condition: service_healthy
-    environment:
-      JEO_CONTROL_SERVICE: discord-bot
+      ALLOWED_REPO_OWNERS: ${ALLOWED_REPO_OWNERS:-}
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LLM_MODEL: ${LLM_MODEL}
+      OPENAI_WIRE_API: ${OPENAI_WIRE_API}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       DISCORD_REQUEST_CHANNEL_ID: ${DISCORD_REQUEST_CHANNEL_ID}
       DISCORD_STATUS_CHANNEL_ID: ${DISCORD_STATUS_CHANNEL_ID}
       DISCORD_APPROVAL_CHANNEL_ID: ${DISCORD_APPROVAL_CHANNEL_ID}
-      DISCORD_APPROVER_ROLE_ID: ${DISCORD_APPROVER_ROLE_ID}
       DISCORD_DASHBOARD_CHANNEL_ID: ${DISCORD_DASHBOARD_CHANNEL_ID}
-      GCLOUD_PROJECT: ${GCLOUD_PROJECT}
-      GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
-      TARGET_REPO: ${TARGET_REPO}
-      TARGET_BRANCH: ${TARGET_BRANCH}
-      GLUE_EVENT_ENDPOINT: http://glue-webhook:8787
-      HTTP_PROXY: ${EGRESS_PROXY_URL}
-      HTTPS_PROXY: ${EGRESS_PROXY_URL}
-      NO_PROXY: localhost,127.0.0.1,egress-proxy,glue-webhook,discord-bot,github-api-mock,zeroclaw-researcher-coder,zeroclaw-reviewer,zeroclaw-pr-creator,zeroclaw-pr-review-scheduler,zeroclaw-merger,nullclaw-researcher-coder,nullclaw-reviewer,nullclaw-pr-creator,nullclaw-pr-review-scheduler,nullclaw-merger
+      DISCORD_APPROVER_ROLE_ID: ${DISCORD_APPROVER_ROLE_ID}
+      GITHUB_API_BASE_URL: ${GITHUB_API_BASE_URL:-}
       JEO_SECRET_SOURCE: ${JEO_SECRET_SOURCE:-gcloud}
       JEO_SECRETS_FILE: ${JEO_SECRETS_FILE:-}
+      JEO_ALLOW_SELF_TEST: ${JEO_ALLOW_SELF_TEST:-}
+      JEO_STATUS_ENDPOINT: ${JEO_STATUS_ENDPOINT:-http://127.0.0.1:9100/status}
+      AUTONOMY: ${AUTONOMY:-}
+      SQLITE_DB_PATH: /data/workflows.sqlite
+    ports:
+      - "127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/tmp
+      - /run
+      - /root/.gjc
+      - /root/.bun/install/cache
+    volumes:
+      - hive_state:/data
+      - ./secrets/live.json:/run/secrets/jeo-claw-secrets.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  github-api-mock:
+    profiles:
+      - test
+    build:
+      context: .
+      dockerfile: hive/Dockerfile
+    container_name: jeo-github-api-mock
+    command: ["bun", "run", "scripts/mock-github.ts"]
     networks:
       - claw_internal
-      - edge
     cap_drop:
       - ALL
     security_opt:
@@ -178,159 +121,3 @@ services:
     tmpfs:
       - /tmp
       - /run
-    healthcheck:
-      test: ["CMD-SHELL", "bun -e 'process.exit(process.env.GCLOUD_PROJECT && process.env.GCLOUD_PROJECT.trim() !== \"\" && process.env.GCLOUD_SECRET_PREFIX && process.env.GCLOUD_SECRET_PREFIX.trim() !== \"\" ? 0 : 1)'"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-  zeroclaw-researcher-coder:
-    <<: *zeroclaw-common
-    container_name: jeo-zeroclaw-researcher-coder
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: zeroclaw
-      JEO_ROLE: researcher-coder
-      JEO_WORKTREE: /workspace
-    volumes:
-      - zeroclaw_researcher_coder_state:/root/.zeroclaw
-      - zeroclaw_researcher_coder_worktree:/workspace
-
-
-  zeroclaw-reviewer:
-    <<: *zeroclaw-common
-    container_name: jeo-zeroclaw-reviewer
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: zeroclaw
-      JEO_ROLE: reviewer
-      JEO_WORKTREE: /workspace
-    volumes:
-      - zeroclaw_reviewer_state:/root/.zeroclaw
-      - zeroclaw_reviewer_worktree:/workspace
-
-
-  zeroclaw-pr-creator:
-    <<: *zeroclaw-common
-    container_name: jeo-zeroclaw-pr-creator
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: zeroclaw
-      JEO_ROLE: pr-creator
-      JEO_WORKTREE: /workspace
-    volumes:
-      - zeroclaw_pr_creator_state:/root/.zeroclaw
-      - zeroclaw_pr_creator_worktree:/workspace
-
-
-  zeroclaw-pr-review-scheduler:
-    <<: *zeroclaw-common
-    container_name: jeo-zeroclaw-pr-review-scheduler
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: zeroclaw
-      JEO_ROLE: pr-review-scheduler
-      JEO_WORKTREE: /workspace
-    volumes:
-      - zeroclaw_pr_review_scheduler_state:/root/.zeroclaw
-      - zeroclaw_pr_review_scheduler_worktree:/workspace
-
-
-  zeroclaw-merger:
-    <<: *zeroclaw-common
-    container_name: jeo-zeroclaw-merger
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: zeroclaw
-      JEO_ROLE: merger
-      JEO_WORKTREE: /workspace
-    volumes:
-      - zeroclaw_merger_state:/root/.zeroclaw
-      - zeroclaw_merger_worktree:/workspace
-
-
-  nullclaw-researcher-coder:
-    <<: *nullclaw-common
-    container_name: jeo-nullclaw-researcher-coder
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: nullclaw
-      JEO_ROLE: researcher-coder
-      JEO_WORKTREE: /workspace
-    volumes:
-      - nullclaw_researcher_coder_state:/root/.config/nullclaw
-      - nullclaw_researcher_coder_worktree:/workspace
-
-
-  nullclaw-reviewer:
-    <<: *nullclaw-common
-    container_name: jeo-nullclaw-reviewer
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: nullclaw
-      JEO_ROLE: reviewer
-      JEO_WORKTREE: /workspace
-    volumes:
-      - nullclaw_reviewer_state:/root/.config/nullclaw
-      - nullclaw_reviewer_worktree:/workspace
-
-
-  nullclaw-pr-creator:
-    <<: *nullclaw-common
-    container_name: jeo-nullclaw-pr-creator
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: nullclaw
-      JEO_ROLE: pr-creator
-      JEO_WORKTREE: /workspace
-    volumes:
-      - nullclaw_pr_creator_state:/root/.config/nullclaw
-      - nullclaw_pr_creator_worktree:/workspace
-
-
-  nullclaw-pr-review-scheduler:
-    <<: *nullclaw-common
-    container_name: jeo-nullclaw-pr-review-scheduler
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: nullclaw
-      JEO_ROLE: pr-review-scheduler
-      JEO_WORKTREE: /workspace
-    volumes:
-      - nullclaw_pr_review_scheduler_state:/root/.config/nullclaw
-      - nullclaw_pr_review_scheduler_worktree:/workspace
-
-
-  nullclaw-merger:
-    <<: *nullclaw-common
-    container_name: jeo-nullclaw-merger
-    environment:
-      <<: *runtime-env
-      JEO_RUNTIME: nullclaw
-      JEO_ROLE: merger
-      JEO_WORKTREE: /workspace
-    volumes:
-      - nullclaw_merger_state:/root/.config/nullclaw
-      - nullclaw_merger_worktree:/workspace
-
-volumes:
-  zeroclaw_researcher_coder_state:
-  zeroclaw_researcher_coder_worktree:
-  zeroclaw_reviewer_state:
-  zeroclaw_reviewer_worktree:
-  zeroclaw_pr_creator_state:
-  zeroclaw_pr_creator_worktree:
-  zeroclaw_pr_review_scheduler_state:
-  zeroclaw_pr_review_scheduler_worktree:
-  zeroclaw_merger_state:
-  zeroclaw_merger_worktree:
-  nullclaw_researcher_coder_state:
-  nullclaw_researcher_coder_worktree:
-  nullclaw_reviewer_state:
-  nullclaw_reviewer_worktree:
-  nullclaw_pr_creator_state:
-  nullclaw_pr_creator_worktree:
-  nullclaw_pr_review_scheduler_state:
-  nullclaw_pr_review_scheduler_worktree:
-  nullclaw_merger_state:
-  nullclaw_merger_worktree:

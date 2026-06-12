@@ -1,4 +1,4 @@
-import { DISPATCHABLE_STAGES, STAGE_TO_ROLE, type Role, type Stage, type Runtime, type WorkflowState } from "./contract.ts";
+import { DISPATCHABLE_STAGES, STAGE_TO_ROLE, CLAW_PORTS, type Role, type Stage, type Runtime, type WorkflowState } from "./contract.ts";
 
 export interface RuntimeDispatchDeps {
   runtimeDispatchSecret: string;
@@ -15,7 +15,7 @@ export interface RuntimeDispatchResult {
 }
 
 export function dispatchServiceName(runtime: Runtime, role: Role): string {
-  return `${runtime}-${role}`;
+  return "127.0.0.1";
 }
 
 export function dispatchableStage(stage: Stage): boolean {
@@ -31,7 +31,7 @@ export async function dispatchStageWork(
   }
   const role = STAGE_TO_ROLE[workflow.stage];
   const service = dispatchServiceName(workflow.runtime, role);
-  const port = deps.port ?? 8787;
+  const port = CLAW_PORTS[role] ?? deps.port ?? 8787;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const res = await fetchImpl(`http://${service}:${port}/dispatch`, {
     method: "POST",

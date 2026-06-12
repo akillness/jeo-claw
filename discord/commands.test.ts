@@ -5,6 +5,7 @@ test("parseCommand: request command", () => {
   const res1 = parseCommand("request zeroclaw build a secure router", "alice");
   expect(res1).toEqual({
     type: "request",
+    source: "discord",
     runtime: "zeroclaw",
     request: "build a secure router",
   });
@@ -12,6 +13,7 @@ test("parseCommand: request command", () => {
   const res2 = parseCommand("/request nullclaw write some tests", "bob");
   expect(res2).toEqual({
     type: "request",
+    source: "discord",
     runtime: "nullclaw",
     request: "write some tests",
   });
@@ -25,6 +27,7 @@ test("parseCommand: request command", () => {
   const res4 = parseCommand("  request    zeroclaw    do   some   work  ", "charlie");
   expect(res4).toEqual({
     type: "request",
+    source: "discord",
     runtime: "zeroclaw",
     request: "do   some   work",
   });
@@ -34,6 +37,7 @@ test("parseCommand: approve command requires workflow id and action", () => {
   const res1 = parseCommand("approve wf-999 pr.create", "alice");
   expect(res1).toEqual({
     type: "approve",
+    source: "discord",
     workflowId: "wf-999",
     action: "pr.create",
     user: "alice",
@@ -42,6 +46,7 @@ test("parseCommand: approve command requires workflow id and action", () => {
   const res2 = parseCommand("/approve wf-1000 pr.merge", "bob");
   expect(res2).toEqual({
     type: "approve",
+    source: "discord",
     workflowId: "wf-1000",
     action: "pr.merge",
     user: "bob",
@@ -61,6 +66,7 @@ test("parseCommand: reject command requires workflow id and action", () => {
   const res1 = parseCommand("reject wf-999 pr.create", "alice");
   expect(res1).toEqual({
     type: "reject",
+    source: "discord",
     workflowId: "wf-999",
     action: "pr.create",
     user: "alice",
@@ -69,6 +75,7 @@ test("parseCommand: reject command requires workflow id and action", () => {
   const res2 = parseCommand("/reject wf-1000 pr.merge", "bob");
   expect(res2).toEqual({
     type: "reject",
+    source: "discord",
     workflowId: "wf-1000",
     action: "pr.merge",
     user: "bob",
@@ -139,7 +146,7 @@ test("parseCommand: unknown commands", () => {
 test("validateConfigValue validations", () => {
   expect(validateConfigValue("autonomy", "supervised")).toEqual({ ok: true });
   expect(validateConfigValue("autonomy", "yolo").ok).toBe(false);
-  expect(validateConfigValue("autonomy", "yolo").reason).toContain("Only 'supervised' is allowed");
+  expect(validateConfigValue("autonomy", "yolo").reason).toContain("Autonomy must be 'supervised'");
 
   expect(validateConfigValue("scaleout", "1")).toEqual({ ok: true });
   expect(validateConfigValue("scaleout", "2")).toEqual({ ok: true });

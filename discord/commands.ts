@@ -11,16 +11,16 @@ export function validateConfigValue(key: ConfigKey, value: string): { ok: boolea
   const trimmed = value.trim();
   if (key === "autonomy") {
     if (trimmed !== "supervised") {
-      return { ok: false, reason:  };
+      return { ok: false, reason: "Autonomy must be 'supervised'." };
     }
   } else if (key === "scaleout") {
     const num = Number(trimmed);
     if (!/^\d+$/.test(trimmed) || isNaN(num) || num < 1 || num > 3) {
-      return { ok: false, reason:  };
+      return { ok: false, reason: "Scaleout must be an integer between 1 and 3." };
     }
   } else if (key === "provider") {
     if (!parseLLMProvider(trimmed)) {
-      return { ok: false, reason:  };
+      return { ok: false, reason: "Invalid LLM provider." };
     }
   } else if (key === "model") {
     if (trimmed.length === 0) {
@@ -28,6 +28,16 @@ export function validateConfigValue(key: ConfigKey, value: string): { ok: boolea
     }
   }
   return { ok: true };
+}
+
+export function parseRepoRef(input: string): { owner: string; repo: string; branch?: string; rest?: string } | undefined {
+  const match = input.match(/(?:https?:\/\/)?github\.com\/([^/\s]+)\/([^/@\s]+)(?:@([^\s]+))?/i);
+  if (match) {
+    const [, owner, repo, branch] = match;
+    const rest = input.replace(match[0], "").trim();
+    return { owner, repo, branch: branch || undefined, rest };
+  }
+  return undefined;
 }
 
 export function parseCommand(
@@ -46,6 +56,7 @@ export function parseCommand(
     if (reqStr && (runtimeStr === "zeroclaw" || runtimeStr === "nullclaw")) {
       return {
         type: "request",
+        source: "discord",
         runtime: runtimeStr as Runtime,
         request: reqStr.trim(),
       };
@@ -61,6 +72,7 @@ export function parseCommand(
     if (wfId && action) {
       return {
         type: "approve",
+        source: "discord",
         workflowId: wfId,
         action,
         user: user || "unknown",
@@ -77,6 +89,7 @@ export function parseCommand(
     if (wfId && action) {
       return {
         type: "reject",
+        source: "discord",
         workflowId: wfId,
         action,
         user: user || "unknown",
@@ -104,6 +117,7 @@ export function parseCommand(
   if (mentioned) {
     return {
       type: "request",
+      source: "discord",
       runtime: "zeroclaw",
       request: normalized,
     };

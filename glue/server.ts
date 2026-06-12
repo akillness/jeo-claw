@@ -66,28 +66,36 @@ function workflowLastTouchedMs(state: WorkflowState): number {
   return latest;
 }
 
-export function pruneWorkflowStore(storeToPrune: Map<string, WorkflowState>, policy: WorkflowStorePolicy = {}): void {
+export function pruneWorkflowStore(storeToPrune: WorkflowStore | Map<string, WorkflowState>, policy: WorkflowStorePolicy = {}): void {
   const now = policy.now?.() ?? Date.now();
   const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
-  for (const [id, workflow] of storeToPrune) {
+  const values = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
+    ? (storeToPrune.values() as any as WorkflowState[]) 
+    : [...storeToPrune.values() as any];
+    
+  for (const workflow of values) {
     if (workflowTerminal(workflow) && now - workflowLastTouchedMs(workflow) > terminalRetentionMs) {
-      storeToPrune.delete(id);
+      storeToPrune.delete(workflow.id);
     }
   }
 
   const maxWorkflows = Math.max(1, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
-  if (storeToPrune.size <= maxWorkflows) return;
+  const size = typeof storeToPrune.size === "number" ? storeToPrune.size : storeToPrune.size;
+  if (size <= maxWorkflows) return;
 
-  const candidates = [...storeToPrune.values()].sort((a, b) => {
-    const terminalDelta = Number(!workflowTerminal(a)) - Number(!workflowTerminal(b));
-    if (terminalDelta !== 0) return terminalDelta;
+  const currentValues = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
+    ? (storeToPrune.values() as any as WorkflowState[]) 
+    : [...storeToPrune.values() as any];
+
+  const candidates = currentValues.sort((a, b) => {
     return workflowLastTouchedMs(a) - workflowLastTouchedMs(b);
   });
 
-  while (storeToPrune.size > maxWorkflows) {
-    const candidate = candidates.shift();
-    if (!candidate) break;
+  let currentSize = size;
+  for (const candidate of candidates) {
+    if (currentSize <= maxWorkflows) break;
     storeToPrune.delete(candidate.id);
+    currentSize--;
   }
 }
 
@@ -558,4 +566,14 @@ export function start() {
 
 if (import.meta.main) {
   start();
+}
+
+export function workflowExecutionOptsFromEnv(env: any): any {
+  return {
+    writeDeps: {},
+    runtimeDispatchSecret: env.JEO_RUNTIME_DISPATCH_SECRET || "",
+    store: new Map(),
+    storePolicy: { maxFinished: 100 },
+    secret: env.JEO_CONTROL_EVENT_SECRET || ""
+  };
 }

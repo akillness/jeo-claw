@@ -3,6 +3,9 @@
 
 export type Runtime = "zeroclaw" | "nullclaw";
 
+export const ORCHESTRATOR_STATUS_PORT = 9100;
+export const ORCHESTRATOR_WEBHOOK_PORT = 8787;
+
 export const RUNTIMES = ["zeroclaw", "nullclaw"] as const satisfies readonly Runtime[];
 
 // LLM provider identity shared by both runtimes. A/B fairness requires one identical
@@ -37,6 +40,14 @@ export const ROLES = [
 ] as const satisfies readonly Role[];
 
 export const WRITE_ROLES = ["pr-creator", "merger"] as const satisfies readonly Role[];
+
+export const CLAW_PORTS: Record<Role, number> = {
+  "researcher-coder": 9201,
+  "reviewer": 9202,
+  "pr-creator": 9203,
+  "pr-review-scheduler": 9204,
+  "merger": 9205
+};
 
 // Ordered pipeline stages. Each stage maps 1:1 to a role.
 export const STAGES = [
@@ -108,8 +119,11 @@ export interface MergeGateResult {
 // Events the Discord control surface emits to the glue.
 export type ControlEvent =
   | { type: "request"; runtime: Runtime; request: string }
+  | { type: "request"; source: "discord"; runtime: Runtime; request: string; repo?: string; baseBranch?: string; flow?: "direct" | "scheduled"; scheduledAt?: string }
   | { type: "approve"; workflowId: string; action: HighRiskAction; user: string }
+  | { type: "approve"; source: "discord"; workflowId: string; action: HighRiskAction; user: string }
   | { type: "reject"; workflowId: string; action: HighRiskAction; user: string }
+  | { type: "reject"; source: "discord"; workflowId: string; action: HighRiskAction; user: string }
   | { type: "config-set"; key: ConfigKey; value: string };
 
 export type ConfigKey = "provider" | "model" | "autonomy" | "scaleout";
