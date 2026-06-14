@@ -733,7 +733,12 @@ export async function start(): Promise<Client> {
   const glueEndpoint = requireTrimmed("GLUE_EVENT_ENDPOINT", policy.controlEndpoint);
   const controlEventSecret = requireTrimmed("JEO_CONTROL_EVENT_SECRET", policy.controlEventSecret);
 
+  
   const sendToChannel = async (content: string, components?: any[]) => {
+    if (content.length > 1950) {
+      content = content.substring(0, 1950) + "... (truncated)";
+    }
+
     try {
       const channelId = policy.requestChannelId;
       if (!channelId) return;
