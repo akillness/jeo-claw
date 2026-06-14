@@ -90,13 +90,12 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-      - /var/tmp
       - /run
-      - /root/.gjc
-      - /root/.bun/install/cache
     volumes:
       - hive_state:/data
       - ./secrets/live.json:/run/secrets/jeo-claw-secrets.json:ro
+      - ~/.jeo:/root/.jeo:ro
+      - ~/.gjc:/root/.gjc:ro
     healthcheck:
       test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
       interval: 30s

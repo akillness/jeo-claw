@@ -9,6 +9,29 @@ import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
 export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
 export const pendingQueue: string[] = [];
 
+
+async function notifyStatus(workflow: WorkflowState, message: string) {
+  const endpoint = process.env.JEO_STATUS_ENDPOINT;
+  if (!endpoint) return;
+  try {
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workflowId: workflow.id,
+        runtime: workflow.runtime,
+        stage: workflow.stage,
+        status: workflow.status,
+        pendingAction: workflow.pendingAction,
+        message,
+        repo: workflow.repo,
+      })
+    });
+  } catch (err) {
+    console.error("Failed to notify status:", err);
+  }
+}
+
 function isAnyWorkflowRunning(): boolean {
   for (const workflow of store.values()) {
     if (workflow.status === "running" || workflow.status === "pending") return true;
@@ -25,6 +48,7 @@ async function processQueue(opts: WorkflowExecutionOpts) {
     wf.status = "pending";
     const updated = await progressWorkflowState(wf, opts);
     store.set(updated.id, updated);
+    await notifyStatus(updated, "Workflow started from queue");
     if (workflowTerminal(updated)) {
       processQueue(opts).catch(console.error);
     }
@@ -240,8 +264,10 @@ interface RuntimeDispatchPayload {
   stage: string;
 }
 
+type WorkflowStoreLike = WorkflowStore | Map<string, WorkflowState>;
+
 interface WorkflowBrokerOpts {
-  store: Map<string, WorkflowState>;
+  store: WorkflowStoreLike;
   controlEventSecret: string;
   prefix: string;
   sourceFactory: () => SecretSource;
@@ -325,7 +351,9 @@ async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecuti
       continue;
     }
 
-    return advanceStage(current);
+    const advanced = advanceStage(current);
+    await notifyStatus(advanced, `Workflow advanced to ${advanced.stage} (${advanced.status})`);
+    return advanced;
   }
 }
 
@@ -368,6 +396,7 @@ export async function handleControlDispatchRequest(
   try {
     const updated = consumeApprovedAction(workflow, body.action);
     opts.store.set(updated.id, updated);
+    await notifyStatus(updated, `Action ${body.action} consumed`);
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
       success: true,
@@ -383,7 +412,7 @@ export async function handleControlDispatchRequest(
 
 export async function handleControlEventRequest(
   req: Request,
-  opts: Partial<WorkflowExecutionOpts> & { store: Map<string, WorkflowState>; controlEventSecret: string }
+  opts: Partial<WorkflowExecutionOpts> & { store: WorkflowStoreLike; controlEventSecret: string }
 ): Promise<Response> {
   const providedSecret = req.headers.get("x-control-event-secret");
   if (!requireControlSecret(opts.controlEventSecret, providedSecret)) {
@@ -399,9 +428,10 @@ export async function handleControlEventRequest(
 
   if (event.type === "request") {
     const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const wf = createWorkflow(wfId, event.runtime, event.request);
+    const wf = createWorkflow(wfId, event.runtime, event.request, "repo" in event ? event.repo : undefined);
     wf.status = "queued";
     opts.store.set(wfId, wf);
+    await notifyStatus(wf, "Workflow queued");
     pendingQueue.push(wfId);
 
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
@@ -517,6 +547,7 @@ export async function handleWebhookRequest(
     let nextState = applyEvent(workflowState, parsed);
     nextState = await progressWorkflowState(nextState, opts);
     opts.store.set(nextState.id, nextState);
+    await notifyStatus(nextState, `Event processed`);
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, { success: true, workflow: nextState });
   }
@@ -547,6 +578,10 @@ export function start() {
   return Bun.serve({
     port,
     async fetch(req) {
+      const url = new URL(req.url);
+      if (req.method === "GET" && url.pathname === "/health") {
+        return json(200, { ok: true });
+      }
       return handleWebhookRequest(req, {
         secret,
         controlEventSecret,
