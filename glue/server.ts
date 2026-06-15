@@ -13,6 +13,9 @@ export const pendingQueue: string[] = [];
 async function notifyStatus(workflow: WorkflowState, message: string) {
   const endpoint = process.env.JEO_STATUS_ENDPOINT;
   if (!endpoint) return;
+  // Auto-detect if we are in Sovereign (orchestrator) context or worker context
+  // In glue/server.ts, we are always in Sovereign context.
+  const claw = "🏰 Sovereign";
   try {
     await fetch(endpoint, {
       method: "POST",
@@ -25,6 +28,7 @@ async function notifyStatus(workflow: WorkflowState, message: string) {
         pendingAction: workflow.pendingAction,
         message,
         repo: workflow.repo,
+        claw,
       })
     });
   } catch (err) {
@@ -460,6 +464,22 @@ export async function handleControlEventRequest(
       });
     }
     opts.store.set(event.workflowId, updated);
+    
+    // Ouroboros / Continuous Evolution Loop
+    if (updated.status === "merged" && process.env.CONTINUOUS_EVOLUTION !== "0") {
+      console.log(`[Glue Server] Workflow ${updated.id} merged! Triggering next evolution cycle...`);
+      const nextRequest = "Analyze the codebase for the next highest priority improvement regarding performance, memory leaks, and evolution. Build upon the previous merge and continue evolving.";
+      const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const newWf = createWorkflow(wfId, updated.runtime, nextRequest, updated.mode, updated.repo);
+      newWf.status = "queued";
+      opts.store.set(wfId, newWf);
+      
+      pendingQueue.push(wfId);
+      if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+        processQueue(opts as WorkflowExecutionOpts).catch(console.error);
+      }
+    }
+
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, { success: true, workflow: updated });
   }
