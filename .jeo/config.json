@@ -1,0 +1,7 @@
+{
+  "providers": {},
+  "defaultModel": "model-a",
+  "modelAliases": {
+    "x": "y"
+  }
+}
