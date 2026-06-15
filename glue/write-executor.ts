@@ -78,7 +78,8 @@ export async function executeApprovedWriteAction(
   deps: GitHubWriteDeps,
 ): Promise<{ workflow: WorkflowState; result: GitHubWriteResult }> {
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const { owner, repo } = requireTargetRepo(deps.targetRepo);
+  const actualRepo = workflow.repo || deps.targetRepo;
+  const { owner, repo } = requireTargetRepo(actualRepo);
   const apiBaseUrl = deps.apiBaseUrl ?? "https://api.github.com";
 
   if (action === "pr.create") {
