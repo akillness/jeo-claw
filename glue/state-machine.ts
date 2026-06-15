@@ -54,7 +54,7 @@ function blockForAction(state: WorkflowState, action: HighRiskAction): WorkflowS
   };
 }
 
-export function createWorkflow(id: string, runtime: Runtime, request: string): WorkflowState {
+export function createWorkflow(id: string, runtime: Runtime, request: string, repo?: string): WorkflowState {
   const initialStage: Stage = "research-code";
   return {
     id,
@@ -64,6 +64,7 @@ export function createWorkflow(id: string, runtime: Runtime, request: string): W
     status: "running",
     history: [{ stage: initialStage, at: now(), status: "running" }],
     headRef: `jeo/${runtime}/pr-creator/${id}`,
+    repo,
   };
 }
 

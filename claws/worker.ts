@@ -25,7 +25,7 @@ serve({
       if (role === "researcher-coder" && body.stage === "research-code") {
         // Run gjc via repo-work
         const analysis = { repo: body.repo || "akillness/jeo-code", defaultBranch: "main", description: "", languages: {}, recentCommits: [], openIssues: 0, fileTree: [] };
-        const result = await generateImprovement(analysis, body.request);
+        const result = await generateImprovement(analysis, body.request, body.workflowId);
         
         console.log(`Claw ${role} stage ${body.stage} completed successfully for workflow ${body.workflowId}`);
         return new Response(JSON.stringify({ success: true, summary: result.summary }), { headers: { "Content-Type": "application/json" } });

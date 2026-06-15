@@ -99,7 +99,7 @@ test("bot handlers: buildHandlers routes action-scoped events and manages regist
     receivedEvents.push(e);
   };
 
-  const handlers = buildHandlers({ registry, onEvent });
+  const handlers = buildHandlers({ onEvent });
   expect(handlers).toBeDefined();
 });
 

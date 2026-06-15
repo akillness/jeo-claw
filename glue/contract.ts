@@ -75,7 +75,7 @@ export type WorkflowAction = HighRiskAction | "research-code" | "review" | "pr-r
 export const PR_CREATE_ACTIONS = ["pr.create"] as const satisfies readonly HighRiskAction[];
 export const MERGE_ACTIONS = ["pr.merge"] as const satisfies readonly HighRiskAction[];
 
-export type WorkflowStatus = "queued" | "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed";
+export type WorkflowStatus = "queued" | "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed" | "scheduled";
 
 export interface ApprovalSnapshot {
   status: "pending" | "approved" | "rejected" | "consumed";
@@ -102,6 +102,9 @@ export interface WorkflowState {
   headRef?: string;
   prUrl?: string;
   mergedAt?: string;
+  repo?: string;
+  flow?: string;
+  scheduledAt?: string;
 }
 
 // Inputs to the merge policy gate. Merge is allowed ONLY when all three are boolean true.
@@ -136,6 +139,9 @@ export interface StatusNotification {
   status: WorkflowStatus;
   action?: WorkflowAction;
   message: string;
+  claw?: string;
+  repo?: string;
+  pendingAction?: string;
 }
 
 // One A/B comparison metric sample for a single E2E run.

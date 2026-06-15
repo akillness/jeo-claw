@@ -59,11 +59,9 @@ async function render() {
   }
 }
 
-async function start() { await render(); process.exit(0);
-  
-    await render();
-    
-  }
+async function start() {
+  await render();
+  process.exit(0);
 }
 
 start().catch(console.error);

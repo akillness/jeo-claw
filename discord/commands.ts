@@ -34,8 +34,10 @@ export function parseRepoRef(input: string): { owner: string; repo: string; bran
   const match = input.match(/(?:https?:\/\/)?github\.com\/([^/\s]+)\/([^/@\s]+)(?:@([^\s]+))?/i);
   if (match) {
     const [, owner, repo, branch] = match;
-    const rest = input.replace(match[0], "").trim();
-    return { owner, repo, branch: branch || undefined, rest };
+    if (owner && repo) {
+      const rest = input.replace(match[0], "").trim();
+      return { owner, repo, branch: branch || undefined, rest };
+    }
   }
   return undefined;
 }

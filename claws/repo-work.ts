@@ -2,7 +2,10 @@ import { $ } from "bun";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { WorkflowArtifact } from "../glue/contract.ts";
+export interface WorkflowArtifact {
+  path: string;
+  content: string;
+}
 
 export interface RepoAnalysis {
   repo: string;

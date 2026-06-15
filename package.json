@@ -12,10 +12,10 @@
     "glue": "bun run glue/server.ts",
     "discord": "bun run discord/bot.ts",
     "compare": "bun run compare/runner.ts",
+    "docker-watch": "bun run scripts/docker-watch.ts",
     "mock:github": "bun run scripts/mock-github.ts",
     "browser:status": "bun run scripts/browser-status.ts",
     "capture": "bun run ops/scripts/capture-knowledge.ts",
-    "tui": "bun run scripts/tui.ts"
   },
   "dependencies": {
     "discord.js": "^14.26.4",

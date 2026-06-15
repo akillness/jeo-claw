@@ -303,7 +303,6 @@ test("4.5 Discord control plane - approval command outside approval policy is re
   const received: ControlEvent[] = [];
   let reply = "";
   const handlers = buildHandlers({
-    registry,
     policy: {
       guildId: "guild-1",
       requestChannelId: "request-chan",

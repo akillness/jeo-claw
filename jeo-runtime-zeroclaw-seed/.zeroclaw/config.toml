@@ -1,0 +1,12 @@
+schema_version = 2
+
+[providers]
+fallback = "openai-codex"
+[gateway]
+port = 42617
+
+[providers.models.openai-codex]
+provider = "openai-codex"
+model = "gpt-5-codex"
+wire_api = "responses"
+requires_openai_auth = true

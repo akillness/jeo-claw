@@ -330,6 +330,7 @@ export function authorizeEvent(event: ControlEvent, context: EventContext, polic
 
 function controlEventLogSummary(event: ControlEvent): Record<string, string> {
   if (event.type === "request") return { type: event.type, runtime: event.runtime };
+  if (event.type === "config-set") return { type: event.type, key: event.key, value: event.value };
   return { type: event.type, workflowId: event.workflowId, action: event.action, user: event.user };
 }
 
