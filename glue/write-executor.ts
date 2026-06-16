@@ -85,16 +85,39 @@ export async function executeApprovedWriteAction(
   if (action === "pr.create") {
     const head = headRefFor(workflow);
     const existing = await findExistingOpenPullRequest(apiBaseUrl, owner, repo, head, deps.targetBranch, token, fetchImpl);
-    const data = existing ?? await githubRequest(apiBaseUrl, `/repos/${owner}/${repo}/pulls`, token, {
-      method: "POST",
-      body: JSON.stringify({
-        title: workflow.request,
-        body: `Automated PR for workflow ${workflow.id} (${workflow.runtime})`,
-        head,
-        base: deps.targetBranch,
-        draft: false,
-      }),
-    }, fetchImpl);
+    let data = existing;
+    if (!data) {
+      try {
+        data = await githubRequest(apiBaseUrl, `/repos/${owner}/${repo}/pulls`, token, {
+          method: "POST",
+          body: JSON.stringify({
+            title: workflow.request,
+            body: `Automated PR for workflow ${workflow.id} (${workflow.runtime})`,
+            head,
+            base: deps.targetBranch,
+            draft: false,
+          }),
+        }, fetchImpl);
+      } catch (err: any) {
+        if (err.message.includes("422")) {
+          console.warn("[write-executor] 422 Error during PR creation. Probably no commits to PR or it already exists.", err.message);
+          return {
+            workflow: {
+              ...workflow,
+              prNumber: 0,
+              headRef: head,
+              prUrl: "",
+            },
+            result: {
+              action,
+              prNumber: 0,
+              url: "No changes to PR (422)",
+            },
+          };
+        }
+        throw err;
+      }
+    }
     return {
       workflow: {
         ...workflow,

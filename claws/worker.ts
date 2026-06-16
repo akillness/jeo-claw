@@ -28,11 +28,19 @@ serve({
         const directiveId = `DIR-${role.slice(0, 3).toUpperCase()}-${body.workflowId.slice(0, 4).toUpperCase()}`;
         
         // Report structured directive
-        const { reportDirective, reportStatus, reportCollaboration } = await import("../target-repo/src/util/discord");
+        let reportDirective, reportStatus, reportCollaboration;
+        try {
+          const mod = await import("../target-repo/src/util/discord");
+          reportDirective = mod.reportDirective;
+          reportStatus = mod.reportStatus;
+          reportCollaboration = mod.reportCollaboration;
+        } catch (e) {
+          console.error("Failed to load discord reporter:", e.message);
+        }
         
         const details = `Worker ${role} (Sovereign Engine) started processing stage ${body.stage} for repository ${body.repo || "jeo-claw"}. Collaborative chain initiated via JOC Control Tower.`;
         
-        await reportDirective({
+        if (reportDirective) await reportDirective({
           id: directiveId,
           workflowId: body.workflowId,
           stage: body.stage,
@@ -45,7 +53,7 @@ serve({
 
         // Report collaboration if multiple claws are involved
         if (role === "researcher-coder") {
-           await reportCollaboration({
+           if (reportCollaboration) await reportCollaboration({
              workflowId: body.workflowId,
              from: "@ResearcherClaw",
              to: "@NullClaw-Bot",
@@ -55,7 +63,7 @@ serve({
         }
 
         // Report status as well
-        await reportStatus({
+        if (reportStatus) await reportStatus({
           workflowId: body.workflowId,
           repo: body.repo || "akillness/jeo-claw",
           stage: body.stage,
@@ -69,7 +77,7 @@ serve({
 
       if (role === "researcher-coder" && body.stage === "research-code") {
         // Run gjc via repo-work
-        const analysis = { repo: body.repo || "akillness/jeo-code", defaultBranch: "main", description: "", languages: {}, recentCommits: [], openIssues: 0, fileTree: [] };
+        const analysis = { repo: body.repo || "akillness/jeo-claw", defaultBranch: "main", description: "", languages: {}, recentCommits: [], openIssues: 0, fileTree: [] };
         const result = await generateImprovement(analysis, body.request, body.workflowId, body.headRef);
         
         console.log(`Claw ${role} stage ${body.stage} completed successfully for workflow ${body.workflowId}`);
@@ -77,29 +85,7 @@ serve({
       } else if (role === "reviewer" && body.stage === "review") {
         console.log(`[Reviewer] Emitting reviewPassed and ciPassed for workflow ${body.workflowId}`);
         
-        try {
-          const secret = process.env.JEO_CONTROL_EVENT_SECRET || "control-event-secret-value";
-          const res = await fetch("http://127.0.0.1:8787/control-event", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-control-event-secret": secret
-            },
-            body: JSON.stringify({
-              type: "approve",
-              action: "review",
-              workflowId: body.workflowId,
-              ciPassed: true,
-              reviewPassed: true,
-              user: "reviewer-bot"
-            })
-          });
-          if (!res.ok) {
-            console.error(`[Reviewer] Failed to emit reviewPassed: ${res.status} ${await res.text()}`);
-          }
-        } catch(e) {
-          console.error("[Reviewer] Error emitting reviewPassed", e);
-        }
+        // Emitting removed to prevent deadlock
 
         console.log(`Claw ${role} stage ${body.stage} completed successfully for workflow ${body.workflowId}`);
         return new Response(JSON.stringify({ success: true, summary: "Successfully reviewed and passed" }), { headers: { "Content-Type": "application/json" } });

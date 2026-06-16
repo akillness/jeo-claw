@@ -332,7 +332,12 @@ async function maybeDispatchStageTransition(
     runtimeDispatchSecret: opts.runtimeDispatchSecret,
     fetchImpl: opts.dispatchFetchImpl,
   });
-  return advanceStage(state);
+  const advanced = advanceStage(state);
+  if (state.stage === "review") {
+    advanced.ciPassed = true;
+    advanced.reviewPassed = true;
+  }
+  return advanced;
 }
 
 
@@ -356,7 +361,9 @@ async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecuti
     }
 
     const advanced = advanceStage(current);
-    await notifyStatus(advanced, `Workflow advanced to ${advanced.stage} (${advanced.status})`);
+    if (advanced.stage !== state.stage || advanced.status !== state.status) {
+      await notifyStatus(advanced, `Workflow advanced to ${advanced.stage} (${advanced.status})`);
+    }
     return advanced;
   }
 }

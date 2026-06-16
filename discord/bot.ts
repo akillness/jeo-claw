@@ -95,7 +95,7 @@ function requireTrimmed(name: string, value: string | undefined): string {
   return trimmed;
 }
 
-const DEFAULT_CONTROL_EVENT_TIMEOUT_MS = 2_500;
+const DEFAULT_CONTROL_EVENT_TIMEOUT_MS = 15_000;
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -408,16 +408,12 @@ export function buildHandlers(deps: {
     }
   };
 
-  const botMentionPattern = (): RegExp | undefined => {
-    const id = deps.botUserId?.trim();
-    return id ? new RegExp(`^<@!?${id}>\\s*`) : undefined;
-  };
-
   const stripBotMention = (content: string): { mentioned: boolean; commandText: string } => {
-    const pattern = botMentionPattern();
-    if (!pattern) return { mentioned: false, commandText: content };
-    const mentioned = pattern.test(content.trim());
-    return { mentioned, commandText: content.trim().replace(pattern, "").trim() };
+    const id = deps.botUserId?.trim();
+    const isMentioned = (id && (content.includes(`<@${id}>`) || content.includes(`<@!${id}>`))) || /<@&\d+>/.test(content);
+    
+    let commandText = content.replace(/<@[!&]?\d+>/g, "").replace(/<#\d+>/g, "").trim();
+    return { mentioned: isMentioned, commandText };
   };
 
   const eventFromMessage = (
@@ -460,23 +456,29 @@ export function buildHandlers(deps: {
     if (response && typeof response === "object" && "workflow" in response) {
       const wf = (response as any).workflow;
       const stageKorean: Record<string, string> = {
-        "research-code": "코딩",
-        "review": "검토",
-        "pr-create": "PR 생성",
-        "pr-review-schedule": "CI/리뷰",
-        "merge": "머지",
-        "orchestrator": "오케스트레이터",
-        "orchestration": "오케스트레이션",
+        "research-code": "코딩 (Researcher/Coder)",
+        "review": "검토 (Reviewer)",
+        "pr-create": "PR 생성 (PR Creator)",
+        "pr-review-schedule": "CI/리뷰 (PR Scheduler)",
+        "merge": "머지 (Merger)",
+        "orchestrator": "오케스트레이션 (Sovereign)",
+        "orchestration": "오케스트레이션 (Sovereign)",
         "finalize": "마무리"
       };
       const currentStageName = stageKorean[wf.stage] || wf.stage;
       if (wf.repo) {
         const repoLink = wf.repo.startsWith("http") ? wf.repo : `https://github.com/${wf.repo}`;
-          return `✅ 워크플로우 ${wf.id}가 생성되었습니다. 대상 저장소: ${repoLink}, 단계: ${currentStageName}.
-        (각 claw별 작업 진행 상황이 순차적으로 보고됩니다.) @제로가재 @NullClaw-Bot 협업을 시작해 주세요! 이 작업은 제오 클로(jeo-claw) 오케스트레이터가 관리합니다.`;
-        }
-        return `✅ Workflow ${wf.id} created: runtime=${wf.runtime}, stage=${currentStageName}, status=${wf.status}${wf.pendingAction ? `, pending=${wf.pendingAction}` : ""}
-        (각 claw별 작업 진행 상황이 순차적으로 보고됩니다.) @제로가재 @NullClaw-Bot 협업을 시작해 주세요! 이 작업은 제오 클로(jeo-claw) 오케스트레이터가 관리합니다.`;
+        return `✅ **워크플로우 ${wf.id} 생성 (${repoLink})**
+🏰 **제어 타워 (JOC/Sovereign Orchestrator)**: Sovereign이 제어를 시작합니다.
+🤖 **협업 구성**: @제로가재 @NullClaw-Bot @ResearcherClaw @ReviewerClaw @ReviewClaw @CoordinatorClaw 협업을 준비하세요.
+⚡ **Execution Mode**: Direct Evolution Flow
+📡 **Live Ping**: #SovereignEvolution #JOC_Tower`;
+      }
+      return `✅ **Workflow ${wf.id} created: runtime=${wf.runtime}, stage=${currentStageName}, status=${wf.status}${wf.pendingAction ? `, pending=${wf.pendingAction}` : ""}**
+🏰 **제어 타워 (JOC/Sovereign Orchestrator)**: Sovereign이 제어를 시작합니다.
+🤖 **협업 구성**: @제로가재 @NullClaw-Bot @ResearcherClaw @ReviewerClaw @ReviewClaw @CoordinatorClaw 협업을 준비하세요.
+⚡ **Execution Mode**: Direct Evolution Flow
+📡 **Live Ping**: #SovereignEvolution #JOC_Tower`;
     }
     return "";
   };
@@ -573,26 +575,27 @@ export function buildHandlers(deps: {
             const deferred = await deferInteraction(interaction, true);
             try {
               const list = await deps.fetchStatus();
-              const lines = list.slice(-10).map((wf) => {
+                      const lines = list.slice(-10).map((wf) => {
                 const repoStr = wf.repo ? `[${wf.repo}]` : "[-]";
                 const stageKorean: Record<string, string> = {
-                  "research-code": "코딩",
-                  "review": "검토",
-                  "pr-create": "PR 생성",
-                  "pr-review-schedule": "CI/리뷰",
-                  "merge": "머지",
-                  "orchestrator": "오케스트레이터",
-                  "orchestration": "오케스트레이션",
+                  "research-code": "코딩 (Researcher/Coder)",
+                  "review": "검토 (Reviewer)",
+                  "pr-create": "PR 생성 (PR Creator)",
+                  "pr-review-schedule": "CI/리뷰 (PR Scheduler)",
+                  "merge": "머지 (Merger)",
+                  "orchestrator": "오케스트레이션 (Sovereign)",
+                  "orchestration": "오케스트레이션 (Sovereign)",
                   "finalize": "마무리"
                 };
                 const stageStr = stageKorean[wf.stage] || wf.stage;
                 const statusStr = wf.status === "scheduled" ? `예약(${wf.scheduledAt?.slice(5, 16).replace("T", " ")})` : wf.status;
-                const actionStr = wf.pendingAction ? ` (${wf.pendingAction} 대기)` : "";
-                const flowStr = wf.flow === "direct" ? " [직접]" : (wf.flow === "scheduled" ? " [예약]" : "");
+                const actionStr = wf.pendingAction ? ` | **${wf.pendingAction} 대기**` : "";
+                const flowStr = wf.flow === "direct" ? " ⚡" : (wf.flow === "scheduled" ? " 📅" : "");
                 const emoji = wf.status === "failed" ? "❌" : (wf.status === "running" || wf.status === "pending" ? "⚙️" : (wf.status === "merged" ? "✅" : "•"));
-                return `${emoji} ${wf.id} ${repoStr} ${stageStr} → ${statusStr}${actionStr}${flowStr}`;
+                const runtimeStr = wf.runtime === "zeroclaw" ? " (🦀)" : (wf.runtime === "nullclaw" ? " (⚡)" : "");
+                return `${emoji} **${wf.id}**${runtimeStr} ${repoStr} | ${stageStr} → ${statusStr}${actionStr}${flowStr}`;
               }).join("\n");
-              const reply = lines.length > 0 ? `**현재 워크플로우 상태 (최근 10건):**\n${lines}` : "진행 중인 워크플로우가 없습니다.";
+              const reply = lines.length > 0 ? `🏰 **[Sovereign 제어 타워: 현재 상태 (최근 10건)]**\n${lines}` : "진행 중인 워크플로우가 없습니다.";
               await replyInteraction(interaction, { content: reply, ephemeral: false }, deferred);
             } catch (err) {
               await replyInteraction(interaction, { content: `Failed to fetch status: ${errorMessage(err)}`, ephemeral: true }, deferred);
@@ -652,9 +655,30 @@ export function buildStatusRelayHandler(deps: {
         return new Response("Bad Request: Missing required fields", { status: 400 });
       }
 
-      const claw = notification.claw ?? "orchestrator";
+      const claw = (notification as any).claw ?? "🏰 Sovereign (Orchestrator)";
       const repoStr = notification.repo ? `[${notification.repo}]` : "[-]";
-      const content = `🦞 ${claw} · ${notification.workflowId} ${repoStr} ${notification.stage} → ${notification.status} — ${notification.message}`;
+      const stageKorean: Record<string, string> = {
+        "research-code": "코딩 (Researcher/Coder)",
+        "review": "검토 (Reviewer)",
+        "pr-create": "PR 생성 (PR Creator)",
+        "pr-review-schedule": "CI/리뷰 (PR Scheduler)",
+        "merge": "머지 (Merger)",
+        "orchestrator": "오케스트레이션 (Sovereign)",
+        "orchestration": "오케스트레이션 (Sovereign)",
+      };
+      const stageStr = stageKorean[notification.stage] || notification.stage;
+      const getClawEmoji = (c: string) => {
+        if (c.includes("zeroclaw") || c.includes("제로가재")) return "🦀";
+        if (c.includes("nullclaw")) return "⚡";
+        if (c.includes("Sovereign")) return "🏰";
+        return "🤖";
+      };
+      const clawEmoji = getClawEmoji(claw);
+      const content = `${clawEmoji} **[${claw}]** | ${notification.workflowId} ${repoStr}
+📍 Stage: ${stageStr} → ${notification.status}
+💬 ${notification.message}
+🤖 **Collaborators**: @제로가재 @NullClaw-Bot @ResearcherClaw @ReviewerClaw @ReviewClaw @CoordinatorClaw 협업 대기 중
+📡 **Live Ping**: #SovereignEvolution #JOC_Relay #SovereignControlTower`;
 
       let components: any[] | undefined = undefined;
       if (notification.status === "awaiting-approval" && notification.pendingAction) {
