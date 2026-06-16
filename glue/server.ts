@@ -574,7 +574,6 @@ export async function handleWebhookRequest(
     let nextState = applyEvent(workflowState, parsed);
     nextState = await progressWorkflowState(nextState, opts);
     opts.store.set(nextState.id, nextState);
-    await notifyStatus(nextState, `Event processed`);
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, { success: true, workflow: nextState });
   }
