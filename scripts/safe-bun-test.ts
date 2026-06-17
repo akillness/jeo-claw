@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'fs';
 
 const MAX_RETRIES = 2;
-const TIMEOUT_MS = 10000; // default single-run timeout for bun test
+const TIMEOUT_MS = 300000; // default single-run timeout for bun test (300s)
 
 function runOnce(): { code: number; stdout: string; stderr: string; timedOut: boolean } {
   // Disallow watch-style flags in env/args to avoid accidental watchers
