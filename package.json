@@ -6,6 +6,7 @@
   "description": "Dual-runtime (ZeroClaw + NullClaw) agentic PR orchestration, Discord-controlled, local-Docker first.",
   "scripts": {
     "test": "bun test",
+    "safe-test": "bun run scripts/safe-bun-test.ts",
     "check:compose": "bun run scripts/check-compose.ts",
     "smoke:glue": "bun run scripts/smoke-glue.ts",
     "preflight:live": "bun run scripts/preflight-live.ts",
