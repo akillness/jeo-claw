@@ -1,0 +1,1 @@
+docker compose exec claw-hive curl -X POST http://127.0.0.1:8787 -H "Authorization: Bearer c4d5d2f7071751a543514a894acd70bfb3a538b234175edb5cec6278bfc2494c" -H "Content-Type: application/json" -d '{"type": "request", "runtime": "zeroclaw", "instruction": "다시 테스트 진행하고 모니터링해서 개선해", "repo": "jeo-claw"}'

@@ -1,0 +1,5 @@
+{"type":"session","version":1,"id":"f9ac67a8-87dd-4c87-b43b-74448a101b5f","timestamp":"2026-06-17T10:02:29.463Z","cwd":"D:\\clawWorld\\jeo-claw"}
+{"type":"message","timestamp":"2026-06-17T10:03:01.695Z","message":{"role":"user","content":"헤르메스 프로바이더 로그인 사용자계정변경할꺼야"}}
+{"type":"message","timestamp":"2026-06-17T10:03:02.100Z","message":{"role":"assistant","content":"Error: Anthropic rejected the credential (HTTP 401). Run 'jeo auth status', re-login with /provider login <name>, and for Antigravity prefer '/provider login antigravity' (gemini login only works when the Cloud Code Assist backend authorizes that token)."}}
+{"type":"message","timestamp":"2026-06-17T10:04:49.299Z","message":{"role":"user","content":"헤르메스 프로바이더 사용자 계정 갱신항꺼야"}}
+{"type":"message","timestamp":"2026-06-17T10:04:50.024Z","message":{"role":"assistant","content":"Error: Rate limited by Antigravity (HTTP 429). Server requested retry after ~33h 41m. Auto-retry cannot clear this window right now — slow your request rate, wait for the reset, or switch model with /model (a local ollama model never rate-limits)."}}
