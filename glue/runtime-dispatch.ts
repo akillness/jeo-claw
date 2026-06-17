@@ -41,11 +41,12 @@ export async function dispatchStageWork(
     },
     body: JSON.stringify({
       workflowId: workflow.id,
-      runtime: workflow.runtime,
-      role,
-      stage: workflow.stage,
-      request: workflow.request,
-      headRef: workflow.headRef,
+            runtime: workflow.runtime,
+            role,
+            stage: workflow.stage,
+            request: workflow.request,
+            headRef: workflow.headRef,
+            repo: workflow.repo || "akillness/jeo-claw",
     }),
   });
   const text = await res.text();

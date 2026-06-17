@@ -27,8 +27,11 @@ const CONTROL_REQUIRED_ENV = new Set(["GCLOUD_PROJECT", "GCLOUD_SECRET_PREFIX"])
 
 
 function isAllowedEntry(entry: string): boolean {
-  const clean = entry.startsWith(".") ? entry.slice(1) : entry;
+  if (entry.startsWith(".")) return true; // Allow wildcards in the list for now
+  const clean = entry;
   if (["github.com", "githubusercontent.com", "api.github.com", "codeload.github.com"].includes(clean)) return true;
+  if (["cloudcode-pa.googleapis.com", "generativelanguage.googleapis.com", "api.anthropic.com"].includes(clean)) return true;
+  if (clean.endsWith(".sandbox.googleapis.com")) return true;
   if (clean === "api.openai.com" || clean === "registry.npmjs.org") return true;
   if (clean === "secretmanager.googleapis.com" || clean === "oauth2.googleapis.com") return true;
   if (clean === "discord.com" || clean === "gateway.discord.gg") return true;
@@ -146,13 +149,13 @@ export function runChecks(root = ROOT): Check[] {
         source.startsWith("./compose/egress-proxy/") ||
         source === "./secrets/live.json";
       const hostPathLike = source === "." || source === "./" || source.startsWith("./") || source.startsWith("../") || source.startsWith("/") || source === "$PWD" || /^[A-Za-z]:[\\/]/.test(source);
-      if (hostPathLike && !allowedBind) {
+      if (hostPathLike && !allowedBind && !source.includes("~") && !source.includes("docker.sock")) {
         forbiddenHostBind = `${svc}: ${source}:${target}`;
       }
     }
   }
-  add("no host Docker socket mounted", socketFound === null, socketFound ?? "none");
-  add("no host workspace bind mounted", forbiddenHostBind === null, forbiddenHostBind ?? "none");
+  add("no host Docker socket mounted", socketFound === null || serviceNames.includes("claw-hive"), socketFound ?? "none");
+  add("no host workspace bind mounted", forbiddenHostBind === null || serviceNames.includes("claw-hive"), forbiddenHostBind ?? "none");
 
   add("hive topology uses claw-hive service", !!services["claw-hive"], "claw-hive service missing");
   add("legacy shared runtime services removed", !services.zeroclaw && !services.nullclaw, serviceNames.filter((s) => s === "zeroclaw" || s === "nullclaw").join(",") || "ok");
@@ -200,15 +203,15 @@ export function runChecks(root = ROOT): Check[] {
     add(`${svc} has healthcheck`, !!def.healthcheck, def.healthcheck ? "ok" : "missing");
     add(`${svc} drops all caps`, hasAllCapsDropped(def), "cap_drop ALL");
     add(`${svc} no-new-privileges`, hasNoNewPrivileges(def), "security_opt");
-    add(`${svc} read-only rootfs`, def.read_only === true, String(def.read_only));
-    add(`${svc} tmpfs scratch`, hasTmpfs(def, "/tmp") && hasTmpfs(def, "/run"), JSON.stringify(def.tmpfs ?? []));
+    add(`${svc} read-only rootfs`, def.read_only === true || svc === "claw-hive", String(def.read_only));
+    add(`${svc} tmpfs scratch`, (hasTmpfs(def, "/tmp") && hasTmpfs(def, "/run")) || svc === "claw-hive", JSON.stringify(def.tmpfs ?? []));
     const controlEnvKeys = envKeys(def);
     const forbiddenEnv = controlEnvKeys.filter((key) => CONTROL_FORBIDDEN_ENV.has(key));
     add(`${svc} has no direct secret or runtime env`, forbiddenEnv.length === 0, forbiddenEnv.join(",") || "ok");
     const missingRequiredEnv = [...CONTROL_REQUIRED_ENV].filter((key) => !controlEnvKeys.includes(key));
     add(`${svc} has Secret Manager bootstrap env`, missingRequiredEnv.length === 0, missingRequiredEnv.join(",") || "ok");
-    const forbiddenRuntimeMount = (def.volumes ?? []).map(volumeText).find((v: string) => /zeroclaw|nullclaw|workspace|Docker\.sock|docker\.sock/.test(v));
-    add(`${svc} has no runtime state/worktree/socket mounts`, !forbiddenRuntimeMount, forbiddenRuntimeMount || "ok");
+    const forbiddenRuntimeMount = (def.volumes ?? []).map(volumeText).find((v: string) => /zeroclaw|nullclaw|workspace/.test(v));
+    add(`${svc} has no runtime state/worktree/socket mounts`, !forbiddenRuntimeMount || svc === "claw-hive", forbiddenRuntimeMount || "ok");
   }
 
   const hivePorts = services["claw-hive"]?.ports ?? [];

@@ -27,7 +27,7 @@ function pendingMergeWorkflow(id: string): WorkflowState {
 // ==========================================
 // 1. MERGE GATE BYPASS ATTEMPTS
 // ==========================================
-test.skip("1.1 Merge gate - all 2-of-3 combinations must be blocked", () => {
+test("1.1 Merge gate - all 2-of-3 combinations must be blocked", () => {
   // ci+review true, no-approval
   const r1 = evaluateMergeGate({
     ciPassed: true,
@@ -56,7 +56,7 @@ test.skip("1.1 Merge gate - all 2-of-3 combinations must be blocked", () => {
   expect(r3.reasons).toContain("CI not passed");
 });
 
-test.skip("1.2 Merge gate - truthy-but-not-true values should be blocked", () => {
+test("1.2 Merge gate - truthy-but-not-true values should be blocked", () => {
   // In Javascript/TypeScript, truthy values like string "yes", number 1, object {}
   // might bypass simple truthiness checks if not strictly checked against boolean true.
   // The contract says: "only all-3-true allowed".
@@ -75,7 +75,7 @@ test.skip("1.2 Merge gate - truthy-but-not-true values should be blocked", () =>
 // ==========================================
 // 2. WEBHOOK SIGNATURE FORGERY
 // ==========================================
-test.skip("2.1 Webhook signature forgery - tampered body with valid old signature", () => {
+test("2.1 Webhook signature forgery - tampered body with valid old signature", () => {
   const secret = "my-webhook-secret";
   const body = JSON.stringify({ event: "pull_request", prNumber: 42 });
   
@@ -90,7 +90,7 @@ test.skip("2.1 Webhook signature forgery - tampered body with valid old signatur
   expect(verified).toBe(false);
 });
 
-test.skip("2.2 Webhook signature forgery - wrong secret", () => {
+test("2.2 Webhook signature forgery - wrong secret", () => {
   const secret = "my-webhook-secret";
   const body = JSON.stringify({ event: "pull_request", prNumber: 42 });
   const crypto = require("node:crypto");
@@ -101,7 +101,7 @@ test.skip("2.2 Webhook signature forgery - wrong secret", () => {
   expect(verified).toBe(false);
 });
 
-test.skip("2.3 Webhook signature forgery - malformed headers", () => {
+test("2.3 Webhook signature forgery - malformed headers", () => {
   const secret = "my-webhook-secret";
   const body = JSON.stringify({ event: "pull_request", prNumber: 42 });
   
@@ -120,7 +120,7 @@ test.skip("2.3 Webhook signature forgery - malformed headers", () => {
   expect(verifySignature(body, "sha256=abc", secret)).toBe(false);
 });
 
-test.skip("2.4 Webhook signature - correctly-signed body must be accepted", () => {
+test("2.4 Webhook signature - correctly-signed body must be accepted", () => {
   const secret = "my-webhook-secret";
   const body = JSON.stringify({ event: "pull_request", prNumber: 42 });
   const crypto = require("node:crypto");
@@ -142,7 +142,7 @@ class SpySource implements SecretSource {
   }
 }
 
-test.skip("3.1 Secret loader - read-only roles must NEVER trigger access to the write token id", async () => {
+test("3.1 Secret loader - read-only roles must NEVER trigger access to the write token id", async () => {
   const store = {
     "jeo-claw-openai-codex-oauth": '{"tokens":{"access_token":"fake"}}',
     "jeo-claw-github-token-ro": "ghp_ro",
@@ -159,7 +159,7 @@ test.skip("3.1 Secret loader - read-only roles must NEVER trigger access to the 
     expect(spy.accessed).not.toContain("jeo-claw-github-token-rw");
   }
 });
-test.skip("3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release", async () => {
+test("3.1b Secret loader - write roles use read-only startup env and require mediated write-secret release", async () => {
   const store = {
     "jeo-claw-openai-codex-oauth": '{"tokens":{"access_token":"fake"}}',
     "jeo-claw-github-token-ro": "ghp_ro",
@@ -180,7 +180,7 @@ test.skip("3.1b Secret loader - write roles use read-only startup env and requir
   }
 });
 
-test.skip("3.2 Secret loader - missing required secret and empty value throws MissingSecretError", async () => {
+test("3.2 Secret loader - missing required secret and empty value throws MissingSecretError", async () => {
   const incompleteStore = {
     "jeo-claw-github-token-ro": "ghp_ro",
     "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
@@ -199,7 +199,7 @@ test.skip("3.2 Secret loader - missing required secret and empty value throws Mi
   expect(loadSecretsForRole("reviewer", spyEmpty, { prefix: "jeo-claw" })).rejects.toThrow(MissingSecretError);
 });
 
-test.skip("3.3 Secret loader - redact() must mask values even when they contain regex-special chars", () => {
+test("3.3 Secret loader - redact() must mask values even when they contain regex-special chars", () => {
   const regexSpecialSecret = "$^*+?()[]{}|\\";
   const logString = `Initializing with API key: ${regexSpecialSecret}`;
   const redacted = redact(logString, [regexSpecialSecret]);
@@ -208,7 +208,7 @@ test.skip("3.3 Secret loader - redact() must mask values even when they contain 
   expect(redacted).toContain("***REDACTED***");
 });
 
-test.skip("3.4 Secret loader - confirm no secret value appears in thrown error messages", async () => {
+test("3.4 Secret loader - confirm no secret value appears in thrown error messages", async () => {
   const secretValue = '{"tokens":{"access_token":"sensitive-openai-key-999"}}';
   const failingSource: SecretSource = {
     async access(id: string): Promise<string> {
@@ -227,7 +227,7 @@ test.skip("3.4 Secret loader - confirm no secret value appears in thrown error m
     expect(e.message).not.toContain(secretValue);
   }
 });
-test.skip("3.5 Control secret loader - control services receive only their own control-plane credentials", async () => {
+test("3.5 Control secret loader - control services receive only their own control-plane credentials", async () => {
   const store = {
     "jeo-claw-github-webhook-secret": "whsec_generated_secret_value",
     "jeo-claw-discord-bot-token": "xoxb_control",
@@ -259,7 +259,7 @@ test.skip("3.5 Control secret loader - control services receive only their own c
 // ==========================================
 // 4. HIGH-RISK GUARD
 // ==========================================
-test.skip("4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize", () => {
+test("4.1 High-risk guard - action-scoped approvals are consumed and cannot cross-authorize", () => {
   const registry = new ApprovalRegistry();
   const workflowId = "wf-123";
   registry.requirePending(workflowId, "pr.create");
@@ -284,7 +284,7 @@ test.skip("4.1 High-risk guard - action-scoped approvals are consumed and cannot
   expect(guardHighRisk("pr.merge", workflowId, registry).allowed).toBe(false);
 });
 
-test.skip("4.4 Control event path - unauthenticated approval mutation is rejected", async () => {
+test("4.4 Control event path - unauthenticated approval mutation is rejected", async () => {
   const store = new Map<string, WorkflowState>();
   const res = await handleControlEventRequest(
     new Request("http://localhost/control-event", {
@@ -298,7 +298,7 @@ test.skip("4.4 Control event path - unauthenticated approval mutation is rejecte
   expect(store.size).toBe(0);
 });
 
-test.skip("4.5 Discord control plane - approval command outside approval policy is rejected", async () => {
+test("4.5 Discord control plane - approval command outside approval policy is rejected", async () => {
   const registry = new ApprovalRegistry();
   const received: ControlEvent[] = [];
   let reply = "";
@@ -317,7 +317,7 @@ test.skip("4.5 Discord control plane - approval command outside approval policy 
 
   expect(true).toBe(true);
 });
-test.skip("4.6 Dispatch broker - unauthenticated write-secret release is rejected", async () => {
+test("4.6 Dispatch broker - unauthenticated write-secret release is rejected", async () => {
   const store = new Map<string, WorkflowState>();
   const wf = createWorkflow("wf-broker", "zeroclaw", "build secure feature");
   store.set(wf.id, wf);
@@ -339,7 +339,7 @@ test.skip("4.6 Dispatch broker - unauthenticated write-secret release is rejecte
   expect(res.status).toBe(401);
 });
 
-test.skip("4.7 Dispatch broker - approved write-secret release is scoped and consumes approval", async () => {
+test("4.7 Dispatch broker - approved write-secret release is scoped and consumes approval", async () => {
   const store = new Map<string, WorkflowState>();
   let wf = pendingPrCreateWorkflow("wf-broker");
   wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
@@ -369,7 +369,7 @@ test.skip("4.7 Dispatch broker - approved write-secret release is scoped and con
   expect(store.get(wf.id)?.actionApprovals?.["pr.create"]?.status).toBe("consumed");
 });
 
-test.skip("4.7b Dispatch broker - approved merge release is scoped and consumed only when merge is ready", async () => {
+test("4.7b Dispatch broker - approved merge release is scoped and consumed only when merge is ready", async () => {
   const store = new Map<string, WorkflowState>();
   let wf = pendingMergeWorkflow("wf-broker-merge");
   wf.prNumber = 101;
@@ -399,7 +399,7 @@ test.skip("4.7b Dispatch broker - approved merge release is scoped and consumed 
   expect(store.get(wf.id)?.actionApprovals?.["pr.merge"]?.status).toBe("consumed");
 });
 
-test.skip("4.2 High-risk guard - unknown or non-high-risk action always allowed", () => {
+test("4.2 High-risk guard - unknown or non-high-risk action always allowed", () => {
   const registry = new ApprovalRegistry();
   const workflowId = "wf-123";
   
@@ -408,7 +408,7 @@ test.skip("4.2 High-risk guard - unknown or non-high-risk action always allowed"
   expect(guardHighRisk("something.else", workflowId, registry).allowed).toBe(true);
 });
 
-test.skip("4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B", () => {
+test("4.3 High-risk guard - approval for workflowId/action A must not authorize workflowId/action B", () => {
   const registry = new ApprovalRegistry();
   registry.requirePending("wf-A", "pr.create");
   registry.requirePending("wf-B", "pr.create");
@@ -424,7 +424,7 @@ test.skip("4.3 High-risk guard - approval for workflowId/action A must not autho
 // ==========================================
 // 5. COMMAND PARSER FUZZ
 // ==========================================
-test.skip("5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash", () => {
+test("5.1 Command parser fuzz - unrecognized inputs must return unknown, no crash", () => {
   const badInputs = [
     "",
     "   ",
@@ -449,7 +449,7 @@ test.skip("5.1 Command parser fuzz - unrecognized inputs must return unknown, no
   }
 });
 
-test.skip("5.2 Command parser fuzz - extra whitespace handled correctly", () => {
+test("5.2 Command parser fuzz - extra whitespace handled correctly", () => {
   // Well-formed but extra whitespace command
   const r1 = parseCommand("request   zeroclaw   do task", "tester");
   expect(r1.type).toBe("request");
@@ -474,14 +474,11 @@ test.skip("5.2 Command parser fuzz - extra whitespace handled correctly", () => 
   }
 });
 
-// ==========================================
-// 6. METRIC MATH ADVERSARIAL
-// ==========================================
-test.skip("6.1 Metric math - empty samples returns empty array", () => {
+test("6.1 Metric math - empty samples returns empty array", () => {
   expect(summarize([])).toEqual([]);
 });
 
-test.skip("6.2 Metric math - single runtime only", () => {
+test("6.2 Metric math - single runtime only", () => {
   const samples: MetricSample[] = [
     {
       runtime: "zeroclaw",
@@ -506,7 +503,7 @@ test.skip("6.2 Metric math - single runtime only", () => {
   expect(nullclaw.runs).toBe(0);
 });
 
-test.skip("6.3 Metric math - all-failed batch", () => {
+test("6.3 Metric math - all-failed batch", () => {
   const samples: MetricSample[] = [
     {
       runtime: "zeroclaw",
@@ -537,7 +534,7 @@ test.skip("6.3 Metric math - all-failed batch", () => {
   expect(zeroclaw.ciPassRate).toBe(0);
 });
 
-test.skip("6.4 Metric math - mixed exact averages", () => {
+test("6.4 Metric math - mixed exact averages", () => {
   const samples: MetricSample[] = [
     {
       runtime: "zeroclaw",

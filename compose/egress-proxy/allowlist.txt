@@ -9,6 +9,10 @@ api.openai.com
 # gcloud Secret Manager
 secretmanager.googleapis.com
 oauth2.googleapis.com
+cloudcode-pa.googleapis.com
+.sandbox.googleapis.com
+generativelanguage.googleapis.com
+api.anthropic.com
 # Discord (control surface / bot gateway)
 discord.com
 gateway.discord.gg

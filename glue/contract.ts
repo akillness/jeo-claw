@@ -85,12 +85,15 @@ export interface ApprovalSnapshot {
   consumedAt?: string;
 }
 
+export type FlowType = "direct" | "scheduled" | "evolution";
+
 export interface WorkflowState {
   id: string;
   runtime: Runtime;
   request: string;
   stage: Stage;
   status: WorkflowStatus;
+  flow?: FlowType;
   prNumber?: number;
   ciPassed?: boolean;
   reviewPassed?: boolean;
@@ -136,6 +139,8 @@ export interface StatusNotification {
   status: WorkflowStatus;
   action?: WorkflowAction;
   message: string;
+  repo?: string;
+  pendingAction?: HighRiskAction;
 }
 
 // One A/B comparison metric sample for a single E2E run.

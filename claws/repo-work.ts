@@ -204,6 +204,7 @@ ${staleRecommendation}
 
 
 export async function generateImprovement(
+  runtime: string,
   analysis: RepoAnalysis,
   request: string,
   workflowId: string,
@@ -231,7 +232,8 @@ export async function generateImprovement(
     await $`git clone ${cloneUrl} ${tempDir}`;
 
     notes.push(`Running coding agent for request: ${request}`);
-    const agentResult = await $`cd ${tempDir} && bunx --bun gajae-code -p ${request}`.nothrow();
+    const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
+    const agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --provider gemini -p "$ooo $ralph ${request}"`.nothrow();
     notes.push(`agent exit code: ${agentResult.exitCode}`);
 
     const gitDiff = await $`cd ${tempDir} && git diff --name-only`.text();
