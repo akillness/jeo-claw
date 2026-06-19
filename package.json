@@ -15,7 +15,8 @@
     "mock:github": "bun run scripts/mock-github.ts",
     "browser:status": "bun run scripts/browser-status.ts",
     "capture": "bun run ops/scripts/capture-knowledge.ts",
-    "tui": "bun run scripts/tui.ts"
+    "tui": "bun run scripts/tui.ts",
+    "update-listener": "bun run scripts/update-listener.ts"
   },
   "dependencies": {
     "discord.js": "^14.26.4",
