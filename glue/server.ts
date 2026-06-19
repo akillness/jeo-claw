@@ -94,7 +94,7 @@ function workflowLastTouchedMs(state: WorkflowState): number {
   return latest;
 }
 
-export function pruneWorkflowStore(storeToPrune: WorkflowStore | Map<string, WorkflowState>, policy: WorkflowStorePolicy = {}): void {
+export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: WorkflowStorePolicy = {}): void {
   const now = policy.now?.() ?? Date.now();
   const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
   const values = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
@@ -268,7 +268,7 @@ interface RuntimeDispatchPayload {
   stage: string;
 }
 
-type WorkflowStoreLike = WorkflowStore | Map<string, WorkflowState>;
+type WorkflowStoreLike = WorkflowStore;
 
 interface WorkflowBrokerOpts {
   store: WorkflowStoreLike;
@@ -633,7 +633,7 @@ export function workflowExecutionOptsFromEnv(env: any): any {
   return {
     writeDeps: {},
     runtimeDispatchSecret: env.JEO_RUNTIME_DISPATCH_SECRET || "",
-    store: new Map(),
+    store: new SQLiteWorkflowStore(":memory:"),
     storePolicy: { maxFinished: 100 },
     secret: env.JEO_CONTROL_EVENT_SECRET || ""
   };
