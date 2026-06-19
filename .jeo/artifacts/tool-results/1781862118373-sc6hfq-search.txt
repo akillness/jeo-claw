@@ -1,0 +1,52 @@
+./tui_screenshot.html:80:            <div class="col-status status-approval">awaiting-approval</div>
+./artifacts/discord-20x-live-loop.txt:11:BOTH: Workflow wf-1781075378141-669 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075378146-277 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:15:BOTH: Workflow wf-1781075379627-782 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075379631-739 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:19:BOTH: Workflow wf-1781075381111-105 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075381115-498 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:23:BOTH: Workflow wf-1781075382790-27 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075382794-19 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:27:BOTH: Workflow wf-1781075384414-38 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075384420-526 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:31:BOTH: Workflow wf-1781075385987-293 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075385993-339 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:35:BOTH: Workflow wf-1781075387825-47 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075387864-735 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:39:BOTH: Workflow wf-1781075389526-705 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075389530-493 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:43:BOTH: Workflow wf-1781075391067-546 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075391078-659 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:47:BOTH: Workflow wf-1781075392715-873 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075392721-641 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:51:BOTH: Workflow wf-1781075394152-346 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075394156-137 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:55:BOTH: Workflow wf-1781075395901-305 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075395905-279 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:59:BOTH: Workflow wf-1781075397758-367 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075397762-487 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:63:BOTH: Workflow wf-1781075399753-645 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075399758-32 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:67:BOTH: Workflow wf-1781075401627-389 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075401663-247 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:71:BOTH: Workflow wf-1781075403055-558 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075403068-794 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:75:BOTH: Workflow wf-1781075404540-569 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075404547-397 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:79:BOTH: Workflow wf-1781075406162-742 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075406166-241 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:83:BOTH: Workflow wf-1781075408174-835 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075408194-103 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/discord-20x-live-loop.txt:87:BOTH: Workflow wf-1781075410368-989 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create\nWorkflow wf-1781075410375-846 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create
+./artifacts/verify-transcript.txt:198:(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.34ms]
+./artifacts/runtime-browser-status.html:25:    <tr><td><code>wf-1781086413444-872</code></td><td>zeroclaw</td><td>post-review zeroclaw model-seeded verification</td><td>pr-create</td><td>awaiting-approval</td><td>pr.create</td><td><code>jeo/zeroclaw/pr-creator/wf-1781086413444-872</code></td></tr>
+./artifacts/discord-live-response.txt:16:  - `Workflow wf-1781074989250-261 created: runtime=zeroclaw, stage=pr-create, status=awaiting-approval, pending=pr.create`
+./artifacts/discord-live-response.txt:17:  - `Workflow wf-1781074989303-856 created: runtime=nullclaw, stage=pr-create, status=awaiting-approval, pending=pr.create`
+./README.md:110:| `approve <wf> pr.merge` (CI/review 전) | merge 호출 없음, `awaiting-approval` 유지 |
+./README.md:138:# → {"success":true,"workflow":{"id":"wf-...","stage":"pr-create","status":"awaiting-approval",...}}
+./scripts/browser-status.test.ts:17:        status: "awaiting-approval",
+./scripts/browser-status.test.ts:29:  expect(html).toContain("awaiting-approval");
+./scripts/tui-snapshot.ts:15:    if (wf.status === "awaiting-approval") color = "\x1b[33m";
+./scripts/smoke-glue.ts:181:// //   assert(data.workflow.status === "awaiting-approval", `expected awaiting-approval, got ${data.workflow.status}`);
+./scripts/smoke-glue.ts:209://   assert(data.workflow.status === "awaiting-approval", `expected awaiting-approval, got ${data.workflow.status}`);
+./scripts/add-dummy-wf.ts:15:    wf2.status = "awaiting-approval";
+./scripts/tui-capture.ts:18:    case "awaiting-approval": return "\x1b[33m"; // Yellow
+./scripts/tui.ts:18:    case "awaiting-approval": return "\x1b[33m"; // Yellow
+./glue/state-machine.ts:18:  return state.status === "awaiting-approval" && state.pendingAction === action;
+./glue/state-machine.ts:52:    status: "awaiting-approval",
+./glue/state-machine.ts:53:    history: [...withPending.history, { stage: withPending.stage, at: now(), action, status: "awaiting-approval" }],
+./glue/state-machine.ts:102:        status: "awaiting-approval",
+./glue/state-machine.ts:104:        history: [...blocked.history, { stage: "merge", at: now(), action: missingApproval, status: "awaiting-approval" }],
+./glue/state-machine.test.ts:48:  expect(state.status).toBe("awaiting-approval");
+./glue/state-machine.test.ts:62:test("merge stage blocks and stays awaiting-approval if conditions not met", () => {
+./glue/state-machine.test.ts:69:  expect(state.status).toBe("awaiting-approval");
+./glue/state-machine.test.ts:73:  expect(state.status).toBe("awaiting-approval");
+./glue/state-machine.test.ts:77:  expect(state.status).toBe("awaiting-approval");
+./glue/state-machine.test.ts:139:  expect(state.status).toBe("awaiting-approval");
+./glue/state-machine.test.ts:151:  expect(state.status).toBe("awaiting-approval");
+./glue/server.test.ts:288:  expect(updated.status).toBe("awaiting-approval");
+./glue/server.test.ts:356:  wf.status = "awaiting-approval";
+./glue/server.test.ts:380:      status: "awaiting-approval",
+./glue/contract.ts:78:export type WorkflowStatus = "queued" | "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed";
+./discord/bot.ts:684:      if (notification.status === "awaiting-approval" && notification.pendingAction) {
