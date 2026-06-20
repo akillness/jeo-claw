@@ -109,6 +109,7 @@ bun run ops/scripts/capture-knowledge.ts \
 
 - 적재된 지식을 다음 작업 INTAKE의 첫 검색 대상으로 삼는다.
 - 반복되는 패턴/실수는 `ops/RULES.md` 또는 `ops/CONSTITUTION.md`에 규칙으로 승격.
+- 유용한 작업 패턴이나 도구 사용법은 UpSkill 포맷(`ops/templates/skill.md`)을 활용해 `ops/vault/wiki/skills/`에 스킬 문서로 증류(distill)하여 다음 작업에서 활용할 수 있게 한다.
 - claw 자체 개선 아이디어는 `ops/vault/wiki/reports/`의 개선 백로그로 적재 → 다음 사이클의 후보 요청.
 
 <!-- MANUAL: 워크플로우 커스터마이즈 메모는 이 줄 아래에 보존된다 -->

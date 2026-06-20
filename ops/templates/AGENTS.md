@@ -15,6 +15,7 @@ constitution→specify→plan→tasks→implement→verify 파이프라인을 je
 | `plan.md` | 4. PLAN | `ops/plans/<slug>/plan.md` |
 | `tasks.md` | 5. TASKS | `ops/plans/<slug>/tasks.md` |
 | `checklist.md` | 8. VERIFY | `ops/specs/<slug>/checklist.md` |
+| `skill.md` | 10. EVOLVE | `ops/vault/wiki/skills/<category>/<slug>.md` |
 
 ## For AI Agents
 ### Working In This Directory

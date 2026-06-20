@@ -21,6 +21,7 @@ ops/vault/
 │   ├── entities/         # 지속 개체(런타임·모듈·역할 등) 페이지
 │   ├── concepts/         # 지속 개념(머지게이트·승인·A/B공정성 등) 페이지
 │   ├── queries/          # 재사용 가치 있는 질의 답변 적재
+│   ├── skills/           # UpSkill 포맷으로 증류된 실행 가능한 스킬 문서
 │   └── reports/          # claw 자체 개선 백로그·메모·비교 산출물
 └── graphify-out/         # graphify 산출(GRAPH_REPORT.md / graph.html / graph.json)
 ```

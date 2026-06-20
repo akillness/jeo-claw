@@ -1,0 +1,103 @@
+- [📚 Using Skills](#-using-skills)
+- [🏗 How UpSkill Works](#-how-upskill-works)
+- [📖 Repository Structure](#-repository-structure)
+- [🔬 Reproducing the Experiments](#-reproducing-the-experiments)
+- [📄 License](#-license)
+
+---
+
+## 🤔 The Problem with Today's Agents
+
+<p align="center">
+<img src="figures/motivation.png" alt="Upskill Motivation — Student (cheap but weak), Teacher (strong but expensive), Student + Upskill (strong + affordable)" width="90%" />
+</p>
+
+AI Agents (Claude Code, Codex, Cursor, OpenClaw, Hermes, nanobot) are powerful <br> — But one hard truth remains: **their performance is ultimately locked to the model you pay for**.
+
+- ❌ **Pro Models Are Too Expensive** — Claude Opus, GPT-5.5, Gemini-Pro deliver great results, but cost 3–5× more per task. Running them all day is simply unsustainable.
+
+- ❌ **Flash Models Are Too Unreliable** — Claude Haiku, GPT-5.5 mini, Gemini-Flash are affordable, but simply don't perform at the level of a Pro model. You end up spending more time fixing errors than saving costs.
+
+That's why we built UpSkill — a lightweight framework that turns your Flash model into a Pro, by continuously **Evolving Skills** that empower weaker models to perform at the level of their stronger counterparts.
+
+---
+
+## 🔬 Putting UpSkill to the Test
+
+- **Benchmark**: **Terminal-Bench 2.0** — 89 real-world terminal tasks across 16 categories, spanning software engineering, data science, system administration, security, and more.
+
+- **Setup**: Stratified 25/64 train/test split — skills distilled from Base Model trajectories on 25 training tasks, then deployed on 64 held-out test tasks.
+
+- **Results**: All metrics reported on the held-out test set.
+
+| | 🟡 Flash Model<br>(deepseek-v4-flash) | 🔵 Pro Model<br>(deepseek-v4-pro[1m]) | 🟢 Flash Model + Upskill |
+|---|:--:|:--:|:--:|
+| **Test Pass Rate** | 45.3% | 50.0% | **51.6%** |
+| **Test Cost** | $1.93 | $4.01 | **$2.36** |
+| **Cost per task** | $0.03 | $0.06 | **$0.04** |
+
+> 💡 A **$0.04/task Flash** Model, augmented with **UpSkill**, outperformed a **$0.06/task Pro** Model — delivering comparable results at **41% lower cost**.
+
+### 📊 What This Means in Practice
+
+- ✅ **5 tasks flipped FAIL → PASS** — count-dataset-tokens, headless-terminal, query-optimize, mailman, winning-avg-corewars
+- ✅ **Strongest category gains** — model-training (+33%), data-science (+17%), system-administration (+17%), software-engineering (+11%)
+- ✅ **UpSkill's one-time skill brewing cost**: ~$2 across all 64 tasks — minimal overhead to evolve skills that benefit every future task.
+
+> Full results: [`tb_harbor_2.0/RESULTS.md`](tb_harbor_2.0/RESULTS.md)
+
+---
+
+## 🚀 Quick Start
+--
+## 📚 Using Skills
+
+### Commands at a Glance
+
+| Command | What it does |
+|---------|-------------|
+| `/upskill-build` | Analyze a past session (failure or success) and generate a skill |
+| `/upskill-run` | Interactive workflow: scan skills → match → apply |
+| `/upskill-list` | Browse all installed skills by category |
+| `/upskill-status` | View skill count and active builds |
+| `/upskill-configure` | Enable Upskill hooks in the current project |
+| `/upskill-model` | View or switch Teacher / Student models |
+| `/upskill-mode` | Toggle between interactive and auto serve modes |
+| `/upskill-remove` | Delete a skill or category |
+| `/upskill-uninstall` | Remove Upskill completely |
+
+### /upskill-run in Action
+
+`/upskill-run` is the interactive skill application workflow. Instead of injecting skills silently, it lets you browse, compare, and choose the right skill for the task at hand.
+
+**Example — working on a CSV filtering task:**
+
+```
+> /upskill-run filter a CSV by column value
+
+Here are the available skills:
+
+  ★ 1. data-analysis/skill_20260605_001  [recommended]
+     Python CSV data-processing tools — filter/sort/select
+     Validated on: deepseek-v4-flash  (current: deepseek-v4-flash ✓)
+
+    2. software-engineering/skill_20260606_005
+     Python CLI tools with argparse patterns
+     Validated on: deepseek-v4-flash  (current: deepseek-v4-flash ✓)
+
+★ = matched your task. Enter number(s) to apply, or "none" to skip.
+```
+
+You pick `1` — the agent loads the SKILL.md, reads the step-by-step checklist and common pitfalls, then executes your CSV task with the distilled knowledge. If the skill was validated on a different model than your current one, `/upskill-run` prompts you to switch first.
+
+### How Skills Appear in Your Agent
+
+Once skills are built, your agent sees them automatically in its context. For example, after a few builds in the `data-analysis` category:
+
+```markdown
+## Skill: data-analysis (3 skills)
+**Base model:** deepseek-v4-flash
+**Trigger:** csv, encoding, json, database, query
+**Model:** Validated on `deepseek-v4-flash`. For best results, use this model.
+
+  - `skill_20260605_001` — For Python CSV data-processing tools with filter/sort
