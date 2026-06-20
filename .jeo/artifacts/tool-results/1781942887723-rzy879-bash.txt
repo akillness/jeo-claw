@@ -115,7 +115,6 @@ class ChildSupervisor {
   private proc: ChildProcess | null = null;
   private backoffMs = 1000;
   private healthyTimeout: any = null;
-  private restartTimeout: any = null;
   private isShuttingDown = false;
 
   constructor(
@@ -161,8 +160,7 @@ class ChildSupervisor {
       this.backoffMs = Math.min(this.backoffMs * 2, 30000);
 
       console.log(`[Hive Supervisor] Restarting child ${this.spec.id} in ${currentBackoff}ms...`);
-      this.restartTimeout = setTimeout(() => {
-        this.restartTimeout = null;
+      setTimeout(() => {
         this.start();
       }, currentBackoff);
     });
@@ -174,17 +172,12 @@ class ChildSupervisor {
       clearTimeout(this.healthyTimeout);
       this.healthyTimeout = null;
     }
-    if (this.restartTimeout) {
-      clearTimeout(this.restartTimeout);
-      this.restartTimeout = null;
-    }
     if (this.proc) {
       console.log(`[Hive Supervisor] Killing child ${this.spec.id}...`);
       this.proc.kill("SIGTERM");
     }
   }
 }
-
 
 async function main() {
   const project = process.env.GCLOUD_PROJECT || "";

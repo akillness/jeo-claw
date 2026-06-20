@@ -674,10 +674,11 @@ export function start() {
   // [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.
   // Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
   // This prevents workflows from getting stuck due to memory crashes or direct database injections.
-  setInterval(async () => {
+  const autoHealInterval = setInterval(async () => {
       try {
           const allWfs = store.values();
-          const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.includes(w.id));
+          const pendingSet = new Set(pendingQueue);
+          const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingSet.has(w.id));
           if (queuedWfs.length > 0) {
               console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
               for (const wf of queuedWfs) {
@@ -689,8 +690,7 @@ export function start() {
           // Silently ignore to prevent polling crashes
       }
   }, 15000);
-
-  return Bun.serve({
+  const server = Bun.serve({
     port,
     async fetch(req) {
       const url = new URL(req.url);
@@ -700,26 +700,14 @@ export function start() {
       return handleWebhookRequest(req, opts);
     },
   });
+
+  return {
+    ...server,
+    stop: (closeActiveConnections?: boolean) => {
+      clearInterval(autoMergeInterval);
+      clearInterval(autoHealInterval);
+      server.stop(closeActiveConnections);
+    }
+  };
 }
 
-// [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.
-// Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
-// This prevents workflows from getting stuck due to memory crashes or direct database injections.
-setInterval(async () => {
-    try {
-        const store = process.env.STORE_TYPE === "sqlite" ? new (require("./store.ts").SQLiteWorkflowStore)("workflows.sqlite") : undefined;
-        if (!store) return;
-        const allWfs = await store.values();
-        const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.includes(w.id));
-        if (queuedWfs.length > 0) {
-            console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
-            for (const wf of queuedWfs) {
-                pendingQueue.push(wf.id);
-            }
-            // Trigger process queue but we don't have opts easily.
-            // This is just a basic fallback.
-        }
-    } catch(e) {
-        // Silently ignore to prevent polling crashes
-    }
-}, 15000);

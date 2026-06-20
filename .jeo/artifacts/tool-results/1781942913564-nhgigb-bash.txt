@@ -2,9 +2,6 @@ import { serve } from "bun";
 import { generateImprovement } from "./repo-work.ts";
 import type { Stage, Runtime } from "../glue/contract.ts";
 
-let discordModCache: any = null;
-let discordModLoadAttempted = false;
-
 const role = process.argv[2];
 const port = parseInt(process.env.JEO_CLAW_PORT || "9201", 10);
 const secret = process.env.JEO_RUNTIME_DISPATCH_SECRET || "";
@@ -31,25 +28,14 @@ serve({ idleTimeout: 0,
         const directiveId = `DIR-${role.slice(0, 3).toUpperCase()}-${body.workflowId.slice(0, 4).toUpperCase()}`;
         
         // Report structured directive
-        // Report structured directive
         let reportDirective, reportStatus, reportCollaboration;
         try {
-          if (!discordModLoadAttempted) {
-            discordModLoadAttempted = true;
-            try {
-              discordModCache = await import("../target-repo/src/util/discord");
-            } catch (e: any) {
-              console.error("Failed to load discord reporter:", e.message);
-            }
-          }
-          if (discordModCache) {
-            reportDirective = discordModCache.reportDirective;
-            reportStatus = discordModCache.reportStatus;
-            reportCollaboration = discordModCache.reportCollaboration;
-          }
-        } catch (e: any) {
+          const mod = await import("../target-repo/src/util/discord");
+          reportDirective = mod.reportDirective;
+          reportStatus = mod.reportStatus;
+          reportCollaboration = mod.reportCollaboration;
+        } catch (e) {
           console.error("Failed to load discord reporter:", e.message);
-        }
         }
         
         const details = `Worker ${role} (Sovereign Engine) started processing stage ${body.stage} for repository ${body.repo || "jeo-claw"}. Collaborative chain initiated via JOC Control Tower.`;
