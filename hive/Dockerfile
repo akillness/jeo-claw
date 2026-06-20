@@ -28,7 +28,7 @@ COPY compare ./compare
 COPY control ./control
 COPY tsconfig.json ./tsconfig.json
 
-CMD ["bun", "run", "hive/start.ts"]
+CMD ["bun", "--smol", "run", "hive/start.ts"]
 
 # Install Docker Compose Plugin
 RUN mkdir -p ~/.docker/cli-plugins/ && curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose && chmod +x ~/.docker/cli-plugins/docker-compose

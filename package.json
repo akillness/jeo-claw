@@ -6,17 +6,17 @@
   "description": "Dual-runtime (ZeroClaw + NullClaw) agentic PR orchestration, Discord-controlled, local-Docker first.",
   "scripts": {
     "test": "bun test",
-    "safe-test": "bun run scripts/safe-bun-test.ts",
-    "check:compose": "bun run scripts/check-compose.ts",
-    "smoke:glue": "bun run scripts/smoke-glue.ts",
-    "preflight:live": "bun run scripts/preflight-live.ts",
-    "glue": "bun run glue/server.ts",
-    "discord": "bun run discord/bot.ts",
-    "compare": "bun run compare/runner.ts",
-    "mock:github": "bun run scripts/mock-github.ts",
-    "browser:status": "bun run scripts/browser-status.ts",
-    "capture": "bun run ops/scripts/capture-knowledge.ts",
-    "tui": "bun run scripts/tui.ts"
+    "safe-test": "bun --smol run scripts/safe-bun-test.ts",
+    "check:compose": "bun --smol run scripts/check-compose.ts",
+    "smoke:glue": "bun --smol run scripts/smoke-glue.ts",
+    "preflight:live": "bun --smol run scripts/preflight-live.ts",
+    "glue": "bun --smol run glue/server.ts",
+    "discord": "bun --smol run discord/bot.ts",
+    "compare": "bun --smol run compare/runner.ts",
+    "mock:github": "bun --smol run scripts/mock-github.ts",
+    "browser:status": "bun --smol run scripts/browser-status.ts",
+    "capture": "bun --smol run ops/scripts/capture-knowledge.ts",
+    "tui": "bun --smol run scripts/tui.ts"
   },
   "dependencies": {
     "discord.js": "^14.26.4",

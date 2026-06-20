@@ -25,4 +25,4 @@ COPY secrets ./secrets
 COPY glue ./glue
 COPY tsconfig.json ./tsconfig.json
 
-ENTRYPOINT ["bun", "run", "runtimes/start.ts", "zeroclaw"]
+ENTRYPOINT ["bun", "--smol", "run", "runtimes/start.ts", "zeroclaw"]
