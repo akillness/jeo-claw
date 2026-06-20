@@ -1,3 +1,4 @@
+import { MemoryWorkflowStore } from "../glue/memory-store";
 import { createHmac } from "node:crypto";
 import { handleWebhookRequest } from "../glue/server.ts";
 import type { WorkflowState } from "../glue/contract.ts";
@@ -108,7 +109,7 @@ const githubFetchImpl: typeof fetch = (async (url: string | URL | Request, init?
   });
 }) as typeof fetch;
 
-const store = new Map<string, WorkflowState>();
+const store = new MemoryWorkflowStore();
 const sourceFactory = () => new StaticSecretSource({ "jeo-claw-github-token-rw": "ghp_write_smoke" });
 
 const server = Bun.serve({

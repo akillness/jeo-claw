@@ -75,7 +75,7 @@ export type WorkflowAction = HighRiskAction | "research-code" | "review" | "pr-r
 export const PR_CREATE_ACTIONS = ["pr.create"] as const satisfies readonly HighRiskAction[];
 export const MERGE_ACTIONS = ["pr.merge"] as const satisfies readonly HighRiskAction[];
 
-export type WorkflowStatus = "queued" | "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed";
+export type WorkflowStatus = "queued" | "pending" | "running" | "awaiting-approval" | "merged" | "rejected" | "failed" | "scheduled";
 
 export interface ApprovalSnapshot {
   status: "pending" | "approved" | "rejected" | "consumed";
@@ -88,7 +88,7 @@ export interface ApprovalSnapshot {
 export type FlowType = "direct" | "scheduled" | "evolution";
 
 export interface WorkflowState {
-  id: string;
+  id?: string;
   runtime: Runtime;
   request: string;
   stage: Stage;
@@ -106,6 +106,9 @@ export interface WorkflowState {
   artifacts?: WorkflowArtifact[];
   prUrl?: string;
   mergedAt?: string;
+  repo?: string;
+  mode?: string;
+  scheduledAt?: string;
 }
 
 // Inputs to the merge policy gate. Merge is allowed ONLY when all three are boolean true.
@@ -170,4 +173,12 @@ export interface RuntimeMetricSummary {
   ciPassRate: number; // 0..1
   tokenCost: number; // avg
   failureRate: number; // 0..1
+}
+
+export interface WorkflowArtifact {
+  id?: string;
+  name?: string;
+  path: string;
+  content: string;
+  createdAt?: string;
 }

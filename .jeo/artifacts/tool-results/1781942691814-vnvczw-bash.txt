@@ -1,0 +1,87 @@
+Exit code 2
+check_repo.ts(8,31): error TS18046: 'json' is of type 'unknown'.
+claws/repo-work.ts(5,15): error TS2305: Module '"../glue/contract.ts"' has no exported member 'WorkflowArtifact'.
+claws/worker.ts(28,36): error TS18048: 'role' is possibly 'undefined'.
+claws/worker.ts(33,36): error TS2307: Cannot find module '../target-repo/src/util/discord' or its corresponding type declarations.
+claws/worker.ts(38,61): error TS18046: 'e' is of type 'unknown'.
+debug_workflows.ts(9,22): error TS18046: 'json' is of type 'unknown'.
+discord/approval.test.ts(102,36): error TS2353: Object literal may only specify known properties, and 'registry' does not exist in type '{ onEvent?: ((e: ControlEvent) => unknown) | undefined; policy?: CommandPolicy | undefined; botUserId?: string | undefined; allowSelfTest?: boolean | undefined; fetchStatus?: (() => Promise<...>) | undefined; }'.
+discord/bot.ts(593,36): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+discord/bot.ts(593,50): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+discord/bot.ts(605,35): error TS2367: This comparison appears to be unintentional because the types 'WorkflowStatus' and '"scheduled"' have no overlap.
+discord/bot.ts(605,72): error TS2339: Property 'scheduledAt' does not exist on type 'WorkflowState'.
+discord/commands.ts(38,14): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+discord/commands.ts(38,21): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/contract.ts(106,15): error TS2304: Cannot find name 'WorkflowArtifact'.
+glue/runtime-dispatch.ts(51,28): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+glue/server.ts(30,24): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+glue/server.ts(467,67): error TS2554: Expected 3 arguments, but got 4.
+glue/server.ts(512,72): error TS2554: Expected 3 arguments, but got 5.
+glue/server.ts(512,80): error TS2339: Property 'mode' does not exist on type 'WorkflowState'.
+glue/server.ts(512,94): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+glue/write-executor.ts(144,31): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+glue/write-executor.ts(193,19): error TS18048: 'data' is possibly 'undefined'.
+glue/write-executor.ts(195,16): error TS18048: 'data' is possibly 'undefined'.
+glue/write-executor.ts(199,19): error TS18048: 'data' is possibly 'undefined'.
+glue/write-executor.ts(200,14): error TS18048: 'data' is possibly 'undefined'.
+glue/write-executor.ts(208,5): error TS2322: Type 'undefined' is not assignable to type '{ workflow: WorkflowState; result: GitHubWriteResult; }'.
+list_workflows.ts(4,53): error TS18046: 'r' is of type 'unknown'.
+ops/scripts/test-ping.ts(6,18): error TS2554: Expected 1 arguments, but got 0.
+ops/scripts/test-ping.ts(7,47): error TS2345: Argument of type '"glue"' is not assignable to parameter of type 'ControlService'.
+ops/scripts/test-ping.ts(16,23): error TS2339: Property 'send' does not exist on type 'DMChannel | PartialDMChannel | PartialGroupDMChannel | NewsChannel | StageChannel | TextChannel | PublicThreadChannel<...> | PrivateThreadChannel | VoiceChannel'.
+  Property 'send' does not exist on type 'PartialGroupDMChannel'.
+qa/red-team.test.ts(295,7): error TS2322: Type 'Map<string, WorkflowState>' is not assignable to type 'WorkflowStore'.
+  The types returned by 'values()' are incompatible between these types.
+    Type 'MapIterator<WorkflowState>' is missing the following properties from type 'WorkflowState[]': length, pop, push, concat, and 26 more.
+qa/red-team.test.ts(306,5): error TS2353: Object literal may only specify known properties, and 'registry' does not exist in type '{ onEvent?: ((e: ControlEvent) => unknown) | undefined; policy?: CommandPolicy | undefined; botUserId?: string | undefined; allowSelfTest?: boolean | undefined; fetchStatus?: (() => Promise<...>) | undefined; }'.
+qa/red-team.test.ts(332,7): error TS2322: Type 'Map<string, WorkflowState>' is not assignable to type 'WorkflowStore'.
+  The types returned by 'values()' are incompatible between these types.
+    Type 'MapIterator<WorkflowState>' is missing the following properties from type 'WorkflowState[]': length, pop, push, concat, and 26 more.
+qa/red-team.test.ts(358,7): error TS2322: Type 'Map<string, WorkflowState>' is not assignable to type 'WorkflowStore'.
+  The types returned by 'values()' are incompatible between these types.
+    Type 'MapIterator<WorkflowState>' is missing the following properties from type 'WorkflowState[]': length, pop, push, concat, and 26 more.
+qa/red-team.test.ts(391,7): error TS2322: Type 'Map<string, WorkflowState>' is not assignable to type 'WorkflowStore'.
+  The types returned by 'values()' are incompatible between these types.
+    Type 'MapIterator<WorkflowState>' is missing the following properties from type 'WorkflowState[]': length, pop, push, concat, and 26 more.
+read_db.ts(8,48): error TS2339: Property 'data' does not exist on type '{}'.
+scripts/monitor-docker.ts(15,13): error TS18048: 'mem' is possibly 'undefined'.
+scripts/monitor-docker.ts(16,35): error TS18048: 'mem' is possibly 'undefined'.
+scripts/monitor-docker.ts(16,35): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/record-sovereign-evolution-v41.ts(1,30): error TS2307: Cannot find module '../src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v42.ts(1,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v43.ts(1,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v44.ts(1,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v475.ts(1,30): error TS2307: Cannot find module '../src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-v412.ts(2,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger.ts' or its corresponding type declarations.
+scripts/safe-bun-test.ts(47,11): error TS18048: 'p' is possibly 'undefined'.
+scripts/safe-bun-test.ts(52,11): error TS18048: 'p' is possibly 'undefined'.
+scripts/safe-bun-test.ts(53,62): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/safe-bun-test.ts(59,17): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/safe-bun-test.ts(119,53): error TS2769: No overload matches this call.
+  Overload 1 of 8, '(command: string, args: readonly string[], options: SpawnSyncOptionsWithStringEncoding): SpawnSyncReturns<string>', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 8, '(command: string, args: readonly string[], options: SpawnSyncOptionsWithBufferEncoding): SpawnSyncReturns<NonSharedBuffer>', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 3 of 8, '(command: string, args?: readonly string[] | undefined, options?: SpawnSyncOptions | undefined): SpawnSyncReturns<string | NonSharedBuffer>', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+scripts/smoke-glue.ts(126,7): error TS2322: Type 'Map<string, WorkflowState>' is not assignable to type 'WorkflowStore'.
+  The types returned by 'values()' are incompatible between these types.
+    Type 'MapIterator<WorkflowState>' is missing the following properties from type 'WorkflowState[]': length, pop, push, concat, and 26 more.
+scripts/trigger-approval-fix.ts(13,37): error TS2345: Argument of type '"sc_jeo"' is not assignable to parameter of type 'Runtime'.
+scripts/trigger-approval-fix.ts(14,8): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+scripts/trigger-approval-fix.ts(16,5): error TS2322: Type '"intake"' is not assignable to type '"research-code" | "review" | "pr-create" | "pr-review-schedule" | "merge"'.
+scripts/trigger-custom-wf.ts(15,37): error TS2345: Argument of type '"sc_jeo"' is not assignable to parameter of type 'Runtime'.
+scripts/trigger-custom-wf.ts(16,8): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+scripts/trigger-queued-wf.ts(15,37): error TS2345: Argument of type '"sc_jeo"' is not assignable to parameter of type 'Runtime'.
+scripts/trigger-queued-wf.ts(16,8): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+scripts/trigger-queued-wf.ts(18,5): error TS2322: Type '"intake"' is not assignable to type '"research-code" | "review" | "pr-create" | "pr-review-schedule" | "merge"'.
+scripts/trigger-v412.ts(17,8): error TS2339: Property 'repo' does not exist on type 'WorkflowState'.
+scripts/trigger-v412.ts(19,5): error TS2322: Type '"intake"' is not assignable to type '"research-code" | "review" | "pr-create" | "pr-review-schedule" | "merge"'.
