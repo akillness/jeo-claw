@@ -294,3 +294,5 @@ bun run ops/scripts/capture-knowledge.ts \
 - **Workflow 엔진 안정화**: 디스코드 파서의 링크 인식 오류 및 SQLite Workflow 큐 엔진 버그 픽스가 완료되었습니다.
 
 GJC Test
+
+Pipeline E2E Live Verification - 2026-06-20 (Target Fallback Test)
