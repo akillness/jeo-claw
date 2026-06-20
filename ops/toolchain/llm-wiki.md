@@ -44,6 +44,7 @@ graphify가 만든 지식 구조를 **LLM이 유지보수하는 살아있는 mar
 - 강한 concept/entity 페이지로 **종합** > 약한 파편 양산. 자주 참조되는 아이디어는 별도 페이지로 승격.
 - 낡은 주장은 새 소스로 갱신하되, raw는 건드리지 않고 wiki에서 정정/대체.
 - **반복 패턴/교훈은 규칙으로 승격**: `ops/RULES.md` 또는 `ops/CONSTITUTION.md`(= claw 자체 발전).
+- **실행 가능한 패턴은 스킬로 증류**: 도구 사용법이나 복잡한 작업 절차는 `ops/templates/skill.md`를 사용해 `wiki/skills/`에 스킬 문서로 작성하여 에이전트가 쉽게 재사용할 수 있게 한다.
 - claw 개선 아이디어는 `wiki/reports/`의 개선 백로그 → 다음 사이클 후보 요청.
 
 ## lint 패스 (주기적 건전성)
