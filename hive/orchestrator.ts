@@ -1,9 +1,9 @@
-import { start as startGlue, workflowExecutionOptsFromEnv } from "../glue/server.ts";
+import { start as startGlue } from "../glue/server.ts";
 import { start as startDiscord } from "../discord/bot.ts";
 
 async function main() {
   console.log("[Orchestrator] Starting glue server...");
-  startGlue(workflowExecutionOptsFromEnv(process.env));
+  startGlue();
 
   const botToken = process.env.DISCORD_BOT_TOKEN?.trim();
   if (botToken) {
