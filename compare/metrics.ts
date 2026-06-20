@@ -8,11 +8,27 @@ export function summarize(samples: MetricSample[]): RuntimeMetricSummary[] {
   const runtimes: Runtime[] = ["zeroclaw", "nullclaw"];
   const summaries: RuntimeMetricSummary[] = [];
 
-  for (const runtime of runtimes) {
-    const runtimeSamples = samples.filter((s) => s.runtime === runtime);
-    const count = runtimeSamples.length;
+  const stats: Record<Runtime, { count: number; latency: number; ram: number; cpu: number; tokenCost: number; ciPassed: number; failed: number }> = {
+    zeroclaw: { count: 0, latency: 0, ram: 0, cpu: 0, tokenCost: 0, ciPassed: 0, failed: 0 },
+    nullclaw: { count: 0, latency: 0, ram: 0, cpu: 0, tokenCost: 0, ciPassed: 0, failed: 0 },
+  };
 
-    if (count === 0) {
+  for (const sample of samples) {
+    const s = stats[sample.runtime];
+    if (s) {
+      s.count++;
+      s.latency += sample.latencyMs;
+      s.ram += sample.ramMb;
+      s.cpu += sample.cpuPct;
+      s.tokenCost += sample.tokenCost;
+      if (sample.ciPassed) s.ciPassed++;
+      if (sample.failed) s.failed++;
+    }
+  }
+
+  for (const runtime of runtimes) {
+    const s = stats[runtime];
+    if (s.count === 0) {
       summaries.push({
         runtime,
         runs: 0,
@@ -23,39 +39,18 @@ export function summarize(samples: MetricSample[]): RuntimeMetricSummary[] {
         tokenCost: 0,
         failureRate: 0,
       });
-      continue;
+    } else {
+      summaries.push({
+        runtime,
+        runs: s.count,
+        latencyMs: s.latency / s.count,
+        ramMb: s.ram / s.count,
+        cpuPct: s.cpu / s.count,
+        ciPassRate: s.ciPassed / s.count,
+        tokenCost: s.tokenCost / s.count,
+        failureRate: s.failed / s.count,
+      });
     }
-
-    let totalLatency = 0;
-    let totalRam = 0;
-    let totalCpu = 0;
-    let totalTokenCost = 0;
-    let ciPassedCount = 0;
-    let failedCount = 0;
-
-    for (const sample of runtimeSamples) {
-      totalLatency += sample.latencyMs;
-      totalRam += sample.ramMb;
-      totalCpu += sample.cpuPct;
-      totalTokenCost += sample.tokenCost;
-      if (sample.ciPassed) {
-        ciPassedCount++;
-      }
-      if (sample.failed) {
-        failedCount++;
-      }
-    }
-
-    summaries.push({
-      runtime,
-      runs: count,
-      latencyMs: totalLatency / count,
-      ramMb: totalRam / count,
-      cpuPct: totalCpu / count,
-      ciPassRate: ciPassedCount / count,
-      tokenCost: totalTokenCost / count,
-      failureRate: failedCount / count,
-    });
   }
 
   return summaries;
