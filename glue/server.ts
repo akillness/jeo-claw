@@ -463,6 +463,18 @@ export async function handleControlEventRequest(
   }
 
   if (event.type === "request") {
+    // [OOO RALPH / PERF PATCH] Deduplication / Debouncing Check
+    // Prevent fork bombs and queue floods from cronjobs sending identical requests
+    const activeStates = ["queued", "pending", "running", "awaiting-approval"];
+    const isDuplicate = opts.store.values().some(w => 
+      w.request === event.request && activeStates.includes(w.status)
+    );
+    
+    if (isDuplicate && !(event as any).force) {
+      console.log(`[Deduplication] Dropping identical request. A workflow with this request is already active.`);
+      return json(429, { success: false, error: "Duplicate request is already in progress. Use force: true to override." });
+    }
+
     const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const wf = createWorkflow(wfId, event.runtime, event.request, "repo" in event ? event.repo : undefined);
     wf.status = "queued";
