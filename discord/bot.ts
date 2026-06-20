@@ -34,17 +34,17 @@ function requestEventFromInteraction(interaction: any): ControlEvent | undefined
   if ((runtime !== "zeroclaw" && runtime !== "nullclaw") || !requestText) return undefined;
 
   const parsed = parseRepoRef(requestText);
-  const repo = parsed?.repo;
+  const repo = parsed ? `${parsed.owner}/${parsed.repo}` : process.env.TARGET_REPO;
   return {
     type: "request",
     source: "discord",
     runtime: runtime as Runtime,
-    request: repo ? (requestText.replace(repo, "").trim() || "프로젝트 작업내역 분석 및 코드 개선") : requestText,
-    repo: repo,
-    baseBranch: undefined,
+    request: requestText,
+    repo,
     flow: scheduledAt ? "scheduled" : "direct",
     scheduledAt,
   };
+}
 }
 
 function approvalEventFromInteraction(
