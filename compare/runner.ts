@@ -11,7 +11,6 @@ function validateRunCount(runs: number): void {
   }
 }
 
-
 export async function runComparison(opts: {
   runtimes: Runtime[];
   runs: number;
@@ -22,10 +21,9 @@ export async function runComparison(opts: {
   const samples: MetricSample[] = [];
 
   for (let r = 1; r <= runs; r++) {
-    for (const runtime of runtimes) {
-      const sample = await run(runtime, r);
-      samples.push(sample);
-    }
+    const promises = runtimes.map(runtime => run(runtime, r));
+    const results = await Promise.all(promises);
+    samples.push(...results);
   }
 
   return samples;
