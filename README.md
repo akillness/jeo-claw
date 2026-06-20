@@ -292,3 +292,5 @@ bun run ops/scripts/capture-knowledge.ts \
 ### 최근 시스템 업데이트 (2026-06)
 - **GJC (Gajae Code) 완벽 연동**: `jeo-claw-hive` 단일 컨테이너 내부에서 NPM 프록시 차단(`registry.npmjs.org`) 및 `ReadOnlyFileSystem`(`tmpfs` 마운트) 이슈를 완벽히 해결하여, 디스코드 핑만으로 깃 클론부터 에이전트 수정까지 자동화되는 라이브 파이프라인이 정상 가동 중입니다.
 - **Workflow 엔진 안정화**: 디스코드 파서의 링크 인식 오류 및 SQLite Workflow 큐 엔진 버그 픽스가 완료되었습니다.
+
+GJC Test
