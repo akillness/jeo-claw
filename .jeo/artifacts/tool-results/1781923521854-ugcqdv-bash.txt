@@ -615,7 +615,53 @@ export async function handleWebhookRequest(
 }
 
 export function start() {
+  const port = parseInt(process.env.GLUE_PORT || "8787", 10);
+  const secret = process.env.GITHUB_WEBHOOK_SECRET?.trim();
+  if (!secret) {
+    throw new Error("GITHUB_WEBHOOK_SECRET is missing or empty");
+  }
+  const controlEventSecret = process.env.JEO_CONTROL_EVENT_SECRET?.trim();
+  if (!controlEventSecret) {
+    throw new Error("JEO_CONTROL_EVENT_SECRET is missing or empty");
+  }
+  const project = process.env.GCLOUD_PROJECT?.trim();
+  const prefix = process.env.GCLOUD_SECRET_PREFIX?.trim();
+  const targetRepo = process.env.TARGET_REPO?.trim();
+  const targetBranch = process.env.TARGET_BRANCH?.trim();
+  const runtimeDispatchSecret = process.env.JEO_RUNTIME_DISPATCH_SECRET?.trim();
+  const githubApiBaseUrl = process.env.GITHUB_API_BASE_URL?.trim() || undefined;
+  if (!project || !prefix || !targetRepo || !targetBranch || !runtimeDispatchSecret) {
+    throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, TARGET_BRANCH, and JEO_RUNTIME_DISPATCH_SECRET are required");
+  }
 
+  return Bun.serve({ idleTimeout: 0,
+    port,
+    async fetch(req) {
+      const url = new URL(req.url);
+      if (req.method === "GET" && url.pathname === "/health") {
+        return json(200, { ok: true });
+      }
+      return handleWebhookRequest(req, {
+        secret,
+        controlEventSecret,
+        prefix,
+        sourceFactory: () => secretSourceFromEnv(process.env, project),
+        writeDeps: {
+          targetRepo,
+          targetBranch,
+          apiBaseUrl: githubApiBaseUrl,
+        },
+        runtimeDispatchSecret,
+        store,
+      });
+    },
+  });
+}
+
+// Auto-Merge Check Loop
+let autoMergeInterval: ReturnType<typeof setInterval> | undefined;
+
+export function start() {
   const port = parseInt(process.env.GLUE_PORT || "8787", 10);
   const secret = process.env.GITHUB_WEBHOOK_SECRET?.trim();
   if (!secret) {
@@ -668,25 +714,6 @@ export function start() {
     }
   }, 60000); // Check every minute
 
-  // [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.
-  // Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
-  // This prevents workflows from getting stuck due to memory crashes or direct database injections.
-  setInterval(async () => {
-      try {
-          const allWfs = store.values();
-          const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.includes(w.id));
-          if (queuedWfs.length > 0) {
-              console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
-              for (const wf of queuedWfs) {
-                  pendingQueue.push(wf.id);
-              }
-              processQueue(opts).catch(console.error);
-          }
-      } catch(e) {
-          // Silently ignore to prevent polling crashes
-      }
-  }, 15000);
-
   return Bun.serve({
     port,
     async fetch(req) {
@@ -697,6 +724,19 @@ export function start() {
       return handleWebhookRequest(req, opts);
     },
   });
+}
+
+if (import.meta.main) {
+  start();
+}
+export function workflowExecutionOptsFromEnv(env: any): any {
+  return {
+    writeDeps: {},
+    runtimeDispatchSecret: env.JEO_RUNTIME_DISPATCH_SECRET || "",
+    store: new SQLiteWorkflowStore(":memory:"),
+    storePolicy: { maxFinished: 100 },
+    secret: env.JEO_CONTROL_EVENT_SECRET || ""
+  };
 }
 
 // [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.

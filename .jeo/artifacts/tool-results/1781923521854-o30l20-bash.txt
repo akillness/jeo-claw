@@ -691,19 +691,16 @@ export function buildStatusRelayHandler(deps: {
         return "⚪";
       };
       const statusColor = getStatusColor(notification.status);
-
       const content = `> ${statusColor} **Sovereign Evolution Control Tower**
 > 
 > 🔹 **Workflow:** \`${notification.workflowId}\`
 > 📦 **Target:** ${repoStr}
 > 📍 **Stage:** **${stageStr}**
 > 🚥 **Status:** \`${notification.status.toUpperCase()}\`
-> 🤖 **Claw:** ${claw} @CoordinatorClaw
 > 
 > 💬 **Log:** ${notification.message}`;
 
       let components: any[] | undefined = undefined;
-
       if (notification.status === "awaiting-approval" && notification.pendingAction) {
         components = [
           {
