@@ -106,6 +106,43 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+ insert after
+    develop:
+      watch:
+        - action: sync
+          path: ./glue
+          target: /app/glue
+        - action: sync
+          path: ./discord
+          target: /app/discord
+        - action: sync
+          path: ./claws
+          target: /app/claws
+        - action: sync
+          path: ./hive
+          target: /app/hive
+        - action: sync
+          path: ./secrets
+          target: /app/secrets
+        - action: sync
+          path: ./runtimes
+          target: /app/runtimes
+        - action: sync
+          path: ./config
+          target: /app/config
+        - action: sync
+          path: ./scripts
+          target: /app/scripts
+        - action: sync
+          path: ./compare
+          target: /app/compare
+        - action: sync
+          path: ./control
+          target: /app/control
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: bun.lock
 
   github-api-mock:
     profiles:
