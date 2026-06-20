@@ -653,7 +653,7 @@ export function start() {
   };
 
   // Auto-Merge Check Loop
-  autoMergeInterval = setInterval(async () => {
+  const autoMergeInterval = setInterval(async () => {
     for (const wf of store.values()) {
       if (wf.status === "awaiting-approval" && wf.pendingAction === "pr.merge") {
         // Check if it's ready for merge (e.g., CI passed, review passed, but maybe missed the webhook)
