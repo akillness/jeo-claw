@@ -45,7 +45,6 @@ function requestEventFromInteraction(interaction: any): ControlEvent | undefined
     scheduledAt,
   };
 }
-}
 
 function approvalEventFromInteraction(
   commandName: "approve" | "reject",
