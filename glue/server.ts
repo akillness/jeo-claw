@@ -678,28 +678,38 @@ export function start() {
   };
 
   // Auto-Merge Check Loop
+  let isAutoMergeRunning = false;
   const autoMergeInterval = setInterval(async () => {
-    for (const wf of store.values()) {
-      if (wf.status === "awaiting-approval" && wf.pendingAction === "pr.merge") {
-        // Check if it's ready for merge (e.g., CI passed, review passed, but maybe missed the webhook)
-        if (wf.ciPassed && wf.reviewPassed && wf.actionApprovals?.["pr.merge"]?.status === "approved") {
-          console.log(`[Auto-Merge Check] Workflow ${wf.id} is ready for merge. Progressing...`);
-          try {
-            const nextState = await progressWorkflowState(wf, opts);
-            store.set(nextState.id, nextState);
-            pruneWorkflowStore(store, opts.storePolicy);
-          } catch (err) {
-            console.error(`[Auto-Merge Check] Failed to progress workflow ${wf.id}:`, err);
+    if (isAutoMergeRunning) return;
+    isAutoMergeRunning = true;
+    try {
+      for (const wf of store.values()) {
+        if (wf.status === "awaiting-approval" && wf.pendingAction === "pr.merge") {
+          // Check if it's ready for merge
+          if (wf.ciPassed && wf.reviewPassed && wf.actionApprovals?.["pr.merge"]?.status === "approved") {
+            console.log(`[Auto-Merge Check] Workflow ${wf.id} is ready for merge. Progressing...`);
+            try {
+              const nextState = await progressWorkflowState(wf, opts);
+              store.set(nextState.id, nextState);
+              pruneWorkflowStore(store, opts.storePolicy);
+            } catch (err) {
+              console.error(`[Auto-Merge Check] Failed to progress workflow ${wf.id}:`, err);
+            }
           }
         }
       }
+    } finally {
+      isAutoMergeRunning = false;
     }
   }, 60000); // Check every minute
 
   // [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.
   // Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
   // This prevents workflows from getting stuck due to memory crashes or direct database injections.
+  let isAutoHealRunning = false;
   setInterval(async () => {
+      if (isAutoHealRunning) return;
+      isAutoHealRunning = true;
       try {
           const allWfs = store.values();
           const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.includes(w.id));
@@ -708,10 +718,12 @@ export function start() {
               for (const wf of queuedWfs) {
                   pendingQueue.push(wf.id);
               }
-              processQueue(opts).catch(console.error);
+              await processQueue(opts);
           }
       } catch(e) {
           // Silently ignore to prevent polling crashes
+      } finally {
+          isAutoHealRunning = false;
       }
   }, 15000);
 

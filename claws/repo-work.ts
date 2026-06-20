@@ -236,7 +236,26 @@ export async function generateImprovement(
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. Failing to do so will cause immediate abort.";
     const agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --model antigravity/gemini-3.1-pro-low -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
     notes.push(`agent exit code: ${agentResult.exitCode}`);
-    if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}`);
+    
+    // PREVENT DATA LOSS: Save agent stdout/stderr
+    try {
+        const fs = await import("node:fs/promises");
+        const logPath = join(process.cwd(), ".jeo/artifacts/tool-results", `${Date.now()}-agent-execution.log`);
+        await fs.mkdir(join(process.cwd(), ".jeo/artifacts/tool-results"), { recursive: true });
+        const logData = `EXIT CODE: ${agentResult.exitCode}
+
+STDOUT:
+${agentResult.stdout.toString()}
+
+STDERR:
+${agentResult.stderr.toString()}`;
+        await fs.writeFile(logPath, logData, "utf8");
+        notes.push(`Agent logs saved to ${logPath}`);
+    } catch(e) {
+        notes.push(`Failed to save agent logs: ${e.message}`);
+    }
+
+    if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}. See logs for details.`);
 
     const gitDiff = await $`cd ${tempDir} && git diff --name-only`.text();
     const modifiedFiles = gitDiff.split("\n").map(f => f.trim()).filter(f => f.length > 0);
