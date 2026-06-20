@@ -476,7 +476,8 @@ export async function handleControlEventRequest(
     }
 
     const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const wf = createWorkflow(wfId, event.runtime, event.request, "repo" in event ? event.repo : undefined);
+    const targetRepo = ("repo" in event && event.repo) ? event.repo : process.env.TARGET_REPO;
+    const wf = createWorkflow(wfId, event.runtime, event.request, targetRepo);
     wf.status = "queued";
     opts.store.set(wfId, wf);
     await notifyStatus(wf, "Workflow queued");
