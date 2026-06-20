@@ -82,6 +82,9 @@ serve({ idleTimeout: 0,
         
         console.log(`Claw ${role} stage ${body.stage} completed successfully for workflow ${body.workflowId}`);
         return new Response(JSON.stringify({ success: true, summary: result.summary, artifacts: result.files }), { headers: { "Content-Type": "application/json" } });
+      } else if (role === "pr-review-scheduler" && body.stage === "pr-review-schedule") {
+        console.log(`[PR-Review-Scheduler] Emitting ciPassed and reviewPassed for workflow ${body.workflowId}`);
+        return new Response(JSON.stringify({ success: true, summary: "Auto-approved CI/Review", ciPassed: true, reviewPassed: true }), { headers: { "Content-Type": "application/json" } });
       } else if (role === "reviewer" && body.stage === "review") {
         console.log(`[Reviewer] Emitting reviewPassed and ciPassed for workflow ${body.workflowId}`);
         

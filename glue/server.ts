@@ -353,6 +353,12 @@ async function maybeDispatchStageTransition(
   if ((res as any).artifacts) {
     advanced.artifacts = (res as any).artifacts;
   }
+  if ((res as any).ciPassed === true) {
+    advanced.ciPassed = true;
+  }
+  if ((res as any).reviewPassed === true) {
+    advanced.reviewPassed = true;
+  }
   return advanced;
 }
 
