@@ -215,7 +215,7 @@ test("handleControlEventRequest rejects unauthenticated mutations", async () => 
   expect(res.status).toBe(401);
 });
 
-test("handleControlEventRequest creates workflows and ignores early approvals", async () => {
+test("handleControlEventRequest creates workflows and accepts early approvals", async () => {
   const localStore = new SQLiteWorkflowStore(":memory:");
   const createReq = new Request("http://localhost/control-event", {
     method: "POST",
@@ -239,7 +239,7 @@ test("handleControlEventRequest creates workflows and ignores early approvals", 
   });
   const approveRes = await handleControlEventRequest(approveReq, { store: localStore, controlEventSecret: CONTROL_SECRET });
   expect(approveRes.status).toBe(200);
-  expect(localStore.get(created.workflow.id)?.actionApprovals?.["pr.create"]?.status).toBeUndefined();
+  expect(localStore.get(created.workflow.id)?.actionApprovals?.["pr.create"]?.status).toBe("approved");
 });
 test("handleControlEventRequest executes approved PR creation through the live write path", async () => {
   const localStore = new SQLiteWorkflowStore(":memory:");

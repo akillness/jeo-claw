@@ -140,7 +140,7 @@ test("legacy approved boolean cannot synthesize merge approvals", () => {
   expect(state.actionApprovals?.["pr.merge"]?.status).not.toBe("approved");
 });
 
-test("applyEvent ignores early approvals before matching pending action", () => {
+test("applyEvent accepts early approvals before matching pending action", () => {
   let state = createWorkflow("wf-early", "zeroclaw", "fix bug");
 
   state = applyEvent(state, { type: "approve", action: "pr.merge", user: "mallory" });
@@ -148,9 +148,9 @@ test("applyEvent ignores early approvals before matching pending action", () => 
   state = applyEvent(state, { ciPassed: true, reviewPassed: true });
   state = advanceStage(state);
 
-  expect(state.status).toBe("awaiting-approval");
-  expect(state.pendingAction).toBe("pr.merge");
-  expect(state.actionApprovals?.["pr.merge"]?.status).not.toBe("approved");
+  expect(state.status).toBe("merged");
+  expect(state.pendingAction).toBeUndefined();
+  expect(state.actionApprovals?.["pr.merge"]?.status).toBe("consumed");
 });
 
 test("applyEvent does not mutate terminal workflows", () => {

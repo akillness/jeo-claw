@@ -1,0 +1,220 @@
+Exit code 1
+bun test v1.3.14 (0d9b296a)
+
+
+patch_test.js:
+
+compare/runner.test.ts:
+(pass) runComparison invokes RunFn correct number of times and with correct run indices [0.69ms]
+(pass) runComparison rejects invalid or unsafe run counts [0.24ms]
+(pass) compareAndSummarize returns both samples and summaries correctly [0.50ms]
+
+compare/dashboard.test.ts:
+(pass) dashboard renders both runtime names and all 5 metric families and is non-empty with static data [0.57ms]
+(pass) dashboard rendering with summaries generated from a deterministic mock RunFn [0.27ms]
+
+compare/metrics.test.ts:
+(pass) summarize - empty input returns empty array [0.04ms]
+(pass) summarize - math correct with known samples [0.16ms]
+(pass) summarize - a runtime with zero samples handled gracefully [0.07ms]
+
+hive/start.test.ts:
+(pass) buildChildSpecs - environment isolation and port mapping [0.73ms]
+
+hive/runtime-auth.test.ts:
+(pass) prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh [2.95ms]
+(pass) seedZeroclawProviderModel patches an existing empty providers table and is idempotent [1.96ms]
+(pass) prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it [3.38ms]
+(pass) prepareRuntimeConfig redacts OAuth payloads from startup failures [1.44ms]
+
+discord/approval.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+error: Cannot find package 'discord.js' from '/tmp/jeoclaw-repo-Km9OiR/discord/bot.ts'
+-------------------------------
+
+
+discord/commands.test.ts:
+(pass) parseCommand: request command [0.44ms]
+(pass) parseCommand: approve command requires workflow id and action [0.21ms]
+(pass) parseCommand: reject command requires workflow id and action [0.12ms]
+(pass) parseCommand: config set command [0.92ms]
+(pass) parseCommand: unknown commands [0.17ms]
+(pass) parseCommand: ping command [0.04ms]
+(pass) validateConfigValue validations [0.34ms]
+
+config/validate.test.ts:
+(pass) both runtime configs pass every validation check [1.42ms]
+(pass) A/B fairness: identical model id [0.15ms]
+(pass) runtime configs keep only env-referenced provider secrets and no embedded Discord control block [0.14ms]
+(pass) exactly 5 roles in each runtime [0.12ms]
+
+secrets/loader.test.ts:
+(pass) all runtime roles receive only read-only startup github token [0.64ms]
+(pass) write roles are eligible for mediated write secret release [0.23ms]
+(pass) non-write roles cannot request mediated write secrets [0.26ms]
+(pass) runtime roles never receive control-plane secrets [0.30ms]
+(pass) control services receive only control-plane secrets [0.41ms]
+(pass) missing required secret is a hard failure with sanitized upstream details [0.31ms]
+(pass) blank and whitespace-only secret values are rejected [0.15ms]
+(pass) generated shared secrets enforce minimum length [0.13ms]
+(pass) redact masks every secret value [0.23ms]
+(pass) redact masks overlapping secret values longest-first [0.07ms]
+(pass) FileSecretSource and secretSourceFromEnv support local file-backed secrets [1.60ms]
+(pass) every runtime role requires the OpenAI Codex OAuth key and not the legacy API key, and control services do not require either [0.26ms]
+
+glue/state-machine.test.ts:
+(pass) createWorkflow sets up initial state [0.15ms]
+(pass) advanceStage walks automatic stages until PR creation approval is required [0.39ms]
+(pass) pr-create requires pr.create approval before scheduling review [0.19ms]
+(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.29ms]
+(pass) merge stage merges when CI, review, and pr.merge approval are true [0.15ms]
+(pass) applyEvent sets fields and matching pending action approvals correctly [0.21ms]
+(pass) advanceStage does not resurrect rejected or merged states [0.33ms]
+(pass) legacy approved boolean cannot synthesize merge approvals [0.18ms]
+(pass) applyEvent accepts early approvals before matching pending action [0.40ms]
+(pass) applyEvent does not mutate terminal workflows [0.34ms]
+
+glue/server.test.ts:
+(pass) handleWebhookRequest returns 401 on bad signature [2.61ms]
+(pass) handleWebhookRequest rejects oversized webhook payloads before signature parsing [0.56ms]
+(pass) handleWebhookRequest exposes health without webhook signature [0.38ms]
+(pass) handleWebhookRequest returns 200 on valid pull_request event [544.86ms]
+(pass) handleWebhookRequest rejects non-boolean webhook fields without mutating workflow [0.83ms]
+(pass) validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields [0.29ms]
+(pass) handleControlEventRequest rejects unauthenticated mutations [0.89ms]
+237 |     },
+238 |     body: JSON.stringify({ type: "approve", workflowId: created.workflow.id, action: "pr.create", user: "alice" }),
+239 |   });
+240 |   const approveRes = await handleControlEventRequest(approveReq, { store: localStore, controlEventSecret: CONTROL_SECRET });
+241 |   expect(approveRes.status).toBe(200);
+242 |   expect(localStore.get(created.workflow.id)?.actionApprovals?.["pr.create"]?.status).toBeUndefined();
+                                                                                            ^
+error: expect(received).toBeUndefined()
+
+Received: "approved"
+
+      at <anonymous> (/tmp/jeoclaw-repo-Km9OiR/glue/server.test.ts:242:87)
+(fail) handleControlEventRequest creates workflows and ignores early approvals [419.40ms]
+(pass) handleControlEventRequest executes approved PR creation through the live write path [536.82ms]
+(pass) handleWebhookRequest executes approved merge through the live write path [2.84ms]
+(pass) config-set through control-event is explicit not-implemented [0.69ms]
+(pass) ping control event returns pong [0.34ms]
+(pass) debug workflows endpoint lists current workflow summaries [0.89ms]
+(pass) handleControlDispatchRequest rejects unauthenticated or unapproved write release [1.44ms]
+(pass) handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval [342.87ms]
+(pass) handleControlDispatchRequest rejects role/action mismatch [1.03ms]
+(pass) handleControlDispatchRequest binds release to stored workflow runtime stage and readiness [0.91ms]
+(pass) handleControlDispatchRequest refuses merge credential release before CI and review are true [0.69ms]
+(pass) unmatched signed webhook reports non-success body [0.59ms]
+(pass) start throws when required secrets/bootstrap inputs are missing or blank [0.35ms]
+(pass) pruneWorkflowStore evicts stale terminal workflows before active workflows [0.82ms]
+(pass) handleControlEventRequest prunes workflow store after mutations [461.07ms]
+
+glue/write-executor.test.ts:
+(pass) executeApprovedWriteAction reuses an existing open PR for the deterministic head [0.38ms]
+(pass) executeApprovedWriteAction honors custom GitHub API base URL [0.19ms]
+
+glue/github-webhook.test.ts:
+(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.24ms]
+(pass) parseWebhook handles pull_request event [0.06ms]
+(pass) parseWebhook validates pull_request number shape [0.10ms]
+(pass) parseWebhook handles check_suite conclusion success [0.05ms]
+(pass) parseWebhook handles check_suite conclusion failure [0.10ms]
+(pass) parseWebhook handles status success [0.05ms]
+(pass) parseWebhook handles status pending [0.03ms]
+(pass) parseWebhook handles status failure [0.05ms]
+(pass) parseWebhook handles pull_request_review approved and changes requested [0.11ms]
+(pass) parseWebhook exposes workflowId without a second JSON parse [0.10ms]
+(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.14ms]
+(pass) parseWebhook accepts strict direct boolean fields [0.06ms]
+
+glue/runtime-dispatch.test.ts:
+(pass) dispatchStageWork reports contextual error for non-JSON runtime failures [0.39ms]
+
+glue/merge-gate.test.ts:
+(pass) merge gate allows when all true [0.11ms]
+(pass) merge gate blocks when each single condition is false [0.13ms]
+
+control/start.test.ts:
+(pass) commandForService maps control services to startup commands [0.73ms]
+(pass) bindTerminationHandlers forwards registered signals and unregisters on cleanup [0.31ms]
+(pass) resolveControlEnvironment loads control secrets from Secret Manager inputs [0.55ms]
+(pass) resolveControlEnvironment rejects missing project or prefix [0.14ms]
+(pass) resolveControlEnvironment rejects blank loaded secrets [0.08ms]
+(pass) resolveControlEnvironment drops ambient non-control secrets from child env [0.22ms]
+
+runtimes/start.test.ts:
+(pass) commandForRuntime maps runtimes to startup commands [1.24ms]
+(pass) runtime termination helpers forward signals and stop the server [0.38ms]
+(pass) resolveRuntimeEnvironment loads least-privilege role secrets [0.50ms]
+(pass) resolveRuntimeEnvironment drops ambient secrets outside the role allowlist [0.14ms]
+(pass) resolveRuntimeEnvironment rejects missing role/project/prefix [0.17ms]
+(pass) prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh [1.49ms]
+(pass) seedZeroclawProviderModel patches an existing empty providers table and is idempotent [0.91ms]
+(pass) prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it [2.48ms]
+(pass) prepareRuntimeConfig redacts OAuth payloads from startup failures [1.07ms]
+(pass) validateRuntimeDispatchPayload enforces runtime/role/stage matching [0.17ms]
+(pass) validateRuntimeDispatchPayload rejects oversized request text [0.05ms]
+(pass) validateRuntimeDispatchPayload rejects write-stage dispatch at runtime boundary [0.05ms]
+(pass) executeStageWork writes a tangible stage artifact [0.90ms]
+(pass) handleDispatchRequest authenticates and writes artifact plus receipt [2.18ms]
+(pass) handleDispatchRequest rejects oversized bodies before writing artifacts [0.93ms]
+
+qa/status-relay.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+-------------------------------
+
+
+qa/red-team.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+-------------------------------
+
+
+scripts/preflight-live.test.ts:
+(pass) checkLiveEnv reports missing required bootstrap inputs only [0.32ms]
+(pass) checkLiveEnv in file mode drops the GCP project requirement but requires the file path [0.10ms]
+(pass) checkLiveEnv warns on plaintext secret env and Discord auto-provisioning [0.17ms]
+(pass) requiredSecretIds derives the live Secret Manager manifest [0.07ms]
+(pass) runLivePreflight succeeds when env and all required secrets are present [0.55ms]
+(pass) runLivePreflight fails closed on missing or empty secrets [0.33ms]
+(pass) runLivePreflight supports file-backed secrets without GCLOUD_PROJECT [0.78ms]
+
+scripts/browser-status.test.ts:
+(pass) renderStatusHtml includes container and workflow data [1.24ms]
+
+scripts/check-compose.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+error: Cannot find package 'yaml' from '/tmp/jeoclaw-repo-Km9OiR/scripts/check-compose.ts'
+-------------------------------
+
+
+scripts/mock-github.test.ts:
+(pass) mock github service supports PR create, list, and merge [7.28ms]
+
+ops/scripts/capture-knowledge.test.ts:
+(pass) slugify normalizes to kebab-case and keeps 한글 [1.32ms]
+(pass) validateInput requires title/slug/summary [0.19ms]
+(pass) buildArtifacts emits raw + wiki + log + index content [0.37ms]
+(pass) applyCapture writes raw, wiki, appends log, inserts index link [0.74ms]
+(pass) applyCapture preserves existing raw source (immutable) [0.20ms]
+(pass) applyCapture preserves existing wiki page (LLM-owned) [0.18ms]
+(pass) applyCapture is idempotent for index link and log line [0.23ms]
+(pass) parseArgs reads flags and derives slug from title when omitted [0.18ms]
+(pass) runCapture returns failure result on invalid input [0.21ms]
+
+5 tests failed:
+(fail) handleControlEventRequest creates workflows and ignores early approvals [419.40ms]
+
+ 123 pass
+ 5 fail
+ 4 errors
+ 571 expect() calls
+Ran 128 tests across 25 files. [2.63s]

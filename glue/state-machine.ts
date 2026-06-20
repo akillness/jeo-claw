@@ -143,18 +143,14 @@ export function applyEvent(
 
   if (event && typeof event === "object") {
     if (event.type === "approve" && event.action) {
-      if (acceptsActionDecision(nextState, event.action)) {
-        nextState = markAction(nextState, event.action, "approved", event.user);
-        nextState.approved = event.action === "pr.merge" ? true : nextState.approved;
-        if (nextState.pendingAction === event.action) nextState.pendingAction = undefined;
-      }
+      nextState = markAction(nextState, event.action, "approved", event.user);
+      nextState.approved = event.action === "pr.merge" ? true : nextState.approved;
+      if (nextState.pendingAction === event.action) nextState.pendingAction = undefined;
     } else if (event.type === "reject" && event.action) {
-      if (acceptsActionDecision(nextState, event.action)) {
-        nextState = markAction(nextState, event.action, "rejected", event.user);
-        nextState.approved = false;
-        nextState.status = "rejected";
-        nextState.pendingAction = event.action;
-      }
+      nextState = markAction(nextState, event.action, "rejected", event.user);
+      nextState.approved = false;
+      nextState.status = "rejected";
+      nextState.pendingAction = event.action;
     }
 
     if (event.prNumber !== undefined) {
