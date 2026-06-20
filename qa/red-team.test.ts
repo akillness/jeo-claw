@@ -1,3 +1,4 @@
+import { MemoryWorkflowStore } from "../glue/memory-store";
 import { test, expect } from "bun:test";
 import { evaluateMergeGate } from "../glue/merge-gate";
 import { verifySignature } from "../glue/github-webhook";
@@ -285,7 +286,7 @@ test("4.1 High-risk guard - action-scoped approvals are consumed and cannot cros
 });
 
 test("4.4 Control event path - unauthenticated approval mutation is rejected", async () => {
-  const store = new Map<string, WorkflowState>();
+  const store = new MemoryWorkflowStore();
   const res = await handleControlEventRequest(
     new Request("http://localhost/control-event", {
       method: "POST",
@@ -318,7 +319,7 @@ test("4.5 Discord control plane - approval command outside approval policy is re
   expect(true).toBe(true);
 });
 test("4.6 Dispatch broker - unauthenticated write-secret release is rejected", async () => {
-  const store = new Map<string, WorkflowState>();
+  const store = new MemoryWorkflowStore();
   const wf = createWorkflow("wf-broker", "zeroclaw", "build secure feature");
   store.set(wf.id, wf);
 
@@ -340,7 +341,7 @@ test("4.6 Dispatch broker - unauthenticated write-secret release is rejected", a
 });
 
 test("4.7 Dispatch broker - approved write-secret release is scoped and consumes approval", async () => {
-  const store = new Map<string, WorkflowState>();
+  const store = new MemoryWorkflowStore();
   let wf = pendingPrCreateWorkflow("wf-broker");
   wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
   store.set(wf.id, wf);
@@ -370,7 +371,7 @@ test("4.7 Dispatch broker - approved write-secret release is scoped and consumes
 });
 
 test("4.7b Dispatch broker - approved merge release is scoped and consumed only when merge is ready", async () => {
-  const store = new Map<string, WorkflowState>();
+  const store = new MemoryWorkflowStore();
   let wf = pendingMergeWorkflow("wf-broker-merge");
   wf.prNumber = 101;
   wf = applyEvent(wf, { ciPassed: true, reviewPassed: true });
