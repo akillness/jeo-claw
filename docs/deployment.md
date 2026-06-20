@@ -252,3 +252,17 @@ bun run scripts/smoke-glue.ts
 - ✅ 방법 A(컨트롤 플레인 단독) **컨테이너 구동·검증 완료**.
 - ❌ 방법 B 풀스택: `gcloud` 미설치 → **옵션 2(file 모드)** 또는 gcloud 설치 환경 필요.
 - 다음 한 걸음: `secrets/live.json` 작성 → `bun run scripts/preflight-live.ts`(file 모드)로 green 확인 → `docker compose up`(4-B override).
+
+## 9. 자동 업데이트 (Auto-Update Listener)
+
+호스트에서 GitHub Push Webhook을 수신하여 자동으로 `git pull` 및 `docker compose up -d --build`를 실행하는 리스너를 제공한다.
+
+```bash
+# 호스트 환경에서 실행 (Docker 내부 아님)
+GITHUB_WEBHOOK_SECRET="<웹훅_시크릿>" TARGET_BRANCH="main" bun run update-listener
+```
+
+- 기본 포트는 `8788`이며, `UPDATE_LISTENER_PORT` 환경 변수로 변경할 수 있다.
+- GitHub 저장소 설정에서 Webhook을 추가하고, Payload URL을 `http://<호스트_IP>:8788`로 설정한다.
+- Content type은 `application/json`으로 설정하고, Secret은 `GITHUB_WEBHOOK_SECRET`과 동일하게 설정한다.
+- 이 스크립트는 호스트의 Docker 데몬에 접근해야 하므로 컨테이너 외부에서 실행해야 한다.

@@ -108,7 +108,7 @@ function workflowLastTouchedMs(state: WorkflowState): number {
   return latest;
 }
 
-export function pruneWorkflowStore(storeToPrune: WorkflowStore | Map<string, WorkflowState>, policy: WorkflowStorePolicy = {}): void {
+export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: WorkflowStorePolicy = {}): void {
   const now = policy.now?.() ?? Date.now();
   const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
   const values = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
@@ -282,7 +282,7 @@ interface RuntimeDispatchPayload {
   stage: string;
 }
 
-type WorkflowStoreLike = WorkflowStore | Map<string, WorkflowState>;
+type WorkflowStoreLike = WorkflowStore;
 
 interface WorkflowBrokerOpts {
   store: WorkflowStoreLike;
@@ -375,7 +375,11 @@ async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecuti
 
     const advanced = advanceStage(current);
     if (advanced.stage !== state.stage || advanced.status !== state.status) {
-      await notifyStatus(advanced, `Workflow advanced to ${advanced.stage} (${advanced.status})`);
+      if (advanced.status === "awaiting-approval" && advanced.pendingAction) {
+        await notifyStatus(advanced, `Approval required for ${advanced.pendingAction} at stage ${advanced.stage}`);
+      } else if (advanced.status !== "awaiting-approval") {
+        await notifyStatus(advanced, `Workflow advanced to ${advanced.stage} (${advanced.status})`);
+      }
     }
     return advanced;
   }
@@ -654,15 +658,82 @@ export function start() {
   });
 }
 
+// Auto-Merge Check Loop
+let autoMergeInterval: ReturnType<typeof setInterval> | undefined;
+
+export function start() {
+  const port = parseInt(process.env.GLUE_PORT || "8787", 10);
+  const secret = process.env.GITHUB_WEBHOOK_SECRET?.trim();
+  if (!secret) {
+    throw new Error("GITHUB_WEBHOOK_SECRET is missing or empty");
+  }
+  const controlEventSecret = process.env.JEO_CONTROL_EVENT_SECRET?.trim();
+  if (!controlEventSecret) {
+    throw new Error("JEO_CONTROL_EVENT_SECRET is missing or empty");
+  }
+  const project = process.env.GCLOUD_PROJECT?.trim();
+  const prefix = process.env.GCLOUD_SECRET_PREFIX?.trim();
+  const targetRepo = process.env.TARGET_REPO?.trim();
+  const targetBranch = process.env.TARGET_BRANCH?.trim();
+  const runtimeDispatchSecret = process.env.JEO_RUNTIME_DISPATCH_SECRET?.trim();
+  const githubApiBaseUrl = process.env.GITHUB_API_BASE_URL?.trim() || undefined;
+  if (!project || !prefix || !targetRepo || !targetBranch || !runtimeDispatchSecret) {
+    throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, TARGET_BRANCH, and JEO_RUNTIME_DISPATCH_SECRET are required");
+  }
+
+  const opts: WorkflowExecutionOpts & { secret: string } = {
+    secret,
+    controlEventSecret,
+    prefix,
+    sourceFactory: () => secretSourceFromEnv(process.env, project),
+    writeDeps: {
+      targetRepo,
+      targetBranch,
+      apiBaseUrl: githubApiBaseUrl,
+    },
+    runtimeDispatchSecret,
+    store,
+  };
+
+  // Auto-Merge Check Loop
+  autoMergeInterval = setInterval(async () => {
+    for (const wf of store.values()) {
+      if (wf.status === "awaiting-approval" && wf.pendingAction === "pr.merge") {
+        // Check if it's ready for merge (e.g., CI passed, review passed, but maybe missed the webhook)
+        if (wf.ciPassed && wf.reviewPassed && wf.actionApprovals?.["pr.merge"]?.status === "approved") {
+          console.log(`[Auto-Merge Check] Workflow ${wf.id} is ready for merge. Progressing...`);
+          try {
+            const nextState = await progressWorkflowState(wf, opts);
+            store.set(nextState.id, nextState);
+            pruneWorkflowStore(store, opts.storePolicy);
+          } catch (err) {
+            console.error(`[Auto-Merge Check] Failed to progress workflow ${wf.id}:`, err);
+          }
+        }
+      }
+    }
+  }, 60000); // Check every minute
+
+  return Bun.serve({
+    port,
+    async fetch(req) {
+      const url = new URL(req.url);
+      if (req.method === "GET" && url.pathname === "/health") {
+        return json(200, { ok: true });
+      }
+      return handleWebhookRequest(req, opts);
+    },
+  });
+}
+
 if (import.meta.main) {
   start();
 }
-
 export function workflowExecutionOptsFromEnv(env: any): any {
   return {
     writeDeps: {},
     runtimeDispatchSecret: env.JEO_RUNTIME_DISPATCH_SECRET || "",
-    store: new Map(),
+    store: new SQLiteWorkflowStore(":memory:"),
     storePolicy: { maxFinished: 100 },
     secret: env.JEO_CONTROL_EVENT_SECRET || ""
   };

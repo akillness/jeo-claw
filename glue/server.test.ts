@@ -1,3 +1,4 @@
+import { SQLiteWorkflowStore } from "./store";
 import { test, expect } from "bun:test";
 import {
   handleWebhookRequest,
@@ -56,7 +57,7 @@ const runtimeDispatchFetchImpl: typeof fetch = (async (_url: string | URL | Requ
 
 test("handleWebhookRequest returns 401 on bad signature", async () => {
   const secret = "test_webhook_secret";
-  const store = new Map<string, WorkflowState>();
+  const store = new SQLiteWorkflowStore(":memory:");
   const req = new Request("http://localhost/webhook", {
     method: "POST",
     headers: { "x-hub-signature-256": "sha256=invalid" },
@@ -95,7 +96,7 @@ test("handleWebhookRequest rejects oversized webhook payloads before signature p
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
     runtimeDispatchSecret: "runtime-dispatch-secret",
     dispatchFetchImpl: runtimeDispatchFetchImpl,
-    store: new Map(),
+    store: new SQLiteWorkflowStore(":memory:"),
   });
 
   expect(res.status).toBe(413);
@@ -110,7 +111,7 @@ test("handleWebhookRequest exposes health without webhook signature", async () =
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
     runtimeDispatchSecret: "runtime-dispatch-secret",
     dispatchFetchImpl: runtimeDispatchFetchImpl,
-    store: new Map(),
+    store: new SQLiteWorkflowStore(":memory:"),
   });
   expect(res.status).toBe(200);
   const data = (await res.json()) as { ok?: boolean };
@@ -119,7 +120,7 @@ test("handleWebhookRequest exposes health without webhook signature", async () =
 
 test("handleWebhookRequest returns 200 on valid pull_request event", async () => {
   const secret = "test_webhook_secret";
-  const store = new Map<string, WorkflowState>();
+  const store = new SQLiteWorkflowStore(":memory:");
 
   const wf = createWorkflow("wf-123", "zeroclaw", "impl feature");
   wf.stage = "pr-review-schedule";
@@ -152,7 +153,7 @@ test("handleWebhookRequest returns 200 on valid pull_request event", async () =>
 
 test("handleWebhookRequest rejects non-boolean webhook fields without mutating workflow", async () => {
   const secret = "test_webhook_secret";
-  const store = new Map<string, WorkflowState>();
+  const store = new SQLiteWorkflowStore(":memory:");
   const wf = createWorkflow("wf-strict", "zeroclaw", "impl feature");
   store.set(wf.id, wf);
 
@@ -204,7 +205,7 @@ test("validateRuntimeDispatchPayload rejects arbitrary egress and host-control f
 });
 
 test("handleControlEventRequest rejects unauthenticated mutations", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const req = new Request("http://localhost/control-event", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -215,7 +216,7 @@ test("handleControlEventRequest rejects unauthenticated mutations", async () => 
 });
 
 test("handleControlEventRequest creates workflows and ignores early approvals", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const createReq = new Request("http://localhost/control-event", {
     method: "POST",
     headers: {
@@ -241,7 +242,7 @@ test("handleControlEventRequest creates workflows and ignores early approvals", 
   expect(localStore.get(created.workflow.id)?.actionApprovals?.["pr.create"]?.status).toBeUndefined();
 });
 test("handleControlEventRequest executes approved PR creation through the live write path", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const wf = pendingPrCreateWorkflow("wf-live-pr", "Build secure feature");
   localStore.set(wf.id, wf);
 
@@ -291,7 +292,7 @@ test("handleControlEventRequest executes approved PR creation through the live w
 });
 
 test("handleWebhookRequest executes approved merge through the live write path", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   let wf = pendingMergeWorkflow("wf-live-merge", "Merge secure feature");
   wf.prNumber = 77;
   wf = applyEvent(wf, { reviewPassed: true });
@@ -343,7 +344,7 @@ test("config-set through control-event is explicit not-implemented", async () =>
     },
     body: JSON.stringify({ type: "config-set", key: "provider", value: "openai-codex" }),
   }), {
-    store: new Map(),
+    store: new SQLiteWorkflowStore(":memory:"),
     controlEventSecret: CONTROL_SECRET,
   });
   expect(res.status).toBe(501);
@@ -367,7 +368,7 @@ test("ping control event returns pong", async () => {
 });
 
 test("debug workflows endpoint lists current workflow summaries", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const wf = createWorkflow("wf-debug", "nullclaw", "browser verification");
   wf.stage = "pr-create";
   wf.status = "awaiting-approval";
@@ -402,7 +403,7 @@ test("debug workflows endpoint lists current workflow summaries", async () => {
 });
 
 test("handleControlDispatchRequest rejects unauthenticated or unapproved write release", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const wf = pendingPrCreateWorkflow("wf-dispatch");
   localStore.set(wf.id, wf);
 
@@ -422,7 +423,7 @@ test("handleControlDispatchRequest rejects unauthenticated or unapproved write r
 });
 
 test("handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   let wf = pendingPrCreateWorkflow("wf-dispatch");
   wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
   localStore.set(wf.id, wf);
@@ -441,7 +442,7 @@ test("handleControlDispatchRequest releases write secret only for approved match
 });
 
 test("handleControlDispatchRequest rejects role/action mismatch", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const wf = pendingMergeWorkflow("wf-dispatch");
   localStore.set(wf.id, wf);
 
@@ -455,7 +456,7 @@ test("handleControlDispatchRequest rejects role/action mismatch", async () => {
 });
 
 test("handleControlDispatchRequest binds release to stored workflow runtime stage and readiness", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   let wf = pendingPrCreateWorkflow("wf-bound");
   wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
   localStore.set(wf.id, wf);
@@ -480,7 +481,7 @@ test("handleControlDispatchRequest binds release to stored workflow runtime stag
 });
 
 test("handleControlDispatchRequest refuses merge credential release before CI and review are true", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   let wf = pendingMergeWorkflow("wf-merge-not-ready", "merge feature");
   wf.prNumber = 99;
   wf = advanceStage(wf);
@@ -515,7 +516,7 @@ test("unmatched signed webhook reports non-success body", async () => {
     writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
     runtimeDispatchSecret: "runtime-dispatch-secret",
     dispatchFetchImpl: runtimeDispatchFetchImpl,
-    store: new Map(),
+    store: new SQLiteWorkflowStore(":memory:"),
   });
   expect(res.status).toBe(202);
   const data = (await res.json()) as { success?: boolean; message?: string };
@@ -547,7 +548,7 @@ test("start throws when required secrets/bootstrap inputs are missing or blank",
 });
 
 test("pruneWorkflowStore evicts stale terminal workflows before active workflows", () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const active = createWorkflow("wf-active", "zeroclaw", "active");
   active.history = [{ stage: "review", at: "2026-06-09T10:00:00.000Z", status: "running" }];
 
@@ -571,13 +572,13 @@ test("pruneWorkflowStore evicts stale terminal workflows before active workflows
     now: () => Date.parse("2026-06-09T10:00:00.000Z"),
   });
 
-  expect(localStore.has("wf-stale")).toBe(false);
-  expect(localStore.has("wf-active")).toBe(true);
-  expect(localStore.has("wf-fresh")).toBe(true);
+  expect(localStore.get("wf-stale") !== undefined).toBe(false);
+  expect(localStore.get("wf-active") !== undefined).toBe(true);
+  expect(localStore.get("wf-fresh") !== undefined).toBe(true);
 });
 
 test("handleControlEventRequest prunes workflow store after mutations", async () => {
-  const localStore = new Map<string, WorkflowState>();
+  const localStore = new SQLiteWorkflowStore(":memory:");
   const oldMerged = createWorkflow("wf-old", "zeroclaw", "old");
   oldMerged.status = "merged";
   oldMerged.mergedAt = "2026-06-08T00:00:00.000Z";
@@ -602,6 +603,6 @@ test("handleControlEventRequest prunes workflow store after mutations", async ()
   });
 
   expect(res.status).toBe(201);
-  expect(localStore.has("wf-old")).toBe(false);
+  expect(localStore.get("wf-old") !== undefined).toBe(false);
   expect(localStore.size).toBe(1);
 });
