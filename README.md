@@ -22,11 +22,55 @@
 
 ## 아키텍처 한눈에
 
-```
-사용자 ──Discord──▶ discord-bot ──typed event──▶ glue-webhook ──▶ [ZeroClaw role services] ┐
-                          │  action-scoped 승인 게이트        [NullClaw role services] ┘ ──▶ GitHub PR
-                          ▼                                                              │
-                    Discord 승인/상태/대시보드 ◀──────── compare(A/B 메트릭) ◀──────────┘
+```mermaid
+flowchart TB
+    subgraph Discord [Discord Interface]
+        User((User/제오임당))
+        Bot[제로가재 Bot]
+        UI[Blockquote Status & Buttons]
+    end
+
+    subgraph Hive [Jeo-Claw Hive Container]
+        Control[Sovereign Orchestrator<br>glue/server.ts]
+        DB[(SQLite State DB)]
+        
+        subgraph Workers [Stage Workers]
+            RC[Researcher-Coder]
+            REV[Reviewer]
+            PRC[PR-Creator]
+            MRG[Merger]
+        end
+        
+        subgraph Execution [AI Agents]
+            ZC[ZeroClaw / jeo-code<br>Heavy Refactoring]
+            NC[NullClaw / gajae-code<br>Lightweight Strikes]
+        end
+    end
+
+    subgraph GitHub [External Repository]
+        Repo[(Target Repo)]
+    end
+
+    User -- 1. Request --> Bot
+    Bot -- 2. Event --> Control
+    Control <--> DB
+    Control -- 3. Dispatch --> RC
+    RC -- 4. Select Runtime --> Execution
+    Execution -- 5. Push Code --> Repo
+    RC -- 6. Next Stage --> REV
+    REV -- 7. Next Stage --> PRC
+    PRC -- 8. Request Approval --> UI
+    User -- 9. Click Approve --> UI
+    UI -- 10. Confirm --> Control
+    Control -- 11. Execute PR --> PRC
+    PRC -- 12. Create PR --> Repo
+    PRC -- 13. Next Stage --> MRG
+    MRG -- 14. Request Approval --> UI
+    User -- 15. Click Approve --> UI
+    UI -- 16. Confirm --> Control
+    Control -- 17. Execute Merge --> MRG
+    MRG -- 18. Merge PR --> Repo
+    MRG -- 19. Trigger Auto-Rebuild --> Hive
 ```
 
 역할 파이프라인(각 런타임별 5개 Docker role service): 리서치+코드작성 → 코드리뷰 → PR 리뷰 검수 스케줄링까지는 role service가 담당하고, PR 생성/merge 같은 실제 GitHub write는 `glue-webhook` control plane이 승인 후 brokered token으로 수행한다.
