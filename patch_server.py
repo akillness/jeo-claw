@@ -1,42 +1,23 @@
-import re
+with open("glue/server.ts", "r", encoding="utf-8") as f:
+    code = f.read()
 
-with open('/d/clawWorld/jeo-claw/glue/server.ts', 'r', encoding='utf-8') as f:
-    content = f.read()
+target = """  if ((res as any).artifacts) {
+    advanced.artifacts = (res as any).artifacts;
+  }"""
 
-# Replace maybeDispatchStageTransition
-old_str = """async function maybeDispatchStageTransition(
-  state: WorkflowState,
-  opts: WorkflowExecutionOpts,
-): Promise<WorkflowState | undefined> {
-  if (!dispatchableStage(state.stage)) return undefined;
-  await dispatchStageWork(state, {
-    runtimeDispatchSecret: opts.runtimeDispatchSecret,
-    fetchImpl: opts.dispatchFetchImpl,
-  });
-  const advanced = advanceStage(state);
-  return advanced;
-}"""
-
-new_str = """async function maybeDispatchStageTransition(
-  state: WorkflowState,
-  opts: WorkflowExecutionOpts,
-): Promise<WorkflowState | undefined> {
-  if (!dispatchableStage(state.stage)) return undefined;
-  const res = await dispatchStageWork(state, {
-    runtimeDispatchSecret: opts.runtimeDispatchSecret,
-    fetchImpl: opts.dispatchFetchImpl,
-  });
-  const advanced = advanceStage(state);
-  if ((res as any).artifacts) {
+replacement = """  if ((res as any).artifacts) {
     advanced.artifacts = (res as any).artifacts;
   }
-  return advanced;
-}"""
+  if ((res as any).ciPassed === true) {
+    advanced.ciPassed = true;
+  }
+  if ((res as any).reviewPassed === true) {
+    advanced.reviewPassed = true;
+  }"""
 
-if old_str in content:
-    content = content.replace(old_str, new_str)
-    with open('/d/clawWorld/jeo-claw/glue/server.ts', 'w', encoding='utf-8') as f:
-        f.write(content)
-    print("Patched server.ts successfully")
-else:
-    print("Could not find the target string in server.ts")
+code = code.replace(target, replacement)
+
+with open("glue/server.ts", "w", encoding="utf-8") as f:
+    f.write(code)
+
+print("patched")

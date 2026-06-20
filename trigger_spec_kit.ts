@@ -23,7 +23,11 @@ const body = JSON.stringify({
 
 4. 우아한 파이프라인 마무리:
    - PR 생성 시, 이번 진화 사이클에서 개선된 성능 최적화 및 메모리 누수 차단 내역을 상세히 기록하라.
-   - 오직 실제 승인이 필요한 시점(awaiting-approval)에만 디스코드 팝업이 발송되도록 보장하고, 병합 후 즉각적인 도커 재빌드로 환골탈태가 이루어지도록 시스템 정합성을 맞춰라.`
+   - 오직 실제 승인이 필요한 시점(awaiting-approval)에만 디스코드 팝업이 발송되도록 보장하고, 병합 후 즉각적인 도커 재빌드로 환골탈태가 이루어지도록 시스템 정합성을 맞춰라.
+
+5. [Ponytail 스킬 필수 준수사항 - 긴급 수정 요망]:
+   - 브랜치(워크트리) 자동 청소: PR이 병합(Merge)되는 즉시 깃허브 원격 저장소에 남겨진 임시 파생 브랜치(예: workflow-wf-*)를 깃허브 API 등을 이용해 반드시 삭제(Cleanup)하는 로직을 오케스트레이터(glue/server.ts 또는 관련 모듈)에 추가하라.
+   - Docker 강제 재빌드 (No-Cache): Auto-Rebuild(자동 재빌드) 로직 실행 시, Windows/WSL 환경의 캐시 오작동을 원천 차단하기 위해 반드시 \`docker compose build --no-cache && docker compose up -d\` 형태로 캐시 없이 하드 리빌드하도록 코드를 수정하라.`
 });
 
 fetch("http://127.0.0.1:8787/control-event", {

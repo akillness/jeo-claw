@@ -59,6 +59,7 @@ async function processQueue(opts: WorkflowExecutionOpts) {
     const wf = opts.store.get(nextWfId);
     if (wf) {
       wf.status = "pending";
+      opts.store.set(wf.id, wf);
       let updated;
       try {
         updated = await progressWorkflowState(wf, opts);
@@ -504,6 +505,7 @@ export async function handleControlEventRequest(
     if (!wf) {
       return json(404, { error: "Workflow not found" });
     }
+    const wasMerged = wf.status === "merged";
     let updated = applyEvent(wf, event);
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
       updated = await progressWorkflowState(updated, {
@@ -519,7 +521,7 @@ export async function handleControlEventRequest(
     opts.store.set(event.workflowId, updated);
     
     // Ouroboros / Continuous Evolution Loop
-    if (updated.status === "merged") {
+    if (!wasMerged && updated.status === "merged") {
       // Auto-Rebuild Trigger
       try {
         console.log(`[Auto-Rebuild] PR merged, triggering docker rebuild...`);
@@ -528,7 +530,7 @@ export async function handleControlEventRequest(
       } catch(e) { console.error("Auto-rebuild failed:", e); }
 
     }
-    if (updated.status === "merged" && process.env.CONTINUOUS_EVOLUTION !== "0") {
+    if (!wasMerged && updated.status === "merged" && process.env.CONTINUOUS_EVOLUTION !== "0") {
       console.log(`[Glue Server] Workflow ${updated.id} merged! Triggering next evolution cycle...`);
       const nextRequest = "Analyze the codebase for the next highest priority improvement regarding performance, memory leaks, and evolution. Build upon the previous merge and continue evolving.";
       const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
