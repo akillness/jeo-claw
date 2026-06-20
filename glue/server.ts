@@ -509,7 +509,7 @@ export async function handleControlEventRequest(
       console.log(`[Glue Server] Workflow ${updated.id} merged! Triggering next evolution cycle...`);
       const nextRequest = "Analyze the codebase for the next highest priority improvement regarding performance, memory leaks, and evolution. Build upon the previous merge and continue evolving.";
       const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      const newWf = createWorkflow(wfId, updated.runtime, nextRequest, updated.mode, updated.repo);
+      const newWf = createWorkflow(wfId, updated.runtime, nextRequest, updated.repo);
       newWf.status = "queued";
       opts.store.set(wfId, newWf);
       

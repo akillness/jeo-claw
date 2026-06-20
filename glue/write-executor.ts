@@ -169,20 +169,8 @@ export async function executeApprovedWriteAction(
         }, fetchImpl);
       } catch (err: any) {
         if (err.message.includes("422")) {
-          console.warn("[write-executor] 422 Error during PR creation. Probably no commits to PR or it already exists.", err.message);
-          return {
-            workflow: {
-              ...workflow,
-              prNumber: 0,
-              headRef: head,
-              prUrl: "",
-            },
-            result: {
-              action,
-              prNumber: 0,
-              url: "No changes to PR (422)",
-            },
-          };
+          console.warn("[write-executor] 422 Error during PR creation. Halting workflow to prevent infinite empty PR loop.", err.message);
+          throw new Error("No changes to PR or PR already exists (422). Workflow halted.");
         }
         throw err;
       }
@@ -204,8 +192,7 @@ export async function executeApprovedWriteAction(
 
   const prNumber = workflow.prNumber;
   if (!prNumber) {
-    console.error(`Workflow ${workflow.id} cannot merge without prNumber`);
-    return;
+    throw new Error(`Workflow ${workflow.id} cannot merge without a valid prNumber. Halting to prevent empty merge loop.`);
   }
   const data = await githubRequest(
     apiBaseUrl,

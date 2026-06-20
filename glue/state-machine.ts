@@ -54,12 +54,13 @@ function blockForAction(state: WorkflowState, action: HighRiskAction): WorkflowS
   };
 }
 
-export function createWorkflow(id: string, runtime: Runtime, request: string): WorkflowState {
+export function createWorkflow(id: string, runtime: Runtime, request: string, repo?: string): WorkflowState {
   const initialStage: Stage = "research-code";
   return {
     id,
     runtime,
     request,
+    repo,
     stage: initialStage,
     status: "running",
     history: [{ stage: initialStage, at: now(), status: "running" }],
