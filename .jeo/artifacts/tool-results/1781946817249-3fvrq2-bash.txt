@@ -1,0 +1,179 @@
+Exit code 2
+bun install v1.3.14 (0d9b296a)
+
++ @types/bun@1.3.14
++ discord.js@14.26.4
++ yaml@2.9.0
+
+28 packages installed [9.61s]
+check_repo.ts(8,31): error TS18046: 'json' is of type 'unknown'.
+claws/worker.ts(28,36): error TS18048: 'role' is possibly 'undefined'.
+claws/worker.ts(33,36): error TS2307: Cannot find module '../target-repo/src/util/discord' or its corresponding type declarations.
+claws/worker.ts(38,61): error TS18046: 'e' is of type 'unknown'.
+debug_workflows.ts(9,22): error TS18046: 'json' is of type 'unknown'.
+discord/approval.test.ts(102,36): error TS2353: Object literal may only specify known properties, and 'registry' does not exist in type '{ onEvent?: ((e: ControlEvent) => unknown) | undefined; policy?: CommandPolicy | undefined; botUserId?: string | undefined; allowSelfTest?: boolean | undefined; fetchStatus?: (() => Promise<...>) | undefined; }'.
+discord/commands.ts(38,14): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+discord/commands.ts(38,21): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(128,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(158,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(179,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(242,25): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(247,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(285,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(301,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(332,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(377,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(408,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(429,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(441,25): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(447,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(462,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(489,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(500,25): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(565,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(566,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(567,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.test.ts(586,18): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.ts(68,24): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.ts(72,22): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.ts(431,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.ts(628,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.ts(680,23): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/server.ts(700,37): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+glue/write-executor.ts(181,19): error TS18048: 'data' is possibly 'undefined'.
+glue/write-executor.ts(183,16): error TS18048: 'data' is possibly 'undefined'.
+glue/write-executor.ts(187,19): error TS18048: 'data' is possibly 'undefined'.
+glue/write-executor.ts(188,14): error TS18048: 'data' is possibly 'undefined'.
+list_workflows.ts(4,53): error TS18046: 'r' is of type 'unknown'.
+ops/scripts/test-ping.ts(6,18): error TS2554: Expected 1 arguments, but got 0.
+ops/scripts/test-ping.ts(7,47): error TS2345: Argument of type '"glue"' is not assignable to parameter of type 'ControlService'.
+ops/scripts/test-ping.ts(16,23): error TS2339: Property 'send' does not exist on type 'DMChannel | PartialDMChannel | PartialGroupDMChannel | NewsChannel | StageChannel | TextChannel | PublicThreadChannel<...> | PrivateThreadChannel | VoiceChannel'.
+  Property 'send' does not exist on type 'PartialGroupDMChannel'.
+qa/red-team.test.ts(307,5): error TS2353: Object literal may only specify known properties, and 'registry' does not exist in type '{ onEvent?: ((e: ControlEvent) => unknown) | undefined; policy?: CommandPolicy | undefined; botUserId?: string | undefined; allowSelfTest?: boolean | undefined; fetchStatus?: (() => Promise<...>) | undefined; }'.
+qa/red-team.test.ts(324,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+qa/red-team.test.ts(347,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+qa/red-team.test.ts(370,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+qa/red-team.test.ts(380,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+qa/red-team.test.ts(400,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+read_db.ts(8,48): error TS2339: Property 'data' does not exist on type '{}'.
+scripts/add-dummy-wf.ts(12,21): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/add-dummy-wf.ts(18,21): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/clear-stuck-wfs.ts(10,29): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/monitor-docker.ts(15,13): error TS18048: 'mem' is possibly 'undefined'.
+scripts/monitor-docker.ts(16,35): error TS18048: 'mem' is possibly 'undefined'.
+scripts/monitor-docker.ts(16,35): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/record-sovereign-evolution-v41.ts(1,30): error TS2307: Cannot find module '../src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v42.ts(1,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v43.ts(1,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v44.ts(1,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-sovereign-evolution-v475.ts(1,30): error TS2307: Cannot find module '../src/agent/dev/evolution-logger' or its corresponding type declarations.
+scripts/record-v412.ts(2,30): error TS2307: Cannot find module '../target-repo/src/agent/dev/evolution-logger.ts' or its corresponding type declarations.
+scripts/safe-bun-test.ts(47,11): error TS18048: 'p' is possibly 'undefined'.
+scripts/safe-bun-test.ts(52,11): error TS18048: 'p' is possibly 'undefined'.
+scripts/safe-bun-test.ts(53,62): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/safe-bun-test.ts(59,17): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/safe-bun-test.ts(119,53): error TS2769: No overload matches this call.
+  Overload 1 of 8, '(command: string, args: readonly string[], options: SpawnSyncOptionsWithStringEncoding): SpawnSyncReturns<string>', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 8, '(command: string, args: readonly string[], options: SpawnSyncOptionsWithBufferEncoding): SpawnSyncReturns<NonSharedBuffer>', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 3 of 8, '(command: string, args?: readonly string[] | undefined, options?: SpawnSyncOptions | undefined): SpawnSyncReturns<string | NonSharedBuffer>', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+scripts/smoke-glue.ts(191,55): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/smoke-glue.ts(209,56): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/smoke-glue.ts(241,53): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/trigger-approval-fix.ts(13,37): error TS2345: Argument of type '"sc_jeo"' is not assignable to parameter of type 'Runtime'.
+scripts/trigger-approval-fix.ts(16,5): error TS2322: Type '"intake"' is not assignable to type '"research-code" | "review" | "pr-create" | "pr-review-schedule" | "merge"'.
+scripts/trigger-approval-fix.ts(18,21): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/trigger-custom-wf.ts(15,37): error TS2345: Argument of type '"sc_jeo"' is not assignable to parameter of type 'Runtime'.
+scripts/trigger-custom-wf.ts(18,21): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/trigger-queued-wf.ts(15,37): error TS2345: Argument of type '"sc_jeo"' is not assignable to parameter of type 'Runtime'.
+scripts/trigger-queued-wf.ts(18,5): error TS2322: Type '"intake"' is not assignable to type '"research-code" | "review" | "pr-create" | "pr-review-schedule" | "merge"'.
+scripts/trigger-queued-wf.ts(20,21): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/trigger-v412.ts(19,5): error TS2322: Type '"intake"' is not assignable to type '"research-code" | "review" | "pr-create" | "pr-review-schedule" | "merge"'.
+scripts/trigger-v412.ts(21,21): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+scripts/tui-capture.ts(27,48): error TS18048: 'b.id' is possibly 'undefined'.
+scripts/tui-capture.ts(27,67): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(that: string, locales?: LocalesArgument, options?: CollatorOptions | undefined): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 3, '(that: string, locales?: string | string[] | undefined, options?: CollatorOptions | undefined): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 3 of 3, '(that: string): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+scripts/tui-capture.ts(46,7): error TS18048: 'wf.id' is possibly 'undefined'.
+scripts/tui-snapshot.ts(5,46): error TS18048: 'b.id' is possibly 'undefined'.
+scripts/tui-snapshot.ts(5,65): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(that: string, locales?: LocalesArgument, options?: CollatorOptions | undefined): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 3, '(that: string, locales?: string | string[] | undefined, options?: CollatorOptions | undefined): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 3 of 3, '(that: string): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+scripts/tui-snapshot.ts(18,9): error TS18048: 'wf.id' is possibly 'undefined'.
+scripts/tui.ts(28,48): error TS18048: 'b.id' is possibly 'undefined'.
+scripts/tui.ts(28,67): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(that: string, locales?: LocalesArgument, options?: CollatorOptions | undefined): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 3, '(that: string, locales?: string | string[] | undefined, options?: CollatorOptions | undefined): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 3 of 3, '(that: string): number', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+scripts/tui.ts(47,7): error TS18048: 'wf.id' is possibly 'undefined'.

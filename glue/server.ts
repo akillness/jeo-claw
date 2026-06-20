@@ -1,4 +1,6 @@
+import { spawn } from "child_process";
 import { verifySignature, parseWebhook } from "./github-webhook";
+
 import { applyEvent, advanceStage, createWorkflow } from "./state-machine";
 import type { WorkflowState, ControlEvent, HighRiskAction } from "./contract";
 import { loadWriteSecretsForRole, secretSourceFromEnv, type Role, type SecretSource } from "../secrets/loader.ts";
@@ -514,8 +516,10 @@ export async function handleControlEventRequest(
       // Auto-Rebuild Trigger
       try {
         console.log(`[Auto-Rebuild] PR merged, triggering docker rebuild...`);
-        require("child_process").exec("docker compose build claw-hive && docker compose up -d claw-hive", { cwd: "/app" });
+        const rebuild = spawn("docker", ["compose", "up", "-d", "--build", "claw-hive"], { cwd: "/app", stdio: "ignore", detached: true });
+        rebuild.unref();
       } catch(e) { console.error("Auto-rebuild failed:", e); }
+
     }
     if (updated.status === "merged" && process.env.CONTINUOUS_EVOLUTION !== "0") {
       console.log(`[Glue Server] Workflow ${updated.id} merged! Triggering next evolution cycle...`);

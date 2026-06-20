@@ -1,5 +1,5 @@
 import { watch } from "fs";
-import { exec } from "child_process";
+import { spawn } from "child_process";
 
 console.log("Watching for changes to trigger docker rebuild...");
 
@@ -10,9 +10,8 @@ watch(".", { recursive: true }, (eventType, filename) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => {
         console.log(`[Auto-Rebuild] Changes detected in ${filename}. Rebuilding...`);
-        exec("docker compose up -d --build claw-hive", (err, stdout, stderr) => {
-            if (err) console.error("Rebuild failed:", err);
-            else console.log("Rebuild success:\n", stdout);
-        });
+        const rebuild = spawn("docker", ["compose", "up", "-d", "--build", "claw-hive"], { stdio: "inherit" });
+        rebuild.on("error", (err) => console.error("Rebuild failed:", err));
+        rebuild.on("close", (code) => console.log(`Rebuild process exited with code ${code}`));
     }, 5000);
 });

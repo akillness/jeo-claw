@@ -1,0 +1,45 @@
+./claws/worker.ts:48:          action: body.action || (body.stage === "research-code" ? "patch" : body.stage === "review" ? "verify" : "execute"),
+./claws/worker.ts:72:          message: `Worker ${role} is now executing ${body.stage} using ${tool || "internal sovereign tools"}. Collaborative orchestration sequence in progress.`
+./claws/repo-work.ts:142:  while ((match = regex.exec(text)) !== null) {
+./claws/repo-work.ts:239:    if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}`);
+./claws/repo-work.ts:274:    notes.push(`Error during real agent execution: ${err.message}`);
+./patch_write_executor.ts:3:  const file = "D:/clawWorld/jeo-claw/glue/write-executor.ts";
+./patch_write_executor.ts:6:  // I will add a helper function to write_executor.ts
+./patch_write_executor.ts:71:  // Find existing executeApprovedWriteAction and inject the logic inside action === "pr.create"
+./patch_write_executor.ts:89:  content = content.replace('export async function executeApprovedWriteAction', helper + '\nexport async function executeApprovedWriteAction');
+./patch_write_executor.ts:92:  console.log("Patched write-executor.ts!");
+./scripts/safe-bun-test.ts:3:// and enforce a single-shot, timeout-limited execution with a small retry budget.
+./scripts/safe-bun-test.ts:6:import { spawnSync, execSync } from 'node:child_process';
+./scripts/safe-bun-test.ts:86:      const out = execSync('tasklist /FO CSV', { encoding: 'utf8' });
+./scripts/safe-bun-test.ts:91:      const out = execSync('ps -eo pid,comm | grep -E "bun$|bunx$|/bun$|/bunx$" || true', { encoding: 'utf8' });
+./scripts/smoke-glue.ts:207:  assertStatus("approve pr.create executes brokered write", res, 200);
+./scripts/smoke-glue.ts:239:  assertStatus("webhook records CI/review and executes approved merge", res, 200);
+./scripts/record-sovereign-evolution-v41.ts:19:        "Resolved non-deterministic lookup failure in engine-concurrency.test.ts (refined key matching for parallel execution).",
+./scripts/host-rebuilder.ts:18:        exec("docker compose up -d --build claw-hive", (err, stdout, stderr) => {
+./scripts/browser-status.ts:80:    "exec",
+./glue/server.test.ts:244:test("handleControlEventRequest executes approved PR creation through the live write path", async () => {
+./glue/server.test.ts:294:test("handleWebhookRequest executes approved merge through the live write path", async () => {
+./glue/server.ts:7:import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
+./glue/server.ts:331:    const executed = await executeApprovedWriteAction(state, "pr.create", writeToken, opts.writeDeps);
+./glue/server.ts:332:    return advanceStage(executed.workflow);
+./glue/server.ts:339:    const executed = await executeApprovedWriteAction(state, "pr.merge", writeToken, opts.writeDeps);
+./glue/server.ts:340:    return advanceStage(executed.workflow);
+./glue/server.ts:375:    const executed = await maybeExecuteApprovedWriteTransition(current, opts);
+./glue/server.ts:376:    if (executed) {
+./glue/server.ts:377:      current = executed;
+./glue/write-executor.test.ts:3:import { executeApprovedWriteAction } from "./write-executor.ts";
+./glue/write-executor.test.ts:5:test("executeApprovedWriteAction reuses an existing open PR for the deterministic head", async () => {
+./glue/write-executor.test.ts:23:  const result = await executeApprovedWriteAction(workflow, "pr.create", "ghp_token", {
+./glue/write-executor.test.ts:39:test("executeApprovedWriteAction honors custom GitHub API base URL", async () => {
+./glue/write-executor.test.ts:50:  await executeApprovedWriteAction(workflow, "pr.create", "ghp_token", {
+./glue/write-executor.ts:137:export async function executeApprovedWriteAction(
+./glue/write-executor.ts:172:          console.warn("[write-executor] 422 Error during PR creation. Halting workflow to prevent infinite empty PR loop.", err.message);
+./discord/bot.ts:154:          .setDescription("Runtime to execute")
+./discord/bot.ts:500:  const executeInteractionEvent = async (
+./discord/bot.ts:631:          await executeInteractionEvent(interaction, event, context, {
+./discord/bot.ts:646:          await executeInteractionEvent(interaction, event, context, {
+./runtimes/start.ts:330:export function executeStageWork(worktreeDir: string, payload: RuntimeDispatchPayload): string {
+./runtimes/start.ts:386:  const artifactPath = executeStageWork(worktreeDir, validation.payload);
+./runtimes/start.test.ts:2:import { bindTerminationHandlers, commandForRuntime, prepareRuntimeConfig, resolveRuntimeEnvironment, seedZeroclawProviderModel, shutdownRuntimeChild, validateRuntimeDispatchPayload, executeStageWork, handleDispatchRequest } from "./start.ts";
+./runtimes/start.test.ts:277:test("executeStageWork writes a tangible stage artifact", () => {
+./runtimes/start.test.ts:281:  const artifact = executeStageWork(root, {
