@@ -55,15 +55,6 @@ services:
           cpus: "0.5"
           memory: 256M
     restart: unless-stopped
-    develop:
-      watch:
-        - action: rebuild
-          path: .
-          ignore:
-            - node_modules/
-            - .git/
-            - data/
-            - hive_state/
     depends_on:
       egress-proxy:
         condition: service_healthy
