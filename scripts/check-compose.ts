@@ -30,7 +30,7 @@ function isAllowedEntry(entry: string): boolean {
   if (entry.startsWith(".")) return true; // Allow wildcards in the list for now
   const clean = entry;
   if (["github.com", "githubusercontent.com", "api.github.com", "codeload.github.com"].includes(clean)) return true;
-  if (["cloudcode-pa.googleapis.com", "generativelanguage.googleapis.com", "api.anthropic.com"].includes(clean)) return true;
+  if (["cloudcode-pa.googleapis.com", "daily-cloudcode-pa.googleapis.com", "generativelanguage.googleapis.com", "api.anthropic.com"].includes(clean)) return true;
   if (clean.endsWith(".sandbox.googleapis.com")) return true;
   if (clean === "api.openai.com" || clean === "registry.npmjs.org") return true;
   if (clean === "secretmanager.googleapis.com" || clean === "oauth2.googleapis.com") return true;

@@ -48,6 +48,10 @@ export function parseCommand(
   const trimmed = input.trim();
   const normalized = trimmed.startsWith("/") ? trimmed.slice(1).trim() : trimmed;
 
+  if (normalized.toLowerCase() === "ping") {
+    return { type: "ping" };
+  }
+
   const requestRegex = /^request\s+(\S+)\s+(.+)$/i;
   const requestMatch = normalized.match(requestRegex);
   if (requestMatch) {

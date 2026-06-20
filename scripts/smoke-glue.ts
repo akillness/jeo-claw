@@ -34,10 +34,19 @@ function assertStatus(name: string, res: Response, status: number): void {
   console.log(`PASS ${name} -> ${status}`);
 }
 
-interface WorkflowResponse {
-  success: boolean;
-  workflow: WorkflowState;
+async function waitForWorkflowStage(base: string, workflowId: string, stage: string, status: string): Promise<WorkflowState> {
+  let lastWf = null;
+  for (let i = 0; i < 40; i++) {
+    const res = await fetch(`${base}/debug/workflows`);
+    const data = (await res.json()) as { workflows: WorkflowState[] };
+    const wf = data.workflows.find((w) => w.id === workflowId);
+    lastWf = wf;
+    if (wf && wf.stage === stage && wf.status === status) return wf;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Timeout waiting for workflow ${workflowId} to reach stage ${stage} / status ${status}. Last known state: ${JSON.stringify(lastWf)}`);
 }
+
 
 const runtimeDispatches: Array<{ url: string; method: string; workflowId: string; runtime: string; stage: string; role: string; secret: string | null }> = [];
 const githubWrites: Array<{ url: string; method: string; authorization: string | null }> = [];
@@ -124,7 +133,7 @@ const base = server.url.origin;
 try {
   let res = await fetch(`${base}/health`);
   assertStatus("health endpoint", res, 200);
-//   assert((await expectJson<{ ok: boolean }>(res)).ok === true, "health body must be ok");
+  assert((await expectJson<{ ok: boolean }>(res)).ok === true, "health body must be ok");
 
   res = await fetch(`${base}/control-event`, {
     method: "POST",
@@ -175,14 +184,18 @@ try {
     body: JSON.stringify({ type: "request", runtime: "zeroclaw", request: "smoke lifecycle" }),
   });
   assertStatus("request starts workflow", res, 201);
-  let data = await expectJson<WorkflowResponse>(res);
+  let data = await expectJson<{ workflow: WorkflowState }>(res);
   const workflowId = data.workflow.id;
-// //   assert(data.workflow.stage === "pr-create", `expected pr-create, got ${data.workflow.stage}`);
-// //   assert(data.workflow.status === "awaiting-approval", `expected awaiting-approval, got ${data.workflow.status}`);
-// //   assert(data.workflow.pendingAction === "pr.create", `expected pr.create pending, got ${data.workflow.pendingAction}`);
-//   assert(runtimeDispatches.map((d) => d.stage).join(",") === "research-code,review", "request must dispatch research-code and review only before PR approval");
-//   assert(runtimeDispatches.map((d) => `${d.method} ${d.url}`).join(",") === "POST http://zeroclaw-researcher-coder:8787/dispatch,POST http://zeroclaw-reviewer:8787/dispatch", "request must dispatch to the exact runtime role services");
-//   assert(runtimeDispatches.every((d) => d.secret === runtimeDispatchSecret && d.runtime === "zeroclaw"), "runtime dispatch secret and runtime must be supplied to every role wrapper");
+  
+  const wfPrCreate = await waitForWorkflowStage(base, workflowId, "pr-create", "awaiting-approval");
+  assert(wfPrCreate.stage === "pr-create", `expected pr-create, got ${wfPrCreate.stage}`);
+  assert(wfPrCreate.status === "awaiting-approval", `expected awaiting-approval, got ${wfPrCreate.status}`);
+  assert(wfPrCreate.pendingAction === "pr.create", `expected pr.create pending, got ${wfPrCreate.pendingAction}`);
+  assert(runtimeDispatches.map((d) => d.stage).join(",") === "research-code,review", "request must dispatch research-code and review only before PR approval");
+  const expectedDispatches = "POST http://127.0.0.1:9201/dispatch,POST http://127.0.0.1:9202/dispatch";
+  const actualDispatches = runtimeDispatches.map((d) => `${d.method} ${d.url}`).join(",");
+  assert(actualDispatches === expectedDispatches, `request must dispatch to the exact runtime role services. Expected: ${expectedDispatches}, got: ${actualDispatches}`);
+  assert(runtimeDispatches.every((d) => d.secret === runtimeDispatchSecret && d.runtime === "zeroclaw"), "runtime dispatch secret and runtime must be supplied to every role wrapper");
   console.log("PASS request dispatches runtime stages and blocks on pr.create approval");
 
   res = await fetch(`${base}/control-event`, {
@@ -191,12 +204,13 @@ try {
     body: JSON.stringify({ type: "approve", workflowId, action: "pr.create", user: "smoke-approver" }),
   });
   assertStatus("approve pr.create executes brokered write", res, 200);
-  data = await expectJson<WorkflowResponse>(res);
-//   assert(data.workflow.prNumber === 314, `expected PR #314, got ${data.workflow.prNumber}`);
-//   assert(data.workflow.stage === "merge", `expected merge stage, got ${data.workflow.stage}`);
-//   assert(data.workflow.pendingAction === "pr.merge", `expected pr.merge pending, got ${data.workflow.pendingAction}`);
-//   assert(runtimeDispatches.some((d) => d.method === "POST" && d.url === "http://zeroclaw-pr-review-scheduler:8787/dispatch" && d.stage === "pr-review-schedule"), "approved PR create must dispatch pr-review-schedule");
-//   assert(githubWrites.some((w) => w.method === "POST" && w.url.endsWith("/pulls") && w.authorization === "Bearer ghp_write_smoke"), "approved PR create must use brokered write token");
+  
+  const wfMergeGate = await waitForWorkflowStage(base, workflowId, "merge", "awaiting-approval");
+  assert(wfMergeGate.prNumber === 314, `expected PR #314, got ${wfMergeGate.prNumber}`);
+  assert(wfMergeGate.stage === "merge", `expected merge stage, got ${wfMergeGate.stage}`);
+  assert(wfMergeGate.pendingAction === "pr.merge", `expected pr.merge pending, got ${wfMergeGate.pendingAction}`);
+  assert(runtimeDispatches.some((d) => d.method === "POST" && d.url === "http://127.0.0.1:9204/dispatch" && d.stage === "pr-review-schedule"), "approved PR create must dispatch pr-review-schedule");
+  assert(githubWrites.some((w) => w.method === "POST" && w.url.endsWith("/pulls") && w.authorization === "Bearer ghp_write_smoke"), "approved PR create must use brokered write token");
   console.log("PASS pr.create approval consumes brokered write credential and advances to merge gate");
 
   res = await fetch(`${base}/control-event`, {
@@ -205,9 +219,14 @@ try {
     body: JSON.stringify({ type: "approve", workflowId, action: "pr.merge", user: "smoke-approver" }),
   });
   assertStatus("early approve pr.merge waits for checks", res, 200);
-  data = await expectJson<WorkflowResponse>(res);
-//   assert(data.workflow.status === "awaiting-approval", `expected awaiting-approval, got ${data.workflow.status}`);
-//   assert(!githubWrites.some((w) => w.method === "PUT" && w.url.endsWith("/pulls/314/merge")), "early merge approval must not call GitHub merge before checks");
+  
+  // Wait a little just to ensure nothing changes erroneously
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const resDebugMerge = await fetch(`${base}/debug/workflows`);
+  const dataDebugMerge = (await resDebugMerge.json()) as { workflows: WorkflowState[] };
+  const wfMergeAwaiting = dataDebugMerge.workflows.find((w) => w.id === workflowId)!;
+  assert(wfMergeAwaiting.status === "awaiting-approval", `expected awaiting-approval, got ${wfMergeAwaiting.status}`);
+  assert(!githubWrites.some((w) => w.method === "PUT" && w.url.endsWith("/pulls/314/merge")), "early merge approval must not call GitHub merge before checks");
   console.log("PASS early pr.merge approval does not bypass missing CI/review");
 
   const checksBody = JSON.stringify({ workflowId, prNumber: 314, ciPassed: true, reviewPassed: true });
@@ -217,12 +236,17 @@ try {
     body: checksBody,
   });
   assertStatus("webhook records CI/review and executes approved merge", res, 200);
-  data = await expectJson<WorkflowResponse>(res);
-//   assert(data.workflow.status === "merged", `expected merged, got ${data.workflow.status}`);
-//   assert(githubWrites.some((w) => w.method === "PUT" && w.url.endsWith("/pulls/314/merge") && w.authorization === "Bearer ghp_write_smoke"), "approved merge must use brokered write token after checks");
+  
+  const wfMerged = await waitForWorkflowStage(base, workflowId, "merge", "merged");
+  assert(wfMerged.status === "merged", `expected merged, got ${wfMerged.status}`);
+  assert(githubWrites.some((w) => w.method === "PUT" && w.url.endsWith("/pulls/314/merge") && w.authorization === "Bearer ghp_write_smoke"), "approved merge must use brokered write token after checks");
   console.log("PASS pr.merge approval merges only after CI, review, and Discord approval are true");
 
   console.log(`glue smoke complete: ${runtimeDispatches.length} runtime dispatches, ${githubWrites.length} GitHub write calls`);
+} catch (e) {
+  console.error("SMOKE TEST FAILED:", e);
+  process.exit(1);
 } finally {
   server.stop(true);
+  process.exit(0);
 }

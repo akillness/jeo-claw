@@ -348,6 +348,24 @@ test("config-set through control-event is explicit not-implemented", async () =>
   });
   expect(res.status).toBe(501);
 });
+test("ping control event returns pong", async () => {
+  const store = new Map<string, WorkflowState>();
+  const req = new Request("http://localhost/control-event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-control-event-secret": CONTROL_SECRET },
+    body: JSON.stringify({ type: "ping" }),
+  });
+
+  const res = await handleControlEventRequest(req, {
+    controlEventSecret: CONTROL_SECRET,
+    store,
+    storePolicy: { maxActiveWorkflows: 100, maxTerminalWorkflows: 50 },
+  } as any);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body).toEqual({ success: true, message: "pong" });
+});
+
 test("debug workflows endpoint lists current workflow summaries", async () => {
   const localStore = new Map<string, WorkflowState>();
   const wf = createWorkflow("wf-debug", "nullclaw", "browser verification");

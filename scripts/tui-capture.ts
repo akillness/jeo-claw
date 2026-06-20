@@ -1,4 +1,3 @@
-
 import { SQLiteWorkflowStore } from "../glue/store.ts";
 import type { WorkflowState } from "../glue/contract.ts";
 
@@ -59,11 +58,9 @@ async function render() {
   }
 }
 
-async function start() { await render(); process.exit(0);
-  
-    await render();
-    
-  }
+async function start() {
+  await render();
+  process.exit(0);
 }
 
 start().catch(console.error);

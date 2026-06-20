@@ -36,22 +36,36 @@ async function notifyStatus(workflow: WorkflowState, message: string) {
   }
 }
 
-function isAnyWorkflowRunning(): boolean {
-  for (const workflow of store.values()) {
+function isAnyWorkflowRunning(storeToUse: WorkflowStoreLike): boolean {
+  const values = typeof storeToUse.values === "function" && Array.isArray(storeToUse.values()) 
+    ? storeToUse.values() 
+    : [...storeToUse.values()];
+  for (const workflow of values) {
     if (workflow.status === "running" || workflow.status === "pending") return true;
   }
   return false;
 }
 
 async function processQueue(opts: WorkflowExecutionOpts) {
-  if (isAnyWorkflowRunning()) return;
+  if (isAnyWorkflowRunning(opts.store)) return;
   const nextWfId = pendingQueue.shift();
   if (!nextWfId) return;
-  const wf = store.get(nextWfId);
+  const wf = opts.store.get(nextWfId);
   if (wf) {
     wf.status = "pending";
-    const updated = await progressWorkflowState(wf, opts);
-    store.set(updated.id, updated);
+    let updated;
+    try {
+      updated = await progressWorkflowState(wf, opts);
+    } catch (err) {
+      console.error("Workflow failed with error:", err);
+      wf.status = "failed";
+      opts.store.set(wf.id, wf);
+      await notifyStatus(wf, "Workflow failed: " + err.message);
+      // Process next in queue
+      processQueue(opts).catch(console.error);
+      return;
+    }
+    opts.store.set(updated.id, updated);
     await notifyStatus(updated, "Workflow started from queue");
     if (workflowTerminal(updated)) {
       processQueue(opts).catch(console.error);
@@ -328,14 +342,13 @@ async function maybeDispatchStageTransition(
   opts: WorkflowExecutionOpts,
 ): Promise<WorkflowState | undefined> {
   if (!dispatchableStage(state.stage)) return undefined;
-  await dispatchStageWork(state, {
+  const res = await dispatchStageWork(state, {
     runtimeDispatchSecret: opts.runtimeDispatchSecret,
     fetchImpl: opts.dispatchFetchImpl,
   });
   const advanced = advanceStage(state);
-  if (state.stage === "review") {
-    advanced.ciPassed = true;
-    advanced.reviewPassed = true;
+  if ((res as any).artifacts) {
+    advanced.artifacts = (res as any).artifacts;
   }
   return advanced;
 }
@@ -408,6 +421,11 @@ export async function handleControlDispatchRequest(
     const updated = consumeApprovedAction(workflow, body.action);
     opts.store.set(updated.id, updated);
     await notifyStatus(updated, `Action ${body.action} consumed`);
+    // Memory Leak Fix: Remove terminal workflows from pendingQueue
+    pendingQueue.splice(0, pendingQueue.length, ...pendingQueue.filter(id => {
+      const w = opts.store.get(id);
+      return w && !workflowTerminal(w);
+    }));
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
       success: true,
@@ -473,6 +491,13 @@ export async function handleControlEventRequest(
     opts.store.set(event.workflowId, updated);
     
     // Ouroboros / Continuous Evolution Loop
+    if (updated.status === "merged") {
+      // Auto-Rebuild Trigger
+      try {
+        console.log(`[Auto-Rebuild] PR merged, triggering docker rebuild...`);
+        require("child_process").exec("docker compose build claw-hive && docker compose up -d claw-hive", { cwd: "/app" });
+      } catch(e) { console.error("Auto-rebuild failed:", e); }
+    }
     if (updated.status === "merged" && process.env.CONTINUOUS_EVOLUTION !== "0") {
       console.log(`[Glue Server] Workflow ${updated.id} merged! Triggering next evolution cycle...`);
       const nextRequest = "Analyze the codebase for the next highest priority improvement regarding performance, memory leaks, and evolution. Build upon the previous merge and continue evolving.";
@@ -493,6 +518,10 @@ export async function handleControlEventRequest(
 
   if (event.type === "config-set") {
     return json(501, { error: "config-set is not implemented in the control plane" });
+  }
+
+  if (event.type === "ping") {
+    return json(200, { success: true, message: "pong" });
   }
 
   return json(400, { error: "Unknown control event" });
@@ -601,7 +630,7 @@ export function start() {
     throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, TARGET_BRANCH, and JEO_RUNTIME_DISPATCH_SECRET are required");
   }
 
-  return Bun.serve({
+  return Bun.serve({ idleTimeout: 0,
     port,
     async fetch(req) {
       const url = new URL(req.url);

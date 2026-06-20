@@ -195,6 +195,10 @@ export function discordCommandDefinitions(): unknown[] {
       .setName("status")
       .setDescription("Check the status of current workflows")
       .toJSON(),
+    new SlashCommandBuilder()
+      .setName("ping")
+      .setDescription("Ping the bot")
+      .toJSON(),
   ];
 }
 
@@ -330,7 +334,10 @@ export function authorizeEvent(event: ControlEvent, context: EventContext, polic
 
 function controlEventLogSummary(event: ControlEvent): Record<string, string> {
   if (event.type === "request") return { type: event.type, runtime: event.runtime };
-  return { type: event.type, workflowId: event.workflowId, action: event.action, user: event.user };
+  if (event.type === "approve" || event.type === "reject") return { type: event.type, workflowId: event.workflowId, action: event.action, user: event.user };
+  if (event.type === "config-set") return { type: event.type, key: event.key, value: event.value };
+  if (event.type === "ping") return { type: event.type };
+  return { type: (event as any).type };
 }
 
 export async function forwardControlEvent(
@@ -430,6 +437,10 @@ export function buildHandlers(deps: {
     const commandText = mention.commandText.length > 0 ? mention.commandText : rawContent.trim();
     const normalized = commandText.trim().toLowerCase();
 
+    if (normalized === "ping" || normalized === "/ping") {
+      return { event: { type: "ping" }, mentioned };
+    }
+
     const { flow, scheduledAt, cleanCommand } = parseFlowFlags(commandText.trim());
     const parsed = parseRepoRef(cleanCommand);
     if (!parsed || !parsed.repo) return { event: { type: "unknown" }, mentioned };
@@ -452,6 +463,9 @@ export function buildHandlers(deps: {
   const workflowSummary = (response: unknown, event: ControlEvent): string => {
     if (event.type === "approve" || event.type === "reject") {
       return "";
+    }
+    if (event.type === "ping") {
+      return "pong";
     }
     if (response && typeof response === "object" && "workflow" in response) {
       const wf = (response as any).workflow;
@@ -609,7 +623,9 @@ export function buildHandlers(deps: {
           ? requestEventFromInteraction(interaction)
           : (commandName === "approve" || commandName === "reject")
             ? approvalEventFromInteraction(commandName, interaction, user)
-            : undefined;
+            : (commandName === "ping")
+              ? { type: "ping" as const }
+              : undefined;
 
         if (event) {
           await executeInteractionEvent(interaction, event, context, {

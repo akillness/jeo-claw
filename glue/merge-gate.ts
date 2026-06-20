@@ -2,6 +2,7 @@ import type { MergeGateInput, MergeGateResult } from "./contract";
 
 export function evaluateMergeGate(input: MergeGateInput): MergeGateResult {
   const reasons: string[] = [];
+  // 1. CI must pass
   if (input.ciPassed !== true) {
     reasons.push("CI not passed");
   }

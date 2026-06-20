@@ -143,6 +143,12 @@ test("parseCommand: unknown commands", () => {
   }
 });
 
+test("parseCommand: ping command", () => {
+  expect(parseCommand("/ping")).toEqual({ type: "ping" });
+  expect(parseCommand("ping")).toEqual({ type: "ping" });
+  expect(parseCommand("  /Ping  ")).toEqual({ type: "ping" });
+});
+
 test("validateConfigValue validations", () => {
   expect(validateConfigValue("autonomy", "supervised")).toEqual({ ok: true });
   expect(validateConfigValue("autonomy", "yolo").ok).toBe(false);

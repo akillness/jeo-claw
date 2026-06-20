@@ -10,6 +10,7 @@ api.openai.com
 secretmanager.googleapis.com
 oauth2.googleapis.com
 cloudcode-pa.googleapis.com
+daily-cloudcode-pa.googleapis.com
 .sandbox.googleapis.com
 generativelanguage.googleapis.com
 api.anthropic.com

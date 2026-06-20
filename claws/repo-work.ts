@@ -233,8 +233,10 @@ export async function generateImprovement(
 
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
-    const agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --provider gemini -p "$ooo $ralph ${request}"`.nothrow();
+    const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. Failing to do so will cause immediate abort.";
+    const agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --model antigravity/gemini-3.1-pro-low -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
     notes.push(`agent exit code: ${agentResult.exitCode}`);
+    if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}`);
 
     const gitDiff = await $`cd ${tempDir} && git diff --name-only`.text();
     const modifiedFiles = gitDiff.split("\n").map(f => f.trim()).filter(f => f.length > 0);
@@ -270,7 +272,7 @@ export async function generateImprovement(
     }
   } catch (err: any) {
     notes.push(`Error during real agent execution: ${err.message}`);
-    summary = "실제 저장소를 클론하고 에이전트를 실행하는 중 오류가 발생했습니다.";
+    throw err;
   } finally {
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }

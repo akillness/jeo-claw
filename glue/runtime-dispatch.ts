@@ -34,6 +34,8 @@ export async function dispatchStageWork(
   const port = CLAW_PORTS[role] ?? deps.port ?? 8787;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const res = await fetchImpl(`http://${service}:${port}/dispatch`, {
+      signal: AbortSignal.timeout(1000 * 60 * 30),
+
     method: "POST",
     headers: {
       "Content-Type": "application/json",

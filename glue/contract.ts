@@ -103,6 +103,7 @@ export interface WorkflowState {
   actionApprovals?: Partial<Record<HighRiskAction, ApprovalSnapshot>>;
   history: { stage: Stage; at: string; action?: WorkflowAction; status?: WorkflowStatus }[];
   headRef?: string;
+  artifacts?: WorkflowArtifact[];
   prUrl?: string;
   mergedAt?: string;
 }
@@ -127,7 +128,9 @@ export type ControlEvent =
   | { type: "approve"; source: "discord"; workflowId: string; action: HighRiskAction; user: string }
   | { type: "reject"; workflowId: string; action: HighRiskAction; user: string }
   | { type: "reject"; source: "discord"; workflowId: string; action: HighRiskAction; user: string }
-  | { type: "config-set"; key: ConfigKey; value: string };
+  | { type: "config-set"; key: ConfigKey; value: string }
+  | { type: "ping" }
+  | { type: "unknown"; raw: string };
 
 export type ConfigKey = "provider" | "model" | "autonomy" | "scaleout";
 
