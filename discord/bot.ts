@@ -683,18 +683,22 @@ export function buildStatusRelayHandler(deps: {
         "orchestration": "오케스트레이션 (Sovereign)",
       };
       const stageStr = stageKorean[notification.stage] || notification.stage;
-      const getClawEmoji = (c: string) => {
-        if (c.includes("zeroclaw") || c.includes("제로가재")) return "🦀";
-        if (c.includes("nullclaw")) return "⚡";
-        if (c.includes("Sovereign")) return "🏰";
-        return "🤖";
+      const getStatusColor = (s: string) => {
+        if (s === "failed") return "🔴";
+        if (s === "merged" || s === "completed") return "🟢";
+        if (s === "awaiting-approval") return "🟡";
+        if (s === "running") return "🔵";
+        return "⚪";
       };
-      const clawEmoji = getClawEmoji(claw);
-      const content = `${clawEmoji} **[${claw}]** | ${notification.workflowId} ${repoStr}
-📍 Stage: ${stageStr} → ${notification.status}
-💬 ${notification.message}
-🤖 **Collaborators**: @제로가재 @NullClaw-Bot @ResearcherClaw @ReviewerClaw @ReviewClaw @CoordinatorClaw 협업 대기 중
-📡 **Live Ping**: #SovereignEvolution #JOC_Relay #SovereignControlTower`;
+      const statusColor = getStatusColor(notification.status);
+      const content = `> ${statusColor} **Sovereign Evolution Control Tower**
+> 
+> 🔹 **Workflow:** \`${notification.workflowId}\`
+> 📦 **Target:** ${repoStr}
+> 📍 **Stage:** **${stageStr}**
+> 🚥 **Status:** \`${notification.status.toUpperCase()}\`
+> 
+> 💬 **Log:** ${notification.message}`;
 
       let components: any[] | undefined = undefined;
       if (notification.status === "awaiting-approval" && notification.pendingAction) {
