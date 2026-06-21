@@ -445,7 +445,6 @@ export async function handleControlDispatchRequest(
     });
     pendingQueue.length = 0;
     pendingQueue.push(...newPendingQueue);
-    }));
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
       success: true,
@@ -798,4 +797,3 @@ export function start() {
   });
 }
 
-}, 15000);
