@@ -533,6 +533,30 @@ export async function handleControlEventRequest(
       } catch(e) { console.error("Auto-rebuild failed:", e); }
 
     }
+    // [BRANCH CLEANUP] Automatically delete remote branch after merge or fail
+    if (!wasMerged && (updated.status === "merged" || updated.status === "failed")) {
+      try {
+        const branchName = updated.headRef;
+        if (branchName && branchName.startsWith("jeo/")) {
+          console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for workflow ${updated.id}`);
+          const fetchImpl = opts.dispatchFetchImpl || fetch;
+          const token = process.env.GITHUB_TOKEN;
+          const repo = updated.repo;
+          if (token && repo) {
+            await fetchImpl(`https://api.github.com/repos/${repo}/git/refs/heads/${branchName}`, {
+              method: "DELETE",
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "User-Agent": "jeo-claw-hive"
+              }
+            }).then(r => console.log(`[Branch Cleanup] Result: ${r.status}`));
+          }
+        }
+      } catch (err) {
+        console.error(`[Branch Cleanup] Failed to delete branch:`, err);
+      }
+    }
+
     if (!wasMerged && updated.status === "merged" && process.env.CONTINUOUS_EVOLUTION !== "0") {
       console.log(`[Glue Server] Workflow ${updated.id} merged! Triggering next evolution cycle...`);
       const nextRequest = "Analyze the codebase for the next highest priority improvement regarding performance, memory leaks, and evolution. Build upon the previous merge and continue evolving.";
@@ -711,6 +735,21 @@ export function start() {
                // Mark as failed to prevent infinite retry loops on API errors
                wf.status = "failed";
                store.set(wf.id, wf);
+               
+               // Auto-Cleanup branch on failure
+               try {
+                 const branchName = wf.headRef;
+                 if (branchName && branchName.startsWith("jeo/")) {
+                   console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for failed workflow ${wf.id}`);
+                   const token = process.env.GITHUB_TOKEN;
+                   if (token && wf.repo) {
+                     fetch(`https://api.github.com/repos/${wf.repo}/git/refs/heads/${branchName}`, {
+                       method: "DELETE",
+                       headers: { "Authorization": `Bearer ${token}`, "User-Agent": "jeo-claw-hive" }
+                     }).then(r => console.log(`[Branch Cleanup] Fail-safe Result: ${r.status}`));
+                   }
+                 }
+               } catch(cleanupErr) { console.error("[Branch Cleanup] fail-safe error:", cleanupErr); }
            }
         }
 
