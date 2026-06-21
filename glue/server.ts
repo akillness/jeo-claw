@@ -438,9 +438,12 @@ export async function handleControlDispatchRequest(
     opts.store.set(updated.id, updated);
     await notifyStatus(updated, `Action ${body.action} consumed`);
     // Memory Leak Fix: Remove terminal workflows from pendingQueue
-    pendingQueue.splice(0, pendingQueue.length, ...pendingQueue.filter(id => {
+    const newPendingQueue = pendingQueue.filter(id => {
       const w = opts.store.get(id);
       return w && !workflowTerminal(w);
+    });
+    pendingQueue.length = 0;
+    pendingQueue.push(...newPendingQueue);
     }));
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
@@ -475,7 +478,7 @@ export async function handleControlEventRequest(
     // [OOO RALPH / PERF PATCH] Deduplication / Debouncing Check
     // Prevent fork bombs and queue floods from cronjobs sending identical requests
     const activeStates = ["queued", "pending", "running", "awaiting-approval"];
-    const isDuplicate = opts.store.values().some(w => 
+    const isDuplicate = Array.from(opts.store.values()).some(w => 
       w.request === event.request && activeStates.includes(w.status)
     );
     
@@ -794,24 +797,4 @@ export function start() {
   });
 }
 
-// [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.
-// Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
-// This prevents workflows from getting stuck due to memory crashes or direct database injections.
-setInterval(async () => {
-    try {
-        const store = process.env.STORE_TYPE === "sqlite" ? new (require("./store.ts").SQLiteWorkflowStore)("workflows.sqlite") : undefined;
-        if (!store) return;
-        const allWfs = await store.values();
-        const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.includes(w.id));
-        if (queuedWfs.length > 0) {
-            console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
-            for (const wf of queuedWfs) {
-                pendingQueue.push(wf.id);
-            }
-            // Trigger process queue but we don't have opts easily.
-            // This is just a basic fallback.
-        }
-    } catch(e) {
-        // Silently ignore to prevent polling crashes
-    }
 }, 15000);
