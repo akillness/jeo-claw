@@ -705,6 +705,9 @@ export function start() {
              continue;
            } catch(e) {
                console.error(`[Auto-Approve] Failed for ${wf.id}:`, e);
+               // Mark as failed to prevent infinite retry loops on API errors
+               wf.status = "failed";
+               store.set(wf.id, wf);
            }
         }
 
