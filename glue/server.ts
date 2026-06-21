@@ -712,12 +712,40 @@ export function start() {
       isAutoHealRunning = true;
       try {
           const allWfs = store.values();
+          
+          // 1. Re-queue stranded 'queued' workflows
           const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.includes(w.id));
           if (queuedWfs.length > 0) {
               console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
               for (const wf of queuedWfs) {
                   pendingQueue.push(wf.id);
               }
+          }
+
+          // 2. Detect and reset Zombie workflows (stuck in 'pending'/'running' for > 15 mins)
+          const ZOMBIE_TIMEOUT_MS = 15 * 60 * 1000;
+          let zombiesRescued = false;
+          for (const wf of allWfs) {
+              if (wf.status === "pending" || wf.status === "running") {
+                  let lastActiveTime = Date.now(); // default to now if no history
+                  if (wf.history && wf.history.length > 0) {
+                      const lastEntry = wf.history[wf.history.length - 1];
+                      if (lastEntry.at) {
+                          lastActiveTime = new Date(lastEntry.at).getTime();
+                      }
+                  }
+                  
+                  if (Date.now() - lastActiveTime > ZOMBIE_TIMEOUT_MS) {
+                      console.warn(`[Auto-Heal] Zombie detected! Workflow ${wf.id} stuck in ${wf.status} for >15 mins. Resetting to queued.`);
+                      wf.status = "queued";
+                      store.set(wf.id, wf);
+                      pendingQueue.push(wf.id);
+                      zombiesRescued = true;
+                  }
+              }
+          }
+
+          if (queuedWfs.length > 0 || zombiesRescued) {
               await processQueue(opts);
           }
       } catch(e) {
