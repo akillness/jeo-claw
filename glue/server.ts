@@ -13,6 +13,7 @@ export const pendingQueue: string[] = [];
 
 
 async function notifyStatus(workflow: WorkflowState, message: string) {
+  if (process.env.NODE_ENV === "test") return;
   const endpoint = process.env.JEO_STATUS_ENDPOINT;
   if (!endpoint) return;
   // Auto-detect if we are in Sovereign (orchestrator) context or worker context
