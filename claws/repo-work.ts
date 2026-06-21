@@ -276,7 +276,12 @@ ${agentResult.stderr.toString()}`;
           continue;
         }
         const filePath = join(tempDir, file);
-        const fileContent = await Bun.file(filePath).text();
+        const fileObj = Bun.file(filePath);
+        if (!(await fileObj.exists())) {
+          notes.push(`artifact deleted by agent: ${file}`);
+          continue;
+        }
+        const fileContent = await fileObj.text();
         
         if (Buffer.byteLength(fileContent, "utf8") > 64 * 1024) {
           notes.push(`dropped-artifact: ${file} exceeds 64KB`);
