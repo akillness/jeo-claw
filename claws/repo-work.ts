@@ -234,7 +234,7 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. Failing to do so will cause immediate abort.";
-    const models = ["antigravity/claude-sonnet-4-6", "antigravity/gemini-3.5-flash"];
+    const models = ["antigravity/claude-sonnet-4-6", "antigravity/gemini-3-flash"];
     let agentResult: any;
     for (const model of models) {
         notes.push(`Running coding agent with model: ${model}`);
