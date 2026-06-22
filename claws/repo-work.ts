@@ -241,15 +241,10 @@ export async function generateImprovement(
         agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${model} exit code: ${agentResult.exitCode}`);
         
-        // If successful, or if we have changes (meaning it worked), break out.
-        // Wait, even if there are no changes, it might return 0.
-        // If it exits with 0, we consider it a success and stop pooling.
-        if (agentResult.exitCode === 0) {
-            break;
-        } else {
-            notes.push(`[Model Pooling] Fallback triggered. Cleaning up repo state before retry...`);
-            await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
-        }
+        if (agentResult.exitCode === 0) break;
+        // ponytail: removed else-block bloat after break
+        notes.push(`[Model Pooling] Fallback triggered. Cleaning up repo state before retry...`);
+        await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
     }
     
     // PREVENT DATA LOSS: Save agent stdout/stderr
