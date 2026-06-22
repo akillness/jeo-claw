@@ -87,8 +87,8 @@ export function prepareRuntimeConfig(
     const authPath = join(stateDir, "auth.json");
     writeFileSync(authPath, codexAuth, { mode: 0o600 });
 
-    runChecked("zeroclaw auth import", "zeroclaw", ["auth", "login", "--provider", "openai-codex", "--import", authPath], env);
-    runChecked("zeroclaw auth refresh", "zeroclaw", ["auth", "refresh", "--provider", "openai-codex"], env);
+    runChecked("zeroclaw auth import", "zeroclaw", ["auth", "login", "--model-provider", "openai-codex", "--import", authPath], env);
+    runChecked("zeroclaw auth refresh", "zeroclaw", ["auth", "refresh", "--model-provider", "openai-codex"], env);
 
     seedZeroclawProviderModel(stateDir, model, env.OPENAI_WIRE_API?.trim() || "responses");
 
