@@ -10,6 +10,14 @@ import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
 
 export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
 export const pendingQueue: string[] = [];
+let isProcessingQueue = false;
+
+export function enqueueWorkflow(wfId: string) {
+  if (!pendingQueue.includes(wfId)) {
+    pendingQueue.push(wfId);
+  }
+}
+
 
 
 async function notifyStatus(workflow: WorkflowState, message: string) {
@@ -40,45 +48,53 @@ async function notifyStatus(workflow: WorkflowState, message: string) {
 }
 
 function isAnyWorkflowRunning(storeToUse: WorkflowStoreLike): boolean {
-  const values = typeof storeToUse.values === "function" && Array.isArray(storeToUse.values()) 
-    ? storeToUse.values() 
-    : [...storeToUse.values()];
+  if (typeof storeToUse.hasRunningWorkflows === "function") {
+    return storeToUse.hasRunningWorkflows();
+  }
+  const values = storeToUse.values();
   for (const workflow of values) {
     if (workflow.status === "running" || workflow.status === "pending") return true;
   }
   return false;
 }
 
-async function processQueue(opts: WorkflowExecutionOpts) {
-  if (isAnyWorkflowRunning(opts.store)) return;
-  
-  while (pendingQueue.length > 0) {
-    if (isAnyWorkflowRunning(opts.store)) break;
-    const nextWfId = pendingQueue.shift();
-    if (!nextWfId) continue;
+async function processQueue(opts: WorkflowExecutionOpts) {  
+  if (isProcessingQueue) return;
+  isProcessingQueue = true;
+  try {
+    if (isAnyWorkflowRunning(opts.store)) return;
     
-    const wf = opts.store.get(nextWfId);
-    if (wf) {
-      wf.status = "pending";
-      opts.store.set(wf.id, wf);
-      let updated;
-      try {
-        updated = await progressWorkflowState(wf, opts);
-      } catch (err: any) {
-        console.error("Workflow failed with error:", err);
-        wf.status = "failed";
+    while (pendingQueue.length > 0) {
+      if (isAnyWorkflowRunning(opts.store)) break;
+      const nextWfId = pendingQueue.shift();
+      if (!nextWfId) continue;
+      
+      const wf = opts.store.get(nextWfId);
+      if (wf && !workflowTerminal(wf)) {
+        wf.status = "pending";
         opts.store.set(wf.id, wf);
-        await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
-        continue;
-      }
-      opts.store.set(updated.id, updated);
-      await notifyStatus(updated, "Workflow started from queue");
-      if (!workflowTerminal(updated)) {
-        break;
+        let updated;
+        try {
+          updated = await progressWorkflowState(wf, opts);
+        } catch (err: any) {
+          console.error("Workflow failed with error:", err);
+          wf.status = "failed";
+          opts.store.set(wf.id, wf);
+          await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
+          continue;
+        }
+        opts.store.set(updated.id, updated);
+        await notifyStatus(updated, "Workflow started from queue");
+        if (!workflowTerminal(updated)) {
+          break;
+        }
       }
     }
+  } finally {
+    isProcessingQueue = false;
   }
 }
+
 
 const DEFAULT_MAX_WORKFLOWS = 500;
 const DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -118,9 +134,7 @@ function workflowLastTouchedMs(state: WorkflowState): number {
 export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: WorkflowStorePolicy = {}): void {
   const now = policy.now?.() ?? Date.now();
   const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
-  const values = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
-    ? (storeToPrune.values() as any as WorkflowState[]) 
-    : [...storeToPrune.values() as any];
+  const values = storeToPrune.values();
     
   for (const workflow of values) {
     if (workflowTerminal(workflow) && now - workflowLastTouchedMs(workflow) > terminalRetentionMs) {
@@ -129,12 +143,10 @@ export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: Workflow
   }
 
   const maxWorkflows = Math.max(1, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
-  const size = typeof storeToPrune.size === "number" ? storeToPrune.size : storeToPrune.size;
+  const size = storeToPrune.size;
   if (size <= maxWorkflows) return;
 
-  const currentValues = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
-    ? (storeToPrune.values() as any as WorkflowState[]) 
-    : [...storeToPrune.values() as any];
+  const currentValues = storeToPrune.values();
 
   const candidates = currentValues.sort((a, b) => {
     return workflowLastTouchedMs(a) - workflowLastTouchedMs(b);
@@ -496,7 +508,8 @@ export async function handleControlEventRequest(
     wf.status = "queued";
     opts.store.set(wfId, wf);
     await notifyStatus(wf, "Workflow queued");
-    pendingQueue.push(wfId);
+    enqueueWorkflow(wfId);
+
 
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
       processQueue(opts as WorkflowExecutionOpts).catch(console.error);
@@ -572,7 +585,8 @@ export async function handleControlEventRequest(
       newWf.status = "queued";
       opts.store.set(wfId, newWf);
       
-      pendingQueue.push(wfId);
+      enqueueWorkflow(wfId);
+replace
       if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
         processQueue(opts as WorkflowExecutionOpts).catch(console.error);
       }
@@ -799,7 +813,8 @@ export function start() {
           if (queuedWfs.length > 0) {
               console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
               for (const wf of queuedWfs) {
-                  pendingQueue.push(wf.id);
+                  enqueueWorkflow(wf.id);
+replace
               }
           }
 
@@ -820,7 +835,8 @@ export function start() {
                       console.warn(`[Auto-Heal] Zombie detected! Workflow ${wf.id} stuck in ${wf.status} for >15 mins. Resetting to queued.`);
                       wf.status = "queued";
                       store.set(wf.id, wf);
-                      pendingQueue.push(wf.id);
+                      enqueueWorkflow(wf.id);
+replace
                       zombiesRescued = true;
                   }
               }

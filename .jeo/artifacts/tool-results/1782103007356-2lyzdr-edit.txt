@@ -1,0 +1,115 @@
+Edit rejected: anchor mismatch at line 52 — you sent 52dx but the current line hashes to 52ac. The content moved or changed since you read it. Re-target against the CURRENT content below and retry.
+Current content:
+1wg|import { spawn } from "child_process";
+2zu|import { verifySignature, parseWebhook } from "./github-webhook";
+3rt|
+4eq|import { applyEvent, advanceStage, createWorkflow } from "./state-machine";
+5f5|import type { WorkflowState, ControlEvent, HighRiskAction } from "./contract";
+6d9|import { loadWriteSecretsForRole, secretSourceFromEnv, type Role, type SecretSource } from "../secrets/loader.ts";
+7ji|import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
+8l8|import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
+9kv|import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
+10rt|
+11vl|export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
+12l1|export const pendingQueue: string[] = [];
+13vp|let isProcessingQueue = false;
+14gj|replace
+15rt|
+16rt|
+17ha|async function notifyStatus(workflow: WorkflowState, message: string) {
+18ie|  if (process.env.NODE_ENV === "test") return;
+19mz|  const endpoint = process.env.JEO_STATUS_ENDPOINT;
+20s2|  if (!endpoint) return;
+21fv|  // Auto-detect if we are in Sovereign (orchestrator) context or worker context
+22fn|  // In glue/server.ts, we are always in Sovereign context.
+23s5|  const claw = "🏰 Sovereign";
+24ky|  try {
+25ms|    await fetch(endpoint, {
+26b9|      method: "POST",
+27kz|      headers: { "Content-Type": "application/json" },
+28k8|      body: JSON.stringify({
+29se|        workflowId: workflow.id,
+30bd|        runtime: workflow.runtime,
+31wh|        stage: workflow.stage,
+32mk|        status: workflow.status,
+33fs|        pendingAction: workflow.pendingAction,
+34va|        message,
+35qn|        repo: workflow.repo,
+36tk|        claw,
+37fk|      })
+38x4|    });
+39tl|  } catch (err) {
+40ef|    console.error("Failed to notify status:", err);
+41s5|  }
+42ac|}
+43rt|
+44t5|function isAnyWorkflowRunning(storeToUse: WorkflowStoreLike): boolean {
+45lu|  const values = typeof storeToUse.values === "function" && Array.isArray(storeToUse.values()) 
+46cy|    ? storeToUse.values() 
+47fd|    : [...storeToUse.values()];
+48t0|  for (const workflow of values) {
+49ly|    if (workflow.status === "running" || workflow.status === "pending") return true;
+50s5|  }
+51ww|  return false;
+52ac|}
+53rt|
+54dx|async function processQueue(opts: WorkflowExecutionOpts) {
+55an|  if (isAnyWorkflowRunning(opts.store)) return;
+56rt|  
+57t0|  while (pendingQueue.length > 0) {
+58bx|    if (isAnyWorkflowRunning(opts.store)) break;
+59mk|    const nextWfId = pendingQueue.shift();
+60bc|    if (!nextWfId) continue;
+61rt|    
+62qw|    const wf = opts.store.get(nextWfId);
+63rf|    if (wf) {
+64b6|      wf.status = "pending";
+65sj|      opts.store.set(wf.id, wf);
+66gv|      let updated;
+67eo|      try {
+68zo|        updated = await progressWorkflowState(wf, opts);
+69ag|      } catch (err: any) {
+70b3|        console.error("Workflow failed with error:", err);
+71w4|        wf.status = "failed";
+72vy|        opts.store.set(wf.id, wf);
+73tp|        await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
+74mf|        continue;
+75dj|      }
+76og|      opts.store.set(updated.id, updated);
+77v7|      await notifyStatus(updated, "Workflow started from queue");
+78x1|      if (!workflowTerminal(updated)) {
+79uw|        break;
+80dj|      }
+81rd|    }
+82s5|  }
+83ac|}
+84rt|
+85s5|const DEFAULT_MAX_WORKFLOWS = 500;
+86nj|const DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS = 24 * 60 * 60 * 1000;
+87rt|
+88f8|export interface WorkflowStorePolicy {
+89ih|  maxWorkflows?: number;
+90sy|  terminalRetentionMs?: number;
+91p4|  now?: () => number;
+92ac|}
+93rt|
+94dx|function workflowTerminal(state: WorkflowState): boolean {
+95fp|  return state.status === "merged" || state.status === "rejected" || state.status === "failed";
+96ac|}
+97rt|
+98yl|function timestampMs(value: string | undefined): number {
+99dd|  if (!value) return 0;
+100v6|  const parsed = Date.parse(value);
+101x6|  return Number.isFinite(parsed) ? parsed : 0;
+102ac|}
+103rt|
+104yh|function workflowLastTouchedMs(state: WorkflowState): number {
+105o9|  let latest = timestampMs(state.mergedAt);
+106to|  for (const item of state.history) {
+107vn|    latest = Math.max(latest, timestampMs(item.at));
+108s5|  }
+109w2|  for (const approval of Object.values(state.actionApprovals ?? {})) {
+110y2|    latest = Math.max(
+111jv|      latest,
+112va|      timestampMs(approval.requestedAt),
+…(showing lines 1-112 of 853)

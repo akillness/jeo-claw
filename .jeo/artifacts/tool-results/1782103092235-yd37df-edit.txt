@@ -1,0 +1,124 @@
+Edit rejected: anchor mismatch at line 131 — you sent 131ro but the current line hashes to 131s5. The content moved or changed since you read it. Re-target against the CURRENT content below and retry.
+Current content:
+71ms|      if (!nextWfId) continue;
+72rt|      
+73ov|      const wf = opts.store.get(nextWfId);
+74zo|      if (wf && !workflowTerminal(wf)) {
+75ho|        wf.status = "pending";
+76vy|        opts.store.set(wf.id, wf);
+77ht|        let updated;
+78fz|        try {
+79qk|          updated = await progressWorkflowState(wf, opts);
+80kj|        } catch (err: any) {
+81x3|          console.error("Workflow failed with error:", err);
+82no|          wf.status = "failed";
+83pm|          opts.store.set(wf.id, wf);
+84ca|          await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
+85jn|          continue;
+86nf|        }
+87dk|        opts.store.set(updated.id, updated);
+88ey|        await notifyStatus(updated, "Workflow started from queue");
+89b1|        if (!workflowTerminal(updated)) {
+90y6|          break;
+91nf|        }
+92dj|      }
+93rd|    }
+94d2|  } finally {
+95xs|    isProcessingQueue = false;
+96s5|  }
+97ac|}
+98gj|replace
+99rt|
+100s5|const DEFAULT_MAX_WORKFLOWS = 500;
+101nj|const DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS = 24 * 60 * 60 * 1000;
+102rt|
+103f8|export interface WorkflowStorePolicy {
+104ih|  maxWorkflows?: number;
+105sy|  terminalRetentionMs?: number;
+106p4|  now?: () => number;
+107ac|}
+108rt|
+109dx|function workflowTerminal(state: WorkflowState): boolean {
+110fp|  return state.status === "merged" || state.status === "rejected" || state.status === "failed";
+111ac|}
+112rt|
+113yl|function timestampMs(value: string | undefined): number {
+114dd|  if (!value) return 0;
+115v6|  const parsed = Date.parse(value);
+116x6|  return Number.isFinite(parsed) ? parsed : 0;
+117ac|}
+118rt|
+119yh|function workflowLastTouchedMs(state: WorkflowState): number {
+120o9|  let latest = timestampMs(state.mergedAt);
+121to|  for (const item of state.history) {
+122vn|    latest = Math.max(latest, timestampMs(item.at));
+123s5|  }
+124w2|  for (const approval of Object.values(state.actionApprovals ?? {})) {
+125y2|    latest = Math.max(
+126jv|      latest,
+127va|      timestampMs(approval.requestedAt),
+128z8|      timestampMs(approval.decidedAt),
+129mc|      timestampMs(approval.consumedAt),
+130cu|    );
+131s5|  }
+132qt|  return latest;
+133ac|}
+134rt|
+135ro|export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: WorkflowStorePolicy = {}): void {
+136hm|  const now = policy.now?.() ?? Date.now();
+137gn|  const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
+138d0|  const values = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
+139ou|    ? (storeToPrune.values() as any as WorkflowState[]) 
+140yk|    : [...storeToPrune.values() as any];
+141rt|    
+142t0|  for (const workflow of values) {
+143nu|    if (workflowTerminal(workflow) && now - workflowLastTouchedMs(workflow) > terminalRetentionMs) {
+144zo|      storeToPrune.delete(workflow.id);
+145rd|    }
+146s5|  }
+147rt|
+148gg|  const maxWorkflows = Math.max(1, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
+149q2|  const size = typeof storeToPrune.size === "number" ? storeToPrune.size : storeToPrune.size;
+150l3|  if (size <= maxWorkflows) return;
+151rt|
+152jm|  const currentValues = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
+153ou|    ? (storeToPrune.values() as any as WorkflowState[]) 
+154yk|    : [...storeToPrune.values() as any];
+155rt|
+156vg|  const candidates = currentValues.sort((a, b) => {
+157mn|    return workflowLastTouchedMs(a) - workflowLastTouchedMs(b);
+158j4|  });
+159rt|
+160k5|  let currentSize = size;
+161r4|  for (const candidate of candidates) {
+162wp|    if (currentSize <= maxWorkflows) break;
+163gm|    storeToPrune.delete(candidate.id);
+164oj|    currentSize--;
+165s5|  }
+166ac|}
+167rt|
+168rt|
+169sx|const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
+170rt|
+171g4|function bodyTooLarge(req: Request, maxBytes: number): boolean {
+172ux|  const contentLength = req.headers.get("content-length");
+173nf|  if (!contentLength) return false;
+174ly|  const parsed = Number(contentLength);
+175co|  return Number.isFinite(parsed) && parsed > maxBytes;
+176ac|}
+177rt|
+178ek|const FORBIDDEN_RUNTIME_DISPATCH_FIELDS = new Set([
+179cn|  "url",
+180sf|  "uri",
+181h6|  "command",
+182js|  "cmd",
+183lo|  "shell",
+184b6|  "docker",
+185sj|  "path",
+186o8|  "hostPath",
+187ms|  "token",
+188th|  "secret",
+189yd|  "env",
+190hn|  "mount",
+191bi|  "volume",
+…(showing lines 71-191 of 872)

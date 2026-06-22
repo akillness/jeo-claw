@@ -1,0 +1,124 @@
+Edit rejected: anchor mismatch at line 512 — you sent 512rd but the current line hashes to 512gj. The content moved or changed since you read it. Re-target against the CURRENT content below and retry.
+Current content:
+452ky|  try {
+453jl|    const updated = consumeApprovedAction(workflow, body.action);
+454zs|    opts.store.set(updated.id, updated);
+455af|    await notifyStatus(updated, `Action ${body.action} consumed`);
+456q8|    // Memory Leak Fix: Remove terminal workflows from pendingQueue
+457jx|    const newPendingQueue = pendingQueue.filter(id => {
+458z4|      const w = opts.store.get(id);
+459wu|      return w && !workflowTerminal(w);
+460x4|    });
+461pq|    pendingQueue.length = 0;
+462tv|    pendingQueue.push(...newPendingQueue);
+463ye|    pruneWorkflowStore(opts.store, opts.storePolicy);
+464n0|    return json(200, {
+465yd|      success: true,
+466dx|      workflowId: updated.id,
+467c2|      role: expectedRole,
+468tw|      action: body.action,
+469cm|      credentialReleased: false,
+470x4|    });
+471tl|  } catch (err) {
+472n2|    return json(403, { error: err instanceof Error ? err.message : String(err) });
+473s5|  }
+474ac|}
+475rt|
+476wp|export async function handleControlEventRequest(
+477m7|  req: Request,
+478a7|  opts: Partial<WorkflowExecutionOpts> & { store: WorkflowStoreLike; controlEventSecret: string }
+479im|): Promise<Response> {
+480m0|  const providedSecret = req.headers.get("x-control-event-secret");
+481pj|  if (!requireControlSecret(opts.controlEventSecret, providedSecret)) {
+482f7|    return json(401, { error: "Unauthorized" });
+483s5|  }
+484rt|
+485gd|  let event: ControlEvent;
+486ky|  try {
+487fe|    event = (await req.json()) as ControlEvent;
+488w5|  } catch {
+489bd|    return json(400, { error: "Invalid JSON" });
+490s5|  }
+491rt|
+492qk|  if (event.type === "request") {
+493c1|    // [OOO RALPH / PERF PATCH] Deduplication / Debouncing Check
+494ey|    // Prevent fork bombs and queue floods from cronjobs sending identical requests
+495nt|    const activeStates = ["queued", "pending", "running", "awaiting-approval"];
+496a5|    const isDuplicate = Array.from(opts.store.values()).some(w => 
+497xx|      w.request === event.request && activeStates.includes(w.status)
+498cu|    );
+499rt|    
+500rp|    if (isDuplicate && !(event as any).force) {
+501wc|      console.log(`[Deduplication] Dropping identical request. A workflow with this request is already active.`);
+502o4|      return json(429, { success: false, error: "Duplicate request is already in progress. Use force: true to override." });
+503rd|    }
+504rt|
+505l5|    const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+506au|    const targetRepo = ("repo" in event && event.repo) ? event.repo : process.env.TARGET_REPO;
+507ik|    const wf = createWorkflow(wfId, event.runtime, event.request, targetRepo);
+508en|    wf.status = "queued";
+509to|    opts.store.set(wfId, wf);
+510x2|    await notifyStatus(wf, "Workflow queued");
+511n0|    enqueueWorkflow(wfId);
+512gj|replace
+513rt|
+514sl|    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+515uo|      processQueue(opts as WorkflowExecutionOpts).catch(console.error);
+516rd|    }
+517rt|
+518ye|    pruneWorkflowStore(opts.store, opts.storePolicy);
+519yg|    return json(201, { success: true, workflow: wf, queuePosition: pendingQueue.length });
+520s5|  }
+521rt|
+522y1|  if (event.type === "approve" || event.type === "reject") {
+523fc|    const wf = opts.store.get(event.workflowId);
+524dy|    if (!wf) {
+525ei|      return json(404, { error: "Workflow not found" });
+526rd|    }
+527np|    const wasMerged = wf.status === "merged";
+528m0|    let updated = applyEvent(wf, event);
+529sl|    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+530ex|      updated = await progressWorkflowState(updated, {
+531o4|        store: opts.store,
+532ws|        controlEventSecret: opts.controlEventSecret,
+533wp|        prefix: opts.prefix,
+534qy|        sourceFactory: opts.sourceFactory,
+535cz|        writeDeps: opts.writeDeps,
+536vp|        runtimeDispatchSecret: opts.runtimeDispatchSecret,
+537f8|        dispatchFetchImpl: opts.dispatchFetchImpl,
+538oq|      });
+539rd|    }
+540u9|    opts.store.set(event.workflowId, updated);
+541rt|    
+542p7|    // Ouroboros / Continuous Evolution Loop
+543sw|    if (!wasMerged && updated.status === "merged") {
+544gz|      // Auto-Rebuild Trigger
+545eo|      try {
+546f6|        console.log(`[Auto-Rebuild] PR merged, triggering docker rebuild...`);
+547eu|        const rebuild = spawn("docker", ["compose", "up", "-d", "--build", "claw-hive"], { cwd: "/app", stdio: "ignore", detached: true });
+548es|        rebuild.unref();
+549t2|      } catch(e) { console.error("Auto-rebuild failed:", e); }
+550rt|
+551rd|    }
+552gs|    // [BRANCH CLEANUP] Automatically delete remote branch after merge or fail
+553qr|    if (!wasMerged && (updated.status === "merged" || updated.status === "failed")) {
+554eo|      try {
+555ec|        const branchName = updated.headRef;
+556lx|        if (branchName && branchName.startsWith("jeo/")) {
+557vg|          console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for workflow ${updated.id}`);
+558o6|          const fetchImpl = opts.dispatchFetchImpl || fetch;
+559d3|          let token = process.env.GITHUB_TOKEN;
+560ls|          if (!token && opts.sourceFactory) {
+561cy|            const secrets = await opts.sourceFactory();
+562dc|            token = secrets[`${opts.prefix}-github-token-rw`];
+563jm|          }
+564gk|          const repo = updated.repo;
+565j0|          if (token && repo) {
+566hc|            await fetchImpl(`https://api.github.com/repos/${repo}/git/refs/heads/${branchName}`, {
+567pi|              method: "DELETE",
+568dt|              headers: {
+569f3|                "Authorization": `Bearer ${token}`,
+570li|                "User-Agent": "jeo-claw-hive"
+571ro|              }
+572lq|            }).then(r => console.log(`[Branch Cleanup] Result: ${r.status}`));
+…(showing lines 452-572 of 867)
