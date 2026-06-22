@@ -234,8 +234,23 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. Failing to do so will cause immediate abort.";
-    const agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --model antigravity/gemini-3.1-pro-low -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
-    notes.push(`agent exit code: ${agentResult.exitCode}`);
+    const models = ["antigravity/claude-sonnet-4-6", "antigravity/gemini-3.1-pro-low"];
+    let agentResult: any;
+    for (const model of models) {
+        notes.push(`Running coding agent with model: ${model}`);
+        agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
+        notes.push(`model ${model} exit code: ${agentResult.exitCode}`);
+        
+        // If successful, or if we have changes (meaning it worked), break out.
+        // Wait, even if there are no changes, it might return 0.
+        // If it exits with 0, we consider it a success and stop pooling.
+        if (agentResult.exitCode === 0) {
+            break;
+        } else {
+            notes.push(`[Model Pooling] Fallback triggered. Cleaning up repo state before retry...`);
+            await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
+        }
+    }
     
     // PREVENT DATA LOSS: Save agent stdout/stderr
     try {
