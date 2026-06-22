@@ -77,6 +77,11 @@ flowchart TB
 
 ## 보안 자세 (2026 claw 보안 기준)
 
+- **Survey Tool Poisoning 방어:** 외부 문서, 깃허브, 블로그 등 Survey 시 간접 프롬프트 인젝션(Indirect Prompt Injection) 및 악성 제어 명령 원천 차단 (Zero-Trust).
+- **공급망 공격(Supply Chain) 방어:** 검증되지 않은 외부 npm 패키지 및 셸 스크립트(`.sh`, `.py`) 무단 병합 절대 금지.
+- **무결성 락 (Integrity Lock):** PR 병합 전 시스템 전체 헬스체크 및 빌드 통과 100% 보장 최우선.
+- **자동 브랜치 청소 (Auto-Cleanup):** 워크플로우 병합 또는 폐기 시 깃허브에 남겨진 파생 브랜치 즉각 소각.
+
 - 어떤 서비스에도 **호스트 Docker 소켓을 마운트하지 않는다.**
 - claw 런타임은 `internal: true` 네트워크에만 연결 → 인터넷 직접 경로 없음. 모든 egress는 **allowlist 프록시**(GitHub/OpenAI/gcloud Secret/Discord)만 통과.
 - 모든 장기 서비스 `restart: unless-stopped` (자동 재시작).
