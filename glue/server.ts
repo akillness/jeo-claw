@@ -371,6 +371,9 @@ async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecuti
   let current = state;
   while (true) {
     if (current.status === "merged" || current.status === "rejected" || current.status === "failed") {
+      if (current.status !== state.status) {
+        await notifyStatus(current, `Workflow reached terminal state: ${current.status}`);
+      }
       return current;
     }
 
@@ -735,6 +738,7 @@ export function start() {
                // Mark as failed to prevent infinite retry loops on API errors
                wf.status = "failed";
                store.set(wf.id, wf);
+               await notifyStatus(wf, "Workflow failed during auto-approve: " + String(e));
                
                // Auto-Cleanup branch on failure
                try {
