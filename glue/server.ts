@@ -543,7 +543,11 @@ export async function handleControlEventRequest(
         if (branchName && branchName.startsWith("jeo/")) {
           console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for workflow ${updated.id}`);
           const fetchImpl = opts.dispatchFetchImpl || fetch;
-          const token = process.env.GITHUB_TOKEN;
+          let token = process.env.GITHUB_TOKEN;
+          if (!token && opts.sourceFactory) {
+            const secrets = await opts.sourceFactory();
+            token = secrets[`${opts.prefix}-github-token-rw`];
+          }
           const repo = updated.repo;
           if (token && repo) {
             await fetchImpl(`https://api.github.com/repos/${repo}/git/refs/heads/${branchName}`, {
@@ -745,7 +749,11 @@ export function start() {
                  const branchName = wf.headRef;
                  if (branchName && branchName.startsWith("jeo/")) {
                    console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for failed workflow ${wf.id}`);
-                   const token = process.env.GITHUB_TOKEN;
+                   let token = process.env.GITHUB_TOKEN;
+                   if (!token && opts.sourceFactory) {
+                     const secrets = await opts.sourceFactory();
+                     token = secrets[`${opts.prefix}-github-token-rw`];
+                   }
                    if (token && wf.repo) {
                      fetch(`https://api.github.com/repos/${wf.repo}/git/refs/heads/${branchName}`, {
                        method: "DELETE",
