@@ -654,7 +654,7 @@ export function buildHandlers(deps: {
 }
 export function buildStatusRelayHandler(deps: {
   client?: unknown;
-  sendToChannel: (content: string, components?: unknown[]) => Promise<void>;
+  sendToChannel: (workflowId: string | undefined, content: string, components?: unknown[]) => Promise<void>;
 }) {
   return async (req: Request): Promise<Response> => {
     if (req.method !== "POST") {
@@ -725,7 +725,7 @@ export function buildStatusRelayHandler(deps: {
         ];
       }
 
-      await deps.sendToChannel(content, components);
+      await deps.sendToChannel(notification.workflowId, content, components);
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -780,7 +780,8 @@ export async function start(): Promise<Client> {
   const controlEventSecret = requireTrimmed("JEO_CONTROL_EVENT_SECRET", policy.controlEventSecret);
 
   
-  const sendToChannel = async (content: string, components?: any[]) => {
+  const workflowMessageMap = new Map<string, string>();
+  const sendToChannel = async (workflowId: string | undefined, content: string, components?: any[]) => {
     if (content.length > 1950) {
       content = content.substring(0, 1950) + "... (truncated)";
     }
@@ -790,10 +791,27 @@ export async function start(): Promise<Client> {
       if (!channelId) return;
       const channel = await client.channels.fetch(channelId);
       if (channel && "send" in channel) {
-        await (channel as any).send({
+        const textChannel = channel as any;
+        if (workflowId && workflowMessageMap.has(workflowId)) {
+          const msgId = workflowMessageMap.get(workflowId)!;
+          try {
+            const msg = await textChannel.messages.fetch(msgId);
+            if (msg) {
+              await msg.edit({ content, components: components || [] });
+              return;
+            }
+          } catch(e) {
+            // message might have been deleted, fallback to send
+            workflowMessageMap.delete(workflowId);
+          }
+        }
+        const sent = await textChannel.send({
           content,
           components: components || [],
         });
+        if (workflowId) {
+          workflowMessageMap.set(workflowId, sent.id);
+        }
       }
     } catch (err) {
       console.error("[Discord Bot] Failed to send relay message:", err);
