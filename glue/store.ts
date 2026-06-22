@@ -1,3 +1,4 @@
+// Automated Token Cleanup verification
 // Automated UI cleanup test
 // Automated proof of zero-click merge
 import { Database, Statement } from "bun:sqlite";
