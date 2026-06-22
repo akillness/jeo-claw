@@ -234,16 +234,17 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. Failing to do so will cause immediate abort.";
-    const models = ["antigravity/claude-sonnet-4-6", "antigravity/gemini-3.1-pro-low"];
+    const models = ["antigravity/claude-sonnet-4-6", "antigravity/gemini-3.5-flash"];
     let agentResult: any;
     for (const model of models) {
         notes.push(`Running coding agent with model: ${model}`);
         agentResult = await $`cd ${tempDir} && bunx --bun ${agentBinary} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${model} exit code: ${agentResult.exitCode}`);
         
-        if (agentResult.exitCode === 0) break;
-        // ponytail: removed else-block bloat after break
-        notes.push(`[Model Pooling] Fallback triggered. Cleaning up repo state before retry...`);
+        const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
+        if (agentResult.exitCode === 0 && !outStr.includes("Rate limited") && !outStr.includes("429")) break;
+        
+        notes.push(`[Model Pooling] Fallback triggered (exitCode: ${agentResult.exitCode}, rateLimited: ${outStr.includes("Rate limited")}). Cleaning up repo state before retry...`);
         await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
     }
     
