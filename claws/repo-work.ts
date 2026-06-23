@@ -234,12 +234,12 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. Failing to do so will cause immediate abort.";
-    const models = ["gemini/gemini-1.5-pro", "gemini/gemini-1.5-flash"];
-    let agentResult: any;
-    for (const model of models) {
-        notes.push(`Running coding agent with model: ${model}`);
-        const ts = Date.now();
-        agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
+    const models = ["gemini-1.5-pro", "gemini-1.5-flash"];
+        let agentResult: any;
+        for (const model of models) {
+            notes.push(`Running coding agent with provider: gemini, model: ${model}`);
+            const ts = Date.now();
+            agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider gemini --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${model} exit code: ${agentResult.exitCode}`);
         
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
