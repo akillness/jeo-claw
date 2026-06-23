@@ -5,7 +5,7 @@ import { buildStatusRelayHandler } from "../discord/bot";
 test("StatusRelayHandler includes repo in content when provided", async () => {
   let capturedContent = "";
   const handler = buildStatusRelayHandler({
-    sendToChannel: async (content) => {
+    sendToChannel: async (workflowId, content) => {
       capturedContent = content;
     }
   });
@@ -35,7 +35,7 @@ test("StatusRelayHandler includes repo in content when provided", async () => {
 test("StatusRelayHandler defaults to Sovereign emoji when claw is Sovereign", async () => {
   let capturedContent = "";
   const handler = buildStatusRelayHandler({
-    sendToChannel: async (content) => {
+    sendToChannel: async (workflowId, content) => {
       capturedContent = content;
     }
   });

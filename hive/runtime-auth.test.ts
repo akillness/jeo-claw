@@ -26,9 +26,9 @@ test("prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refr
   expect(calls).toEqual([
     {
       command: "zeroclaw",
-      args: ["auth", "login", "--provider", "openai-codex", "--import", join(stateDir, "auth.json")],
+      args: ["auth", "login", "--model-provider", "openai-codex", "--import", join(stateDir, "auth.json")],
     },
-    { command: "zeroclaw", args: ["auth", "refresh", "--provider", "openai-codex"] },
+    { command: "zeroclaw", args: ["auth", "refresh", "--model-provider", "openai-codex"] },
   ]);
 
   const configToml = readFileSync(join(stateDir, "config.toml"), "utf8");
