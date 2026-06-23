@@ -4,6 +4,6 @@ const token = data["github-token-rw"];
 fetch("https://api.github.com/repos/akillness/jeo-claw", {
   headers: { "Authorization": `Bearer ${token}` }
 }).then(async r => {
-  const json = await r.json();
+  const json = await r.json() as any;
   console.log("Permissions:", json.permissions);
 });

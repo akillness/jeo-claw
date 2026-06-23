@@ -35,7 +35,7 @@ export function parseRepoRef(input: string): { owner: string; repo: string; bran
   if (match) {
     const [, owner, repo, branch] = match;
     const rest = input.replace(match[0], "").trim();
-    return { owner, repo, branch: branch || undefined, rest };
+    return { owner: owner || "", repo: repo || "", branch: branch || undefined, rest };
   }
   return undefined;
 }
