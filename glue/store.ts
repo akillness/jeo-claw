@@ -10,8 +10,8 @@ export interface WorkflowStore {
   delete(id: string): void;
   values(): WorkflowState[];
   size: number;
+  hasRunningWorkflows?(): boolean;
 }
-
 export class SQLiteWorkflowStore implements WorkflowStore {
   private db: Database;
   private getStmt: Statement;
@@ -19,6 +19,7 @@ export class SQLiteWorkflowStore implements WorkflowStore {
   private deleteStmt: Statement;
   private valuesStmt: Statement;
   private sizeStmt: Statement;
+  private hasRunningStmt: Statement;
 
   constructor(path: string = "workflows.sqlite") {
     this.db = new Database(path);
@@ -29,7 +30,9 @@ export class SQLiteWorkflowStore implements WorkflowStore {
     this.deleteStmt = this.db.query("DELETE FROM workflows WHERE id = ?");
     this.valuesStmt = this.db.query("SELECT data FROM workflows");
     this.sizeStmt = this.db.query("SELECT COUNT(*) as count FROM workflows");
+    this.hasRunningStmt = this.db.query("SELECT 1 FROM workflows WHERE json_extract(data, '$.status') IN ('running', 'pending') LIMIT 1");
   }
+replace
 
   private init() {
     this.db.run("PRAGMA journal_mode = WAL;");
@@ -56,6 +59,11 @@ export class SQLiteWorkflowStore implements WorkflowStore {
 
   delete(id: string): void {
     this.deleteStmt.run(id);
+  }
+
+  hasRunningWorkflows(): boolean {
+    const row = this.hasRunningStmt.get();
+    return !!row;
   }
 
   values(): WorkflowState[] {

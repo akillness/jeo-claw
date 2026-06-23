@@ -1,0 +1,121 @@
+Edit rejected: anchor mismatch at line 58 — you sent 58ww but the current line hashes to 58gj. The content moved or changed since you read it. Re-target against the CURRENT content below and retry.
+Current content:
+1wg|import { spawn } from "child_process";
+2zu|import { verifySignature, parseWebhook } from "./github-webhook";
+3rt|
+4eq|import { applyEvent, advanceStage, createWorkflow } from "./state-machine";
+5f5|import type { WorkflowState, ControlEvent, HighRiskAction } from "./contract";
+6d9|import { loadWriteSecretsForRole, secretSourceFromEnv, type Role, type SecretSource } from "../secrets/loader.ts";
+7ji|import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
+8l8|import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
+9kv|import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
+10rt|
+11vl|export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
+12l1|export const pendingQueue: string[] = [];
+13vp|let isProcessingQueue = false;
+14rt|
+15zx|export function enqueueWorkflow(wfId: string) {
+16jo|  if (!pendingQueue.includes(wfId)) {
+17uh|    pendingQueue.push(wfId);
+18s5|  }
+19ac|}
+20gj|replace
+21gj|replace
+22rt|
+23rt|
+24ha|async function notifyStatus(workflow: WorkflowState, message: string) {
+25ie|  if (process.env.NODE_ENV === "test") return;
+26mz|  const endpoint = process.env.JEO_STATUS_ENDPOINT;
+27s2|  if (!endpoint) return;
+28fv|  // Auto-detect if we are in Sovereign (orchestrator) context or worker context
+29fn|  // In glue/server.ts, we are always in Sovereign context.
+30s5|  const claw = "🏰 Sovereign";
+31ky|  try {
+32ms|    await fetch(endpoint, {
+33b9|      method: "POST",
+34kz|      headers: { "Content-Type": "application/json" },
+35k8|      body: JSON.stringify({
+36se|        workflowId: workflow.id,
+37bd|        runtime: workflow.runtime,
+38wh|        stage: workflow.stage,
+39mk|        status: workflow.status,
+40fs|        pendingAction: workflow.pendingAction,
+41va|        message,
+42qn|        repo: workflow.repo,
+43tk|        claw,
+44fk|      })
+45x4|    });
+46tl|  } catch (err) {
+47ef|    console.error("Failed to notify status:", err);
+48s5|  }
+49ac|}
+50rt|
+51t5|function isAnyWorkflowRunning(storeToUse: WorkflowStoreLike): boolean {
+52z2|  const values = storeToUse.values();
+53t0|  for (const workflow of values) {
+54ly|    if (workflow.status === "running" || workflow.status === "pending") return true;
+55s5|  }
+56ww|  return false;
+57ac|}
+58gj|replace
+59dx|async function processQueue(opts: WorkflowExecutionOpts) {  
+60gi|  if (isProcessingQueue) return;
+61n6|  isProcessingQueue = true;
+62ky|  try {
+63f0|    if (isAnyWorkflowRunning(opts.store)) return;
+64rt|    
+65rn|    while (pendingQueue.length > 0) {
+66s6|      if (isAnyWorkflowRunning(opts.store)) break;
+67ek|      const nextWfId = pendingQueue.shift();
+68ms|      if (!nextWfId) continue;
+69rt|      
+70ov|      const wf = opts.store.get(nextWfId);
+71zo|      if (wf && !workflowTerminal(wf)) {
+72ho|        wf.status = "pending";
+73vy|        opts.store.set(wf.id, wf);
+74ht|        let updated;
+75fz|        try {
+76qk|          updated = await progressWorkflowState(wf, opts);
+77kj|        } catch (err: any) {
+78x3|          console.error("Workflow failed with error:", err);
+79no|          wf.status = "failed";
+80pm|          opts.store.set(wf.id, wf);
+81ca|          await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
+82jn|          continue;
+83nf|        }
+84dk|        opts.store.set(updated.id, updated);
+85ey|        await notifyStatus(updated, "Workflow started from queue");
+86b1|        if (!workflowTerminal(updated)) {
+87y6|          break;
+88nf|        }
+89dj|      }
+90rd|    }
+91d2|  } finally {
+92xs|    isProcessingQueue = false;
+93s5|  }
+94ac|}
+95gj|replace
+96rt|
+97s5|const DEFAULT_MAX_WORKFLOWS = 500;
+98nj|const DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS = 24 * 60 * 60 * 1000;
+99rt|
+100f8|export interface WorkflowStorePolicy {
+101ih|  maxWorkflows?: number;
+102sy|  terminalRetentionMs?: number;
+103p4|  now?: () => number;
+104ac|}
+105rt|
+106dx|function workflowTerminal(state: WorkflowState): boolean {
+107fp|  return state.status === "merged" || state.status === "rejected" || state.status === "failed";
+108ac|}
+109rt|
+110yl|function timestampMs(value: string | undefined): number {
+111dd|  if (!value) return 0;
+112v6|  const parsed = Date.parse(value);
+113x6|  return Number.isFinite(parsed) ? parsed : 0;
+114ac|}
+115rt|
+116yh|function workflowLastTouchedMs(state: WorkflowState): number {
+117o9|  let latest = timestampMs(state.mergedAt);
+118to|  for (const item of state.history) {
+…(showing lines 1-118 of 869)

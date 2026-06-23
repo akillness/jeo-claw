@@ -1,0 +1,124 @@
+Edit rejected: anchor mismatch at line 93 — you sent 93gj but the current line hashes to 93ac. The content moved or changed since you read it. Re-target against the CURRENT content below and retry.
+Current content:
+33kz|      headers: { "Content-Type": "application/json" },
+34k8|      body: JSON.stringify({
+35se|        workflowId: workflow.id,
+36bd|        runtime: workflow.runtime,
+37wh|        stage: workflow.stage,
+38mk|        status: workflow.status,
+39fs|        pendingAction: workflow.pendingAction,
+40va|        message,
+41qn|        repo: workflow.repo,
+42tk|        claw,
+43fk|      })
+44x4|    });
+45tl|  } catch (err) {
+46ef|    console.error("Failed to notify status:", err);
+47s5|  }
+48ac|}
+49rt|
+50t5|function isAnyWorkflowRunning(storeToUse: WorkflowStoreLike): boolean {
+51z2|  const values = storeToUse.values();
+52t0|  for (const workflow of values) {
+53ly|    if (workflow.status === "running" || workflow.status === "pending") return true;
+54s5|  }
+55ww|  return false;
+56ac|}
+57gj|replace
+58dx|async function processQueue(opts: WorkflowExecutionOpts) {  
+59gi|  if (isProcessingQueue) return;
+60n6|  isProcessingQueue = true;
+61ky|  try {
+62f0|    if (isAnyWorkflowRunning(opts.store)) return;
+63rt|    
+64rn|    while (pendingQueue.length > 0) {
+65s6|      if (isAnyWorkflowRunning(opts.store)) break;
+66ek|      const nextWfId = pendingQueue.shift();
+67ms|      if (!nextWfId) continue;
+68rt|      
+69ov|      const wf = opts.store.get(nextWfId);
+70zo|      if (wf && !workflowTerminal(wf)) {
+71ho|        wf.status = "pending";
+72vy|        opts.store.set(wf.id, wf);
+73ht|        let updated;
+74fz|        try {
+75qk|          updated = await progressWorkflowState(wf, opts);
+76kj|        } catch (err: any) {
+77x3|          console.error("Workflow failed with error:", err);
+78no|          wf.status = "failed";
+79pm|          opts.store.set(wf.id, wf);
+80ca|          await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
+81jn|          continue;
+82nf|        }
+83dk|        opts.store.set(updated.id, updated);
+84ey|        await notifyStatus(updated, "Workflow started from queue");
+85b1|        if (!workflowTerminal(updated)) {
+86y6|          break;
+87nf|        }
+88dj|      }
+89rd|    }
+90d2|  } finally {
+91xs|    isProcessingQueue = false;
+92s5|  }
+93ac|}
+94gj|replace
+95rt|
+96s5|const DEFAULT_MAX_WORKFLOWS = 500;
+97nj|const DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS = 24 * 60 * 60 * 1000;
+98rt|
+99f8|export interface WorkflowStorePolicy {
+100ih|  maxWorkflows?: number;
+101sy|  terminalRetentionMs?: number;
+102p4|  now?: () => number;
+103ac|}
+104rt|
+105dx|function workflowTerminal(state: WorkflowState): boolean {
+106fp|  return state.status === "merged" || state.status === "rejected" || state.status === "failed";
+107ac|}
+108rt|
+109yl|function timestampMs(value: string | undefined): number {
+110dd|  if (!value) return 0;
+111v6|  const parsed = Date.parse(value);
+112x6|  return Number.isFinite(parsed) ? parsed : 0;
+113ac|}
+114rt|
+115yh|function workflowLastTouchedMs(state: WorkflowState): number {
+116o9|  let latest = timestampMs(state.mergedAt);
+117to|  for (const item of state.history) {
+118vn|    latest = Math.max(latest, timestampMs(item.at));
+119s5|  }
+120w2|  for (const approval of Object.values(state.actionApprovals ?? {})) {
+121y2|    latest = Math.max(
+122jv|      latest,
+123va|      timestampMs(approval.requestedAt),
+124z8|      timestampMs(approval.decidedAt),
+125mc|      timestampMs(approval.consumedAt),
+126cu|    );
+127s5|  }
+128qt|  return latest;
+129ac|}
+130rt|
+131ro|export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: WorkflowStorePolicy = {}): void {
+132hm|  const now = policy.now?.() ?? Date.now();
+133gn|  const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
+134d0|  const values = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
+135ou|    ? (storeToPrune.values() as any as WorkflowState[]) 
+136yk|    : [...storeToPrune.values() as any];
+137rt|    
+138t0|  for (const workflow of values) {
+139nu|    if (workflowTerminal(workflow) && now - workflowLastTouchedMs(workflow) > terminalRetentionMs) {
+140zo|      storeToPrune.delete(workflow.id);
+141rd|    }
+142s5|  }
+143rt|
+144gg|  const maxWorkflows = Math.max(1, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
+145q2|  const size = typeof storeToPrune.size === "number" ? storeToPrune.size : storeToPrune.size;
+146l3|  if (size <= maxWorkflows) return;
+147rt|
+148jm|  const currentValues = typeof storeToPrune.values === "function" && Array.isArray(storeToPrune.values()) 
+149ou|    ? (storeToPrune.values() as any as WorkflowState[]) 
+150yk|    : [...storeToPrune.values() as any];
+151rt|
+152vg|  const candidates = currentValues.sort((a, b) => {
+153mn|    return workflowLastTouchedMs(a) - workflowLastTouchedMs(b);
+…(showing lines 33-153 of 868)
