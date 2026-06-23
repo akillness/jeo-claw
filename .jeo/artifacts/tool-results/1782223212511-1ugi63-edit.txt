@@ -1,0 +1,124 @@
+Edit rejected: anchor mismatch at line 528 — you sent 528rt but the current line hashes to 528ex. The content moved or changed since you read it. Re-target against the CURRENT content below and retry.
+Current content:
+468m0|  const providedSecret = req.headers.get("x-control-event-secret");
+469pj|  if (!requireControlSecret(opts.controlEventSecret, providedSecret)) {
+470f7|    return json(401, { error: "Unauthorized" });
+471s5|  }
+472rt|
+473gd|  let event: ControlEvent;
+474ky|  try {
+475fe|    event = (await req.json()) as ControlEvent;
+476w5|  } catch {
+477bd|    return json(400, { error: "Invalid JSON" });
+478s5|  }
+479rt|
+480qk|  if (event.type === "request") {
+481c1|    // [OOO RALPH / PERF PATCH] Deduplication / Debouncing Check
+482ey|    // Prevent fork bombs and queue floods from cronjobs sending identical requests
+483nt|    const activeStates = ["queued", "pending", "running", "awaiting-approval"];
+484a5|    const isDuplicate = Array.from(opts.store.values()).some(w => 
+485xx|      w.request === event.request && activeStates.includes(w.status)
+486cu|    );
+487rt|    
+488rp|    if (isDuplicate && !(event as any).force) {
+489wc|      console.log(`[Deduplication] Dropping identical request. A workflow with this request is already active.`);
+490o4|      return json(429, { success: false, error: "Duplicate request is already in progress. Use force: true to override." });
+491rd|    }
+492rt|
+493l5|    const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+494au|    const targetRepo = ("repo" in event && event.repo) ? event.repo : process.env.TARGET_REPO;
+495ik|    const wf = createWorkflow(wfId, event.runtime, event.request, targetRepo);
+496en|    wf.status = "queued";
+497to|    opts.store.set(wfId, wf);
+498x2|    await notifyStatus(wf, "Workflow queued");
+499uh|    pendingQueue.push(wfId);
+500rt|
+501sl|    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+502uo|      processQueue(opts as WorkflowExecutionOpts).catch(console.error);
+503rd|    }
+504rt|
+505ye|    pruneWorkflowStore(opts.store, opts.storePolicy);
+506yg|    return json(201, { success: true, workflow: wf, queuePosition: pendingQueue.length });
+507s5|  }
+508rt|
+509y1|  if (event.type === "approve" || event.type === "reject") {
+510fc|    const wf = opts.store.get(event.workflowId);
+511dy|    if (!wf) {
+512ei|      return json(404, { error: "Workflow not found" });
+513rd|    }
+514np|    const wasMerged = wf.status === "merged";
+515rt|    
+516m0|    let updated = applyEvent(wf, event);
+517rt|    
+518h2|    // [PERF PATCH] Idempotency & Debouncing for Approve/Reject events
+519dp|    // If the event didn't change the state (e.g., early approval or duplicate), skip progressWorkflowState
+520d1|    if (updated === wf) {
+521iz|      return json(200, { success: true, workflow: updated });
+522rd|    }
+523rt|
+524rb|    // Update store immediately to prevent race conditions during async progressWorkflowState
+525u9|    opts.store.set(event.workflowId, updated);
+526rt|
+527sl|    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+528ex|      updated = await progressWorkflowState(updated, {
+529o4|        store: opts.store,
+530ws|        controlEventSecret: opts.controlEventSecret,
+531wp|        prefix: opts.prefix,
+532qy|        sourceFactory: opts.sourceFactory,
+533cz|        writeDeps: opts.writeDeps,
+534vp|        runtimeDispatchSecret: opts.runtimeDispatchSecret,
+535f8|        dispatchFetchImpl: opts.dispatchFetchImpl,
+536oq|      });
+537cb|      // Update store again with the progressed state
+538h4|      opts.store.set(event.workflowId, updated);
+539rd|    }
+540rt|    
+541sl|    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+542ex|      updated = await progressWorkflowState(updated, {
+543o4|        store: opts.store,
+544ws|        controlEventSecret: opts.controlEventSecret,
+545wp|        prefix: opts.prefix,
+546qy|        sourceFactory: opts.sourceFactory,
+547cz|        writeDeps: opts.writeDeps,
+548vp|        runtimeDispatchSecret: opts.runtimeDispatchSecret,
+549f8|        dispatchFetchImpl: opts.dispatchFetchImpl,
+550oq|      });
+551cb|      // Update store again with the progressed state
+552h4|      opts.store.set(event.workflowId, updated);
+553rd|    }
+554rt|    
+555p7|    // Ouroboros / Continuous Evolution Loop
+556sw|    if (!wasMerged && updated.status === "merged") {
+557gz|      // Auto-Rebuild Trigger
+558eo|      try {
+559f6|        console.log(`[Auto-Rebuild] PR merged, triggering docker rebuild...`);
+560eu|        const rebuild = spawn("docker", ["compose", "up", "-d", "--build", "claw-hive"], { cwd: "/app", stdio: "ignore", detached: true });
+561es|        rebuild.unref();
+562t2|      } catch(e) { console.error("Auto-rebuild failed:", e); }
+563rt|
+564rd|    }
+565gs|    // [BRANCH CLEANUP] Automatically delete remote branch after merge or fail
+566qr|    if (!wasMerged && (updated.status === "merged" || updated.status === "failed")) {
+567eo|      try {
+568ec|        const branchName = updated.headRef;
+569lx|        if (branchName && branchName.startsWith("jeo/")) {
+570vg|          console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for workflow ${updated.id}`);
+571o6|          const fetchImpl = opts.dispatchFetchImpl || fetch;
+572d3|          let token = process.env.GITHUB_TOKEN;
+573ls|          if (!token && opts.sourceFactory) {
+574cy|            const secrets = await opts.sourceFactory();
+575dc|            token = secrets[`${opts.prefix}-github-token-rw`];
+576jm|          }
+577gk|          const repo = updated.repo;
+578j0|          if (token && repo) {
+579hc|            await fetchImpl(`https://api.github.com/repos/${repo}/git/refs/heads/${branchName}`, {
+580pi|              method: "DELETE",
+581dt|              headers: {
+582f3|                "Authorization": `Bearer ${token}`,
+583li|                "User-Agent": "jeo-claw-hive"
+584ro|              }
+585lq|            }).then(r => console.log(`[Branch Cleanup] Result: ${r.status}`));
+586jm|          }
+587nf|        }
+588q1|      } catch (err) {
+…(showing lines 468-588 of 877)

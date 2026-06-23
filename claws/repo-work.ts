@@ -44,6 +44,15 @@ function sanitizePath(path: string): { ok: boolean; reason?: string } {
   }
   return { ok: true };
 }
+function sanitizeForPromptInjection(text: string): string {
+  if (!text) return "";
+  // Remove common prompt injection phrases and control characters
+  return text
+    .replace(/(ignore previous instructions|system:|user:|assistant:|\bprompt\b|\binstruction\b)/gi, "[REDACTED]")
+    .replace(/[<>]/g, "") // Remove angle brackets to prevent XML/HTML injection
+    .substring(0, 1500);
+}
+
 
 export async function analyzeRepository(
   repo: string,
@@ -86,12 +95,13 @@ export async function analyzeRepository(
     if (Array.isArray(commitsData)) {
       recentCommits = commitsData.map((c: any) => ({
         sha7: c.sha ? c.sha.substring(0, 7) : "",
-        message: c.commit?.message ? c.commit.message.split("\n")[0] : "",
+        message: c.commit?.message ? sanitizeForPromptInjection(c.commit.message.split("\n")[0]) : "",
         author: c.commit?.author?.name || c.author?.login || "Unknown",
         date: c.commit?.author?.date || "",
       }));
     }
   }
+
 
   let fileTree: string[] = [];
   try {
@@ -116,8 +126,13 @@ export async function analyzeRepository(
       const readmeData = await readmeRes.json() as any;
       if (readmeData && typeof readmeData.content === "string") {
         const rawText = Buffer.from(readmeData.content.replace(/\s/g, ""), "base64").toString("utf8");
-        readmeExcerpt = rawText.substring(0, 1500);
+        readmeExcerpt = sanitizeForPromptInjection(rawText);
       }
+    }
+  } catch (e) {
+    // Ignore failures for readme
+  }
+
     }
   } catch (e) {
     // Ignore failures for readme

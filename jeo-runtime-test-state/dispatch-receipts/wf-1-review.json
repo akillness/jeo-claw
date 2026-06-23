@@ -4,6 +4,6 @@
   "workflowId": "wf-1",
   "stage": "review",
   "request": "do work",
-  "artifactPath": "/tmp/jeoclaw-repo-VkqKLt/jeo-runtime-test-worktree/.jeo-runtime-work/wf-1-review.md",
-  "completedAt": "2026-06-21T13:09:59.618Z"
+  "artifactPath": "/tmp/jeoclaw-repo-h3wn6K/jeo-runtime-test-worktree/.jeo-runtime-work/wf-1-review.md",
+  "completedAt": "2026-06-23T14:01:06.135Z"
 }

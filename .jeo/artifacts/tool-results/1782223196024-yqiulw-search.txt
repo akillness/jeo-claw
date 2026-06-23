@@ -1,0 +1,65 @@
+./test-results.xml-170-    <testcase name="dispatchStageWork reports contextual error for non-JSON runtime failures" classname="" time="0.000804" file="glue\runtime-dispatch.test.ts" line="5" assertions="1" />
+./test-results.xml-171-  </testsuite>
+./test-results.xml-172-  <testsuite name="glue\server.test.ts" file="glue\server.test.ts" tests="21" assertions="61" failures="0" skipped="0" time="0.011" hostname="">
+./test-results.xml-173-    <testcase name="handleWebhookRequest returns 401 on bad signature" classname="" time="0.003075" file="glue\server.test.ts" line="57" assertions="2" />
+./test-results.xml-174-    <testcase name="handleWebhookRequest rejects oversized webhook payloads before signature parsing" classname="" time="0.000427" file="glue\server.test.ts" line="81" assertions="1" />
+./test-results.xml-175-    <testcase name="handleWebhookRequest exposes health without webhook signature" classname="" time="0.000171" file="glue\server.test.ts" line="104" assertions="2" />
+./test-results.xml-176-    <testcase name="handleWebhookRequest returns 200 on valid pull_request event" classname="" time="0.00124" file="glue\server.test.ts" line="120" assertions="3" />
+./test-results.xml-177-    <testcase name="handleWebhookRequest rejects non-boolean webhook fields without mutating workflow" classname="" time="0.000656" file="glue\server.test.ts" line="153" assertions="2" />
+./test-results.xml-178-    <testcase name="validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields" classname="" time="0.000179" file="glue\server.test.ts" line="181" assertions="7" />
+./test-results.xml-179-    <testcase name="handleControlEventRequest rejects unauthenticated mutations" classname="" time="0.000194" file="glue\server.test.ts" line="206" assertions="1" />
+./test-results.xml:180:    <testcase name="handleControlEventRequest creates workflows and ignores early approvals" classname="" time="0.000396" file="glue\server.test.ts" line="217" assertions="3" />
+./test-results.xml-181-    <testcase name="handleControlEventRequest executes approved PR creation through the live write path" classname="" time="0.002181" file="glue\server.test.ts" line="243" assertions="7" />
+./test-results.xml-182-    <testcase name="handleWebhookRequest executes approved merge through the live write path" classname="" time="0.002134" file="glue\server.test.ts" line="293" assertions="4" />
+./test-results.xml-183-    <testcase name="config-set through control-event is explicit not-implemented" classname="" time="0.000569" file="glue\server.test.ts" line="337" assertions="1" />
+./test-results.xml-184-    <testcase name="debug workflows endpoint lists current workflow summaries" classname="" time="0.000721" file="glue\server.test.ts" line="351" assertions="2" />
+./test-results.xml-185-    <testcase name="handleControlDispatchRequest rejects unauthenticated or unapproved write release" classname="" time="0.002018" file="glue\server.test.ts" line="386" assertions="2" />
+./test-results.xml-186-    <testcase name="handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval" classname="" time="0.000443" file="glue\server.test.ts" line="406" assertions="4" />
+./test-results.xml-187-    <testcase name="handleControlDispatchRequest rejects role/action mismatch" classname="" time="0.000293" file="glue\server.test.ts" line="425" assertions="1" />
+./test-results.xml-188-    <testcase name="handleControlDispatchRequest binds release to stored workflow runtime stage and readiness" classname="" time="0.000414" file="glue\server.test.ts" line="439" assertions="4" />
+./test-results.xml-189-    <testcase name="handleControlDispatchRequest refuses merge credential release before CI and review are true" classname="" time="0.000357" file="glue\server.test.ts" line="464" assertions="3" />
+./test-results.xml-190-    <testcase name="unmatched signed webhook reports non-success body" classname="" time="0.000373" file="glue\server.test.ts" line="484" assertions="3" />
+--
+./artifacts/verify-transcript.txt-170-(pass) dispatchStageWork reports contextual error for non-JSON runtime failures [0.72ms]
+./artifacts/verify-transcript.txt-171-
+./artifacts/verify-transcript.txt-172-glue\server.test.ts:
+./artifacts/verify-transcript.txt-173-(pass) handleWebhookRequest returns 401 on bad signature [0.77ms]
+./artifacts/verify-transcript.txt-174-(pass) handleWebhookRequest rejects oversized webhook payloads before signature parsing [0.35ms]
+./artifacts/verify-transcript.txt-175-(pass) handleWebhookRequest exposes health without webhook signature [0.13ms]
+./artifacts/verify-transcript.txt-176-(pass) handleWebhookRequest returns 200 on valid pull_request event [0.84ms]
+./artifacts/verify-transcript.txt-177-(pass) handleWebhookRequest rejects non-boolean webhook fields without mutating workflow [0.33ms]
+./artifacts/verify-transcript.txt-178-(pass) validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields [0.10ms]
+./artifacts/verify-transcript.txt-179-(pass) handleControlEventRequest rejects unauthenticated mutations [0.12ms]
+./artifacts/verify-transcript.txt:180:(pass) handleControlEventRequest creates workflows and ignores early approvals [0.25ms]
+./artifacts/verify-transcript.txt-181-(pass) handleControlEventRequest executes approved PR creation through the live write path [1.36ms]
+./artifacts/verify-transcript.txt-182-(pass) handleWebhookRequest executes approved merge through the live write path [0.69ms]
+./artifacts/verify-transcript.txt-183-(pass) config-set through control-event is explicit not-implemented [0.12ms]
+./artifacts/verify-transcript.txt-184-(pass) handleControlDispatchRequest rejects unauthenticated or unapproved write release [0.22ms]
+./artifacts/verify-transcript.txt-185-(pass) handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval [0.21ms]
+./artifacts/verify-transcript.txt-186-(pass) handleControlDispatchRequest rejects role/action mismatch [0.20ms]
+./artifacts/verify-transcript.txt-187-(pass) handleControlDispatchRequest binds release to stored workflow runtime stage and readiness [0.33ms]
+./artifacts/verify-transcript.txt-188-(pass) handleControlDispatchRequest refuses merge credential release before CI and review are true [0.33ms]
+./artifacts/verify-transcript.txt-189-(pass) unmatched signed webhook reports non-success body [0.42ms]
+./artifacts/verify-transcript.txt-190-(pass) start throws when required secrets/bootstrap inputs are missing or blank [1.68ms]
+--
+./glue/server.test.ts-208-  const localStore = new SQLiteWorkflowStore(":memory:");
+./glue/server.test.ts-209-  const req = new Request("http://localhost/control-event", {
+./glue/server.test.ts-210-    method: "POST",
+./glue/server.test.ts-211-    headers: { "Content-Type": "application/json" },
+./glue/server.test.ts-212-    body: JSON.stringify({ type: "request", runtime: "zeroclaw", request: "build secure feature" }),
+./glue/server.test.ts-213-  });
+./glue/server.test.ts-214-  const res = await handleControlEventRequest(req, { store: localStore, controlEventSecret: CONTROL_SECRET });
+./glue/server.test.ts-215-  expect(res.status).toBe(401);
+./glue/server.test.ts-216-});
+./glue/server.test.ts-217-
+./glue/server.test.ts:218:test("handleControlEventRequest creates workflows and ignores early approvals", async () => {
+./glue/server.test.ts-219-  const localStore = new SQLiteWorkflowStore(":memory:");
+./glue/server.test.ts-220-  const createReq = new Request("http://localhost/control-event", {
+./glue/server.test.ts-221-    method: "POST",
+./glue/server.test.ts-222-    headers: {
+./glue/server.test.ts-223-      "Content-Type": "application/json",
+./glue/server.test.ts-224-      "x-control-event-secret": CONTROL_SECRET,
+./glue/server.test.ts-225-    },
+./glue/server.test.ts-226-    body: JSON.stringify({ type: "request", runtime: "zeroclaw", request: "build secure feature" }),
+./glue/server.test.ts-227-  });
+./glue/server.test.ts-228-  const createRes = await handleControlEventRequest(createReq, { store: localStore, controlEventSecret: CONTROL_SECRET });

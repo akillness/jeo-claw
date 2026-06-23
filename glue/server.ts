@@ -512,7 +512,20 @@ export async function handleControlEventRequest(
       return json(404, { error: "Workflow not found" });
     }
     const wasMerged = wf.status === "merged";
+    
     let updated = applyEvent(wf, event);
+    
+    // [PERF PATCH] Idempotency & Debouncing for Approve/Reject events
+    // If the workflow is not awaiting this action, the event will be ignored by applyEvent.
+    // We can skip progressWorkflowState to prevent race conditions and save resources.
+    if (event.action && (wf.status !== "awaiting-approval" || wf.pendingAction !== event.action)) {
+      return json(200, { success: true, workflow: wf });
+    }
+
+
+    // Update store immediately to prevent race conditions during async progressWorkflowState
+    opts.store.set(event.workflowId, updated);
+
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
       updated = await progressWorkflowState(updated, {
         store: opts.store,
@@ -523,8 +536,23 @@ export async function handleControlEventRequest(
         runtimeDispatchSecret: opts.runtimeDispatchSecret,
         dispatchFetchImpl: opts.dispatchFetchImpl,
       });
+      // Update store again with the progressed state
+      opts.store.set(event.workflowId, updated);
     }
-    opts.store.set(event.workflowId, updated);
+    
+    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+      updated = await progressWorkflowState(updated, {
+        store: opts.store,
+        controlEventSecret: opts.controlEventSecret,
+        prefix: opts.prefix,
+        sourceFactory: opts.sourceFactory,
+        writeDeps: opts.writeDeps,
+        runtimeDispatchSecret: opts.runtimeDispatchSecret,
+        dispatchFetchImpl: opts.dispatchFetchImpl,
+      });
+      // Update store again with the progressed state
+      opts.store.set(event.workflowId, updated);
+    }
     
     // Ouroboros / Continuous Evolution Loop
     if (!wasMerged && updated.status === "merged") {
