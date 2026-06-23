@@ -105,7 +105,7 @@ export async function analyzeRepository(
           .slice(0, 50);
       }
     }
-  } catch (e) {
+  } catch (e: any) {
     // Ignore failures for fileTree
   }
 
@@ -119,7 +119,7 @@ export async function analyzeRepository(
         readmeExcerpt = rawText.substring(0, 1500);
       }
     }
-  } catch (e) {
+  } catch (e: any) {
     // Ignore failures for readme
   }
 
@@ -263,7 +263,7 @@ STDERR:
 ${agentResult.stderr.toString()}`;
         await fs.writeFile(logPath, logData, "utf8");
         notes.push(`Agent logs saved to ${logPath}`);
-    } catch(e) {
+    } catch(e: any) {
         notes.push(`Failed to save agent logs: ${e.message}`);
     }
 

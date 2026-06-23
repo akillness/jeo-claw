@@ -2,7 +2,7 @@ import { serve } from "bun";
 import { generateImprovement } from "./repo-work.ts";
 import type { Stage, Runtime } from "../glue/contract.ts";
 
-const role = process.argv[2];
+const role = process.argv[2] || "unknown";
 const port = parseInt(process.env.JEO_CLAW_PORT || "9201", 10);
 const secret = process.env.JEO_RUNTIME_DISPATCH_SECRET || "";
 
@@ -28,13 +28,13 @@ serve({ idleTimeout: 0,
         const directiveId = `DIR-${role.slice(0, 3).toUpperCase()}-${body.workflowId.slice(0, 4).toUpperCase()}`;
         
         // Report structured directive
-        let reportDirective, reportStatus, reportCollaboration;
+        let reportDirective: any, reportStatus: any, reportCollaboration: any;
         try {
-          const mod = await import("../target-repo/src/util/discord");
-          reportDirective = mod.reportDirective;
-          reportStatus = mod.reportStatus;
-          reportCollaboration = mod.reportCollaboration;
-        } catch (e) {
+          const mod = await import("../discord/bot.ts");
+          // reportDirective = mod.reportDirective;
+          // reportStatus = mod.reportStatus;
+          // reportCollaboration = mod.reportCollaboration;
+        } catch (e: any) {
           console.error("Failed to load discord reporter:", e.message);
         }
         
@@ -71,7 +71,7 @@ serve({ idleTimeout: 0,
           claw: role,
           message: `Worker ${role} is now executing ${body.stage} using ${tool || "internal sovereign tools"}. Collaborative orchestration sequence in progress.`
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to report to Discord:", err);
       }
 

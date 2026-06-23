@@ -56,7 +56,7 @@ const runtimeDispatchFetchImpl: typeof fetch = (async (_url: string | URL | Requ
 }) as typeof fetch;
 
 test("handleWebhookRequest returns 401 on bad signature", async () => {
-  const secret = "test_webhook_secret";
+  const secret: string = "test_webhook_secret";
   const store = new SQLiteWorkflowStore(":memory:");
   const req = new Request("http://localhost/webhook", {
     method: "POST",
@@ -65,7 +65,7 @@ test("handleWebhookRequest returns 401 on bad signature", async () => {
   });
 
   const res = await handleWebhookRequest(req, {
-    secret,
+    secret: secret || "",
     controlEventSecret: CONTROL_SECRET,
     prefix: "jeo-claw",
     sourceFactory,
@@ -119,7 +119,7 @@ test("handleWebhookRequest exposes health without webhook signature", async () =
 });
 
 test("handleWebhookRequest returns 200 on valid pull_request event", async () => {
-  const secret = "test_webhook_secret";
+  const secret: string = "test_webhook_secret";
   const store = new SQLiteWorkflowStore(":memory:");
 
   const wf = createWorkflow("wf-123", "zeroclaw", "impl feature");
@@ -128,7 +128,7 @@ test("handleWebhookRequest returns 200 on valid pull_request event", async () =>
   store.set(wf.id, wf);
 
   const body = JSON.stringify({ pull_request: { number: 42 } });
-  const hmac = createHmac("sha256", secret).update(body).digest("hex");
+  const hmac = createHmac("sha256", secret || "").update(body).digest("hex");
   const req = new Request("http://localhost/webhook", {
     method: "POST",
     headers: { "x-hub-signature-256": `sha256=${hmac}` },
@@ -136,7 +136,7 @@ test("handleWebhookRequest returns 200 on valid pull_request event", async () =>
   });
 
   const res = await handleWebhookRequest(req, {
-    secret,
+    secret: secret || "",
     controlEventSecret: CONTROL_SECRET,
     prefix: "jeo-claw",
     sourceFactory,
@@ -152,13 +152,13 @@ test("handleWebhookRequest returns 200 on valid pull_request event", async () =>
 });
 
 test("handleWebhookRequest rejects non-boolean webhook fields without mutating workflow", async () => {
-  const secret = "test_webhook_secret";
+  const secret: string = "test_webhook_secret";
   const store = new SQLiteWorkflowStore(":memory:");
   const wf = createWorkflow("wf-strict", "zeroclaw", "impl feature");
   store.set(wf.id, wf);
 
   const body = JSON.stringify({ workflowId: wf.id, ciPassed: "yes" });
-  const hmac = createHmac("sha256", secret).update(body).digest("hex");
+  const hmac = createHmac("sha256", secret || "").update(body).digest("hex");
   const req = new Request("http://localhost/webhook", {
     method: "POST",
     headers: { "x-hub-signature-256": `sha256=${hmac}` },
@@ -166,7 +166,7 @@ test("handleWebhookRequest rejects non-boolean webhook fields without mutating w
   });
 
   const res = await handleWebhookRequest(req, {
-    secret,
+    secret: secret || "",
     controlEventSecret: CONTROL_SECRET,
     prefix: "jeo-claw",
     sourceFactory,
@@ -501,15 +501,15 @@ test("handleControlDispatchRequest refuses merge credential release before CI an
 });
 
 test("unmatched signed webhook reports non-success body", async () => {
-  const secret = "test_webhook_secret";
+  const secret: string = "test_webhook_secret";
   const body = JSON.stringify({ event: "pull_request", prNumber: 404 });
-  const hmac = createHmac("sha256", secret).update(body).digest("hex");
+  const hmac = createHmac("sha256", secret || "").update(body).digest("hex");
   const res = await handleWebhookRequest(new Request("http://localhost/webhook", {
     method: "POST",
     headers: { "x-hub-signature-256": `sha256=${hmac}` },
     body,
   }), {
-    secret,
+    secret: secret || "",
     controlEventSecret: CONTROL_SECRET,
     prefix: "jeo-claw",
     sourceFactory,
