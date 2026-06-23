@@ -238,7 +238,9 @@ export async function generateImprovement(
     let agentResult: any;
     for (const model of models) {
         notes.push(`Running coding agent with model: ${model}`);
-        agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 HOME=/tmp/jeo-${Date.now()} bunx --bun ${agentBinary} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
+        const ts = Date.now();
+        await $`mkdir -p /tmp/jeo-${ts}/.jeo && cp /root/.jeo/config.json /tmp/jeo-${ts}/.jeo/config.json || true`.nothrow();
+        agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 HOME=/tmp/jeo-${ts} bunx --bun ${agentBinary} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${model} exit code: ${agentResult.exitCode}`);
         
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
