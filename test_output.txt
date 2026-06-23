@@ -1,1115 +1,196 @@
 bun test v1.3.14 (0d9b296a)
-[jeo-Core] Running Advanced Architectural Analysis...
-[jeo-Core] Running Advanced Architectural Analysis...
-[jeo-Core] Running Advanced Architectural Analysis...
-[jeo-Core] Running Advanced Architectural Analysis...
-[jeo-Core] Running Advanced Architectural Analysis...
-[jeo-Core] Running Advanced Architectural Analysis...
-Starting manager.call...
-Mocked resolveCredential called for: openai
-Mocked codexResponsesCall called!
-Response received: Verified by Codex 5.5
-Starting manager.stream...
-Mocked resolveCredential called for: openai
-Checking non-Codex model fail-fast...
-Mocked resolveCredential called for: openai
 
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. A Terminal Notes App: build a terminal notes app
-
-=== Starting Socratic Interview: build-a-terminal-notes-app ===
-Initial Idea: "build a terminal notes app"
-Project Type: greenfield
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-VyzB3V\.jeo\seeds\seed-build-a-terminal-notes-app.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. 터미널 메모 앱 만들기: 터미널 메모 앱 만들기
-
-=== Starting Socratic Interview: interview-81aac78c ===
-Initial Idea: "터미널 메모 앱 만들기"
-Project Type: greenfield
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: 명확합니다)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-7Cq1h3\.jeo\seeds\seed-interview-81aac78c.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 4 top-level component(s):
-1. Ingest CSVs: ingest CSVs
-2. Normalize Records: normalize records
-3. Reviewer UI: provide reviewer UI
-4. Export Audit-ready Reports: export audit-ready reports
-
-=== Starting Socratic Interview: ingest-csvs-normalize-records-provide ===
-Initial Idea: "ingest CSVs, normalize records, provide reviewer UI, and export audit-ready reports"
-Project Type: greenfield
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-9Ojymc\.jeo\seeds\seed-ingest-csvs-normalize-records-provide.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. Fix The Existing Login: fix the existing login flow
-
-=== Starting Socratic Interview: fix-the-existing-login-flow ===
-Initial Idea: "fix the existing login flow"
-Project Type: brownfield
-Brownfield Context:
-Repo markers: src, package.json
-Relevant directories scanned: src
-Path evidence:
-- src/auth/login.ts (matched: login)
-
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-xOhwYE\.jeo\seeds\seed-fix-the-existing-login-flow.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. Fix The Existing Login: fix the existing login flow
-
-=== Starting Socratic Interview: fix-the-existing-login-flow ===
-Initial Idea: "fix the existing login flow"
-Project Type: greenfield
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-E8uRCk\.jeo\seeds\seed-fix-the-existing-login-flow.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. Fix The Existing Zzzz-flow: fix the existing zzzz-flow
-
-=== Starting Socratic Interview: fix-the-existing-zzzz-flow ===
-Initial Idea: "fix the existing zzzz-flow"
-Project Type: brownfield
-Brownfield Context:
-Repo markers: src, package.json
-Relevant directories scanned: src
-Path evidence: no keyword-matching files found yet; ask the user which existing surface should change.
-
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-NH7FGA\.jeo\seeds\seed-fix-the-existing-zzzz-flow.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. Fix The Existing Login: fix the existing login flow
-
-=== Starting Socratic Interview: fix-the-existing-login-flow ===
-Initial Idea: "fix the existing login flow"
-Project Type: brownfield
-Brownfield Context:
-Repo markers: src, package.json
-Relevant directories scanned: src
-Path evidence:
-- src/loginevil.ts (matched: login)
-
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-zYfjzw\.jeo\seeds\seed-fix-the-existing-login-flow.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. Idea A: Notes App: idea A: notes app
-
-=== Starting Socratic Interview: idea-a-notes-app ===
-Initial Idea: "idea A: notes app"
-Project Type: greenfield
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-0FxoKM\.jeo\seeds\seed-idea-a-notes-app.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-Previous interview is already complete — starting a NEW interview for: "idea B: todo dashboard"
-
-Round 0 | Topology confirmation | Ambiguity: not scored yet
-
-I'm reading this as 1 top-level component(s):
-1. Idea B: Todo Dashboard: idea B: todo dashboard
-
-=== Starting Socratic Interview: idea-b-todo-dashboard ===
-Initial Idea: "idea B: todo dashboard"
-Project Type: greenfield
-Ambiguity Threshold: 20% (source: default)
-
-
-[Round 1] Analyzing requirements...
-Ambiguity [oooo....................................] 10%  (Assessment: Clear enough)
-
-[SUCCESS] Ambiguity is <= 20%! Concluding requirements gather.
-Saved frozen requirements spec seed to: C:\Users\bangg\AppData\Local\Temp\jeo-deep-0FxoKM\.jeo\seeds\seed-idea-b-todo-dashboard.yaml
-
-[Handoff Ready] Requirement is crystallized. Next, run 'jeo ralplan' to build a plan.
-[DISCORD] ORCHESTRATION DIRECTIVE: Live message
-LLM Call 1
-Tool: read
-Event: onToolResult read
-Event: onToolResult done
-LLM Call 2
-[DISCORD] 🏯 [JOC SOVEREIGN CONTROL TOWER] 🛠️ [JEO ENGINE] (specialized coding tool) 🛠️ [GJC ENGINE] (specialized coding tool) 🏯 [JOC SOVEREIGN] ✅ [JEO-CLAW] Evolution turn for @제로가재 [EVOLUTION] finished with status: SUCCESS
-🌐 Target: `jeo-claw` (Sovereign Orchestrator) (Step: EVOLVED) [State: STABLE 💎] (v1.2.6)
-🤖 Worker: @제로가재 (Sovereign)
-🤝 Collaboration: Enabled (@제로가재, @NullClaw-Bot, @RepairClaw, @SovereignClaw, @ReviewClaw)
-🛠️ **[GJC ENGINE]** Tool-based implementation confirmed.
-🏆 Performance: PEAK (Sovereign orchestration logic verified)
-🛠️ Fixes:
-- Established jeo-claw as the single source of truth for orchestration.
-- Refined gjc and jeo identities as implementation tools.
-- Strengthened Discord collaboration logic for multi-bot environments.
-🔍 Verification: Successfully updated JOC Sovereign identity and tool definitions. Verified with sovereign-identity.test.ts. #SovereignEvolution @ZeroClaw-Rust #SovereignSync #SovereignAck
-[Sovereign] Pre-check: Cleaning up temporary test files...
-[Sovereign] Logic verification: Enhanced Performance Dashboard and Multi-Claw Coordination.
-[Sovereign] Analysis bypass: Direct verification mode active.
-
-✔ Evolution turn completed.
-[Sovereign] Post-check: Final cleanup of temporary test files...
-[Sovereign] Pre-check: Cleaning up temporary test files...
-[Sovereign] Logic verification: Enhanced Performance Dashboard and Multi-Claw Coordination.
-[Sovereign] Analysis bypass: Direct verification mode active.
-
-✔ Evolution turn completed.
-[Sovereign] Post-check: Final cleanup of temporary test files...
-[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m·[48;5;215m [48;5;215m◔[48;5;215m [48;5;215mh[48;5;215mi[48;5;215mg[48;5;215mh[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m            ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m·[48;5;215m [48;5;215m◔[48;5;215m [48;5;215mh[48;5;215mi[48;5;215mg[48;5;215mh[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m            ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215ma[48;5;215mn[48;5;215mt[48;5;215mi[48;5;215mg[48;5;215mr[48;5;215ma[48;5;215mv[48;5;215mi[48;5;215mt[48;5;215my[48;5;215m/[48;5;215mg[48;5;215me[48;5;215mm[48;5;215mi[48;5;215mn[48;5;215mi[48;5;215m-[48;5;215m3[48;5;215m-[48;5;215mp[48;5;215mr[48;5;215mo[48;5;215m-[48;5;215mh[48;5;215mi[48;5;215mg[48;5;221mh[48;5;221m [48;5;221m/[48;5;221m [48;5;221m⑂[48;5;221m [48;5;221mm[48;5;221ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221m…[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;222ml[48;5;222md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m   ▦ 1%/1M[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215ma[48;5;215mn[48;5;215mt[48;5;215mi[48;5;215mg[48;5;215mr[48;5;215ma[48;5;215mv[48;5;215mi[48;5;215mt[48;5;215my[48;5;215m/[48;5;215mg[48;5;215me[48;5;215mm[48;5;215mi[48;5;215mn[48;5;215mi[48;5;215m-[48;5;215m3[48;5;215m-[48;5;215mp[48;5;215mr[48;5;215mo[48;5;215m-[48;5;215mh[48;5;215mi[48;5;215mg[48;5;221mh[48;5;221m [48;5;221m/[48;5;221m [48;5;221m⑂[48;5;221m [48;5;221mm[48;5;221ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221m…[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;222ml[48;5;222md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m   ▦ 1%/1M[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m·[48;5;215m [48;5;215m◔[48;5;215m [48;5;215mm[48;5;215mi[48;5;215mn[48;5;215mi[48;5;215mm[48;5;215ma[48;5;215ml[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;221ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;222md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m         ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m·[48;5;215m [48;5;215m◔[48;5;215m [48;5;215mm[48;5;215mi[48;5;215mn[48;5;215mi[48;5;215mm[48;5;215ma[48;5;215ml[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;221ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;222md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m         ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m·[48;5;215m [48;5;215m◔[48;5;215m [48;5;215mm[48;5;215me[48;5;215md[48;5;215mi[48;5;215mu[48;5;215mm[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;221ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;222md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m          ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m·[48;5;215m [48;5;215m◔[48;5;215m [48;5;215mm[48;5;215me[48;5;215md[48;5;215mi[48;5;215mu[48;5;215mm[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;221ma[48;5;221mi[48;5;221mn[48;5;221m [48;5;221m?[48;5;221m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;222md[48;5;222m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m          ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m4[48;5;215mo[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;215m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 11%/128k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m4[48;5;215mo[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;215m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 11%/128k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭─── jeo v0.4.4 · JEO forge ─────────────────────────────────────────────────╮
-│                                                                            │
-│                                 Jeo forge                                  │
-│                            evolve · act · prove                            │
-│                                                                            │
-│                          ◆◆                    ◆◆                          │
-│                       ╭──╯╰──╮              ╭──╯╰──╮                       │
-│                      ╭╯      ╰╮   ╲╲  ╱╱   ╭╯      ╰╮                      │
-│                     ╭╯        ║    ╲╳╳╱    ║        ╰╮                     │
-│                     ║         ║     ╳╳     ║         ║                     │
-│                     ║         ║    ╱╳╳╲    ║         ║                     │
-│                     ╰╮        ║   ╱╱  ╲╲   ║        ╭╯                     │
-│                      ╰╮       ║   ╲╲  ╱╱   ║       ╭╯                      │
-│                       ╰──╮    ║    ╲╳╳╱    ║    ╭──╯                       │
-│                          ╰════○     ╳╳     ○════╯                          │
-│                               ║    ╱╳╳╲    ║                               │
-│                            [ D N A · C L A W ]                             │
-│                                                                            │
-│                               [ ◆ gpt-5.5 ]                                │
-│                                [ ◇ openai ]                                │
-│                                                                            │
-╰────────────────────────────────────────────────────────────────────────────╯
-────────────────────────────────────────────────────────────────────────────────
-Update Available                                                                
-New version 0.6.24 is available. Run: jeo update                                
-────────────────────────────────────────────────────────────────────────────────
-(plain output)
-[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25hMocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭── [skill] ─────────────────────────────────────────────────────────────────╮
-│ Skill: deep-interview                                                      │
-│ ├─ path: (bundled) src/prompts/skills/deep-interview/SKILL.md              │
-│ └─ prompt: 10 lines                                                        │
-╰────────────────────────────────────────────────────────────────────────────╯
-
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭─── jeo v0.4.4 · JEO forge ─────────────────────────────────────────────────╮
-│                                                                            │
-│                                 Jeo forge                                  │
-│                            evolve · act · prove                            │
-│                                                                            │
-│                          ◆◆                    ◆◆                          │
-│                       ╭──╯╰──╮              ╭──╯╰──╮                       │
-│                      ╭╯      ╰╮   ╲╲  ╱╱   ╭╯      ╰╮                      │
-│                     ╭╯        ║    ╲╳╳╱    ║        ╰╮                     │
-│                     ║         ║     ╳╳     ║         ║                     │
-│                     ║         ║    ╱╳╳╲    ║         ║                     │
-│                     ╰╮        ║   ╱╱  ╲╲   ║        ╭╯                     │
-│                      ╰╮       ║   ╲╲  ╱╱   ║       ╭╯                      │
-│                       ╰──╮    ║    ╲╳╳╱    ║    ╭──╯                       │
-│                          ╰════○     ╳╳     ○════╯                          │
-│                               ║    ╱╳╳╲    ║                               │
-│                            [ D N A · C L A W ]                             │
-│                                                                            │
-│                               [ ◆ gpt-5.5 ]                                │
-│                                [ ◇ openai ]                                │
-│                                                                            │
-╰────────────────────────────────────────────────────────────────────────────╯
-────────────────────────────────────────────────────────────────────────────────
-Update Available                                                                
-New version 0.6.24 is available. Run: jeo update                                
-────────────────────────────────────────────────────────────────────────────────
-(plain output)
-[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25hMocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭── [skill] ─────────────────────────────────────────────────────────────────╮
-│ Skill: ralplan                                                             │
-│ ├─ path: (bundled) src/prompts/skills/ralplan/SKILL.md                     │
-│ └─ prompt: 9 lines                                                         │
-╰────────────────────────────────────────────────────────────────────────────╯
-
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭─── jeo v0.4.4 · JEO forge ─────────────────────────────────────────────────╮
-│                                                                            │
-│                                 Jeo forge                                  │
-│                            evolve · act · prove                            │
-│                                                                            │
-│                          ◆◆                    ◆◆                          │
-│                       ╭──╯╰──╮              ╭──╯╰──╮                       │
-│                      ╭╯      ╰╮   ╲╲  ╱╱   ╭╯      ╰╮                      │
-│                     ╭╯        ║    ╲╳╳╱    ║        ╰╮                     │
-│                     ║         ║     ╳╳     ║         ║                     │
-│                     ║         ║    ╱╳╳╲    ║         ║                     │
-│                     ╰╮        ║   ╱╱  ╲╲   ║        ╭╯                     │
-│                      ╰╮       ║   ╲╲  ╱╱   ║       ╭╯                      │
-│                       ╰──╮    ║    ╲╳╳╱    ║    ╭──╯                       │
-│                          ╰════○     ╳╳     ○════╯                          │
-│                               ║    ╱╳╳╲    ║                               │
-│                            [ D N A · C L A W ]                             │
-│                                                                            │
-│                               [ ◆ gpt-5.5 ]                                │
-│                                [ ◇ openai ]                                │
-│                                                                            │
-╰────────────────────────────────────────────────────────────────────────────╯
-────────────────────────────────────────────────────────────────────────────────
-Update Available                                                                
-New version 0.6.24 is available. Run: jeo update                                
-────────────────────────────────────────────────────────────────────────────────
-(plain output)
-[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25hMocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭── [skill] ─────────────────────────────────────────────────────────────────╮
-│ Skill: team                                                                │
-│ ├─ path: C:\Users\bangg\.agents\skills\team\SKILL.md                       │
-│ └─ prompt: 63 lines                                                        │
-╰────────────────────────────────────────────────────────────────────────────╯
-
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭─── jeo v0.4.4 · JEO forge ─────────────────────────────────────────────────╮
-│                                                                            │
-│                                 Jeo forge                                  │
-│                            evolve · act · prove                            │
-│                                                                            │
-│                          ◆◆                    ◆◆                          │
-│                       ╭──╯╰──╮              ╭──╯╰──╮                       │
-│                      ╭╯      ╰╮   ╲╲  ╱╱   ╭╯      ╰╮                      │
-│                     ╭╯        ║    ╲╳╳╱    ║        ╰╮                     │
-│                     ║         ║     ╳╳     ║         ║                     │
-│                     ║         ║    ╱╳╳╲    ║         ║                     │
-│                     ╰╮        ║   ╱╱  ╲╲   ║        ╭╯                     │
-│                      ╰╮       ║   ╲╲  ╱╱   ║       ╭╯                      │
-│                       ╰──╮    ║    ╲╳╳╱    ║    ╭──╯                       │
-│                          ╰════○     ╳╳     ○════╯                          │
-│                               ║    ╱╳╳╲    ║                               │
-│                            [ D N A · C L A W ]                             │
-│                                                                            │
-│                               [ ◆ gpt-5.5 ]                                │
-│                                [ ◇ openai ]                                │
-│                                                                            │
-╰────────────────────────────────────────────────────────────────────────────╯
-────────────────────────────────────────────────────────────────────────────────
-Update Available                                                                
-New version 0.6.24 is available. Run: jeo update                                
-────────────────────────────────────────────────────────────────────────────────
-(plain output)
-[?2004h
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25hMocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h╭── [skill] ─────────────────────────────────────────────────────────────────╮
-│ Skill: ultragoal                                                           │
-│ ├─ path: (bundled) src/prompts/skills/ultragoal/SKILL.md                   │
-│ └─ prompt: 9 lines                                                         │
-╰────────────────────────────────────────────────────────────────────────────╯
-
-
-
-
-
-
-
-
-
-
-
-[11A[1G[1G[1G[2K[38;5;254m[48;5;215m [48;5;215m⬢[48;5;215m [48;5;215mg[48;5;215mp[48;5;215mt[48;5;215m-[48;5;215m5[48;5;215m.[48;5;215m5[48;5;215m [48;5;215m/[48;5;215m [48;5;215m⑂[48;5;215m [48;5;215mm[48;5;215ma[48;5;215mi[48;5;215mn[48;5;215m [48;5;215m?[48;5;215m6[48;5;221m [48;5;221m/[48;5;221m [48;5;221m▸[48;5;221m [48;5;221mD[48;5;221m:[48;5;221m\[48;5;221mc[48;5;221ml[48;5;221ma[48;5;221mw[48;5;221mW[48;5;221mo[48;5;221mr[48;5;221ml[48;5;221md[48;5;221m\[48;5;222mj[48;5;222me[48;5;222mo[48;5;222m-[48;5;222mc[48;5;222ml[48;5;222ma[48;5;222mw[48;5;222m [0m                     ▦ 4%/400k[1B[1G[2K[1B[1G[2K╭─────────────────────────────────────────────────────────────────────────────╮[1B[1G[2K│> Type your message...                                                       │[1B[1G[2K╰─────────────────────────────────────────────────────────────────────────────╯[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[3B[4G[?25h[3A[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[1B[1G[2K[11A[1G[?25h  (no steps)
-Evolved to: ●○○○○ Primordial Cell [1/5] (took 0 steps in 0s)
-jeo> done
-Steps  ✓100 / 100  ·  47ms
-  · (+88 earlier)
-  │ ● [89:DONE] [9mheavy-tool-88[29m
-  │ ● [90:DONE] [9mheavy-tool-89[29m
-  │ ● [91:DONE] [9mheavy-tool-90[29m
-  │ ● [92:DONE] [9mheavy-tool-91[29m
-  │ ● [93:DONE] [9mheavy-tool-92[29m
-  │ ● [94:DONE] [9mheavy-tool-93[29m
-  │ ● [95:DONE] [9mheavy-tool-94[29m
-  │ ● [96:DONE] [9mheavy-tool-95[29m
-  │ ● [97:DONE] [9mheavy-tool-96[29m
-  │ ● [98:DONE] [9mheavy-tool-97[29m
-  │ ● [99:DONE] [9mheavy-tool-98[29m
-  └ ● [100:DONE] [9mheavy-tool-99[29m
-  ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● +60
-
-╭── ✓ heavy-tool-97 arguments ─────────────────────────────────────────────────╮
-│ {                                                                            │
-│   "arg": 97                                                                  │
-│ }                                                                            │
-╰──────────────────────────────────────────────────────────────────────────────╯
-
-╭── ✓ heavy-tool-98 arguments ─────────────────────────────────────────────────╮
-│ {                                                                            │
-│   "arg": 98                                                                  │
-│ }                                                                            │
-╰──────────────────────────────────────────────────────────────────────────────╯
-
-╭── ✓ heavy-tool-99 arguments ─────────────────────────────────────────────────╮
-│ {                                                                            │
-│   "arg": 99                                                                  │
-│ }                                                                            │
-╰──────────────────────────────────────────────────────────────────────────────╯
-[DONE] thinking → planning → executing → done · 100 steps · 0s
-Evolved to: ●●●●● Super intelligence (Singularity) [5/5] (took 100 steps in 0s)
-jeo> done
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: antigravity
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: gemini
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: openai
-Mocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: anthropic
-Mocked resolveCredential called for: anthropic
-Steps  ✓1 / 1  ·  1ms
-  └ ● [01:DONE] [9mread[29m
-✓ Read <missing path>
-[DONE] thinking → planning → executing → done · 1 steps · 0s
-Evolved to: ●●○○○ Double Helix (DNA) [2/5] (took 1 steps in 0s)
-jeo> done
-LINES LENGTH: 11
-LINES: [
-  "╭── dummy arguments ───────────────────────────────────────────────────────────╮",
-  "│ {}                                                                           │",
-  "╰──────────────────────────────────────────────────────────────────────────────╯",
-  "",
-  " ⠂ executing · dummy arguments                                             ⟦esc⟧",
-  "   0s · now 0.0s · avg 0.0s · 20 ok / 1 run",
-  "",
-  "◆ hud ✔ thinking → ✔ planning → ● executing → ○ reporting → ○ done",
-  "╭──────────────────────────────────────────────────────────────────────────────╮",
-  "│> Type your next message...                                                   │",
-  "╰──────────────────────────────────────────────────────────────────────────────╯"
-]
-Wrote 6 skill docs to C:\Users\bangg\AppData\Local\Temp\jeo-skills-e0938U
-[Discord-Event] 🏯 [JEO-CLAW SOVEREIGN ORCHESTRATOR] 🏯 [SOVEREIGN CONTROL TOWER] Updating evolution-log for v238.
-  (no steps)
-[AGENT] ▸ EXECUTOR · inspect engine.ts
-  [AGENT] ├─ EXECUTOR ✓ read src/agent/engine.ts
-  [AGENT] ├─ EXECUTOR ✗ edit failed
-Evolved to: ●○○○○ Primordial Cell [1/5] (took 0 steps in 0s)
-jeo> done
-  (no steps)
-[AGENT] ▸ PLANNER · draft plan
-[AGENT] └─ PLANNER done: plan ready
-Evolved to: ●○○○○ Primordial Cell [1/5] (took 0 steps in 0s)
-jeo> done
-Steps  ✓1 / 1  ·  0ms
-  └ ● [01:DONE] [9mread[29m
-✓ Read src/cli.ts
-[DONE] thinking → planning → executing → done · 1 steps · 0s
-Evolved to: ●●○○○ Double Helix (DNA) [2/5] (took 1 steps in 0s)
-jeo> done
-Steps  ✓300 / 300  ·  1ms
-  · (+288 earlier)
-  │ ● [289:DONE] [9mread[29m
-  │ ● [290:DONE] [9mread[29m
-  │ ● [291:DONE] [9mread[29m
-  │ ● [292:DONE] [9mread[29m
-  │ ● [293:DONE] [9mread[29m
-  │ ● [294:DONE] [9mread[29m
-  │ ● [295:DONE] [9mread[29m
-  │ ● [296:DONE] [9mread[29m
-  │ ● [297:DONE] [9mread[29m
-  │ ● [298:DONE] [9mread[29m
-  │ ● [299:DONE] [9mread[29m
-  └ ● [300:DONE] [9mread[29m
-  ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● ● +260
-✓ Read f0.ts
-✓ Read f1.ts
-✓ Read f2.ts
-✓ Read f3.ts
-✓ Read f4.ts
-✓ Read f5.ts
-✓ Read f6.ts
-✓ Read f7.ts
-✓ Read f8.ts
-✓ Read f9.ts
-✓ Read f10.ts
-✓ Read f11.ts
-✓ Read f12.ts
-✓ Read f13.ts
-✓ Read f14.ts
-✓ Read f15.ts
-✓ Read f16.ts
-✓ Read f17.ts
-✓ Read f18.ts
-✓ Read f19.ts
-✓ Read f20.ts
-✓ Read f21.ts
-✓ Read f22.ts
-✓ Read f23.ts
-✓ Read f24.ts
-✓ Read f25.ts
-✓ Read f26.ts
-✓ Read f27.ts
-✓ Read f28.ts
-✓ Read f29.ts
-✓ Read f30.ts
-✓ Read f31.ts
-✓ Read f32.ts
-✓ Read f33.ts
-✓ Read f34.ts
-✓ Read f35.ts
-✓ Read f36.ts
-✓ Read f37.ts
-✓ Read f38.ts
-✓ Read f39.ts
-✓ Read f40.ts
-✓ Read f41.ts
-✓ Read f42.ts
-✓ Read f43.ts
-✓ Read f44.ts
-✓ Read f45.ts
-✓ Read f46.ts
-✓ Read f47.ts
-✓ Read f48.ts
-✓ Read f49.ts
-✓ Read f50.ts
-✓ Read f51.ts
-✓ Read f52.ts
-✓ Read f53.ts
-✓ Read f54.ts
-✓ Read f55.ts
-✓ Read f56.ts
-✓ Read f57.ts
-✓ Read f58.ts
-✓ Read f59.ts
-✓ Read f60.ts
-✓ Read f61.ts
-✓ Read f62.ts
-✓ Read f63.ts
-✓ Read f64.ts
-✓ Read f65.ts
-✓ Read f66.ts
-✓ Read f67.ts
-✓ Read f68.ts
-✓ Read f69.ts
-✓ Read f70.ts
-✓ Read f71.ts
-✓ Read f72.ts
-✓ Read f73.ts
-✓ Read f74.ts
-✓ Read f75.ts
-✓ Read f76.ts
-✓ Read f77.ts
-✓ Read f78.ts
-✓ Read f79.ts
-✓ Read f80.ts
-✓ Read f81.ts
-✓ Read f82.ts
-✓ Read f83.ts
-✓ Read f84.ts
-✓ Read f85.ts
-✓ Read f86.ts
-✓ Read f87.ts
-✓ Read f88.ts
-✓ Read f89.ts
-✓ Read f90.ts
-✓ Read f91.ts
-✓ Read f92.ts
-✓ Read f93.ts
-✓ Read f94.ts
-✓ Read f95.ts
-✓ Read f96.ts
-✓ Read f97.ts
-✓ Read f98.ts
-✓ Read f99.ts
-✓ Read f100.ts
-✓ Read f101.ts
-✓ Read f102.ts
-✓ Read f103.ts
-✓ Read f104.ts
-✓ Read f105.ts
-✓ Read f106.ts
-✓ Read f107.ts
-✓ Read f108.ts
-✓ Read f109.ts
-✓ Read f110.ts
-✓ Read f111.ts
-✓ Read f112.ts
-✓ Read f113.ts
-✓ Read f114.ts
-✓ Read f115.ts
-✓ Read f116.ts
-✓ Read f117.ts
-✓ Read f118.ts
-✓ Read f119.ts
-✓ Read f120.ts
-✓ Read f121.ts
-✓ Read f122.ts
-✓ Read f123.ts
-✓ Read f124.ts
-✓ Read f125.ts
-✓ Read f126.ts
-✓ Read f127.ts
-✓ Read f128.ts
-✓ Read f129.ts
-✓ Read f130.ts
-✓ Read f131.ts
-✓ Read f132.ts
-✓ Read f133.ts
-✓ Read f134.ts
-✓ Read f135.ts
-✓ Read f136.ts
-✓ Read f137.ts
-✓ Read f138.ts
-✓ Read f139.ts
-✓ Read f140.ts
-✓ Read f141.ts
-✓ Read f142.ts
-✓ Read f143.ts
-✓ Read f144.ts
-✓ Read f145.ts
-✓ Read f146.ts
-✓ Read f147.ts
-✓ Read f148.ts
-✓ Read f149.ts
-✓ Read f150.ts
-✓ Read f151.ts
-✓ Read f152.ts
-✓ Read f153.ts
-✓ Read f154.ts
-✓ Read f155.ts
-✓ Read f156.ts
-✓ Read f157.ts
-✓ Read f158.ts
-✓ Read f159.ts
-✓ Read f160.ts
-✓ Read f161.ts
-✓ Read f162.ts
-✓ Read f163.ts
-✓ Read f164.ts
-✓ Read f165.ts
-✓ Read f166.ts
-✓ Read f167.ts
-✓ Read f168.ts
-✓ Read f169.ts
-✓ Read f170.ts
-✓ Read f171.ts
-✓ Read f172.ts
-✓ Read f173.ts
-✓ Read f174.ts
-✓ Read f175.ts
-✓ Read f176.ts
-✓ Read f177.ts
-✓ Read f178.ts
-✓ Read f179.ts
-✓ Read f180.ts
-✓ Read f181.ts
-✓ Read f182.ts
-✓ Read f183.ts
-✓ Read f184.ts
-✓ Read f185.ts
-✓ Read f186.ts
-✓ Read f187.ts
-✓ Read f188.ts
-✓ Read f189.ts
-✓ Read f190.ts
-✓ Read f191.ts
-✓ Read f192.ts
-✓ Read f193.ts
-✓ Read f194.ts
-✓ Read f195.ts
-✓ Read f196.ts
-✓ Read f197.ts
-✓ Read f198.ts
-✓ Read f199.ts
-✓ Read f200.ts
-✓ Read f201.ts
-✓ Read f202.ts
-✓ Read f203.ts
-✓ Read f204.ts
-✓ Read f205.ts
-✓ Read f206.ts
-✓ Read f207.ts
-✓ Read f208.ts
-✓ Read f209.ts
-✓ Read f210.ts
-✓ Read f211.ts
-✓ Read f212.ts
-✓ Read f213.ts
-✓ Read f214.ts
-✓ Read f215.ts
-✓ Read f216.ts
-✓ Read f217.ts
-✓ Read f218.ts
-✓ Read f219.ts
-✓ Read f220.ts
-✓ Read f221.ts
-✓ Read f222.ts
-✓ Read f223.ts
-✓ Read f224.ts
-✓ Read f225.ts
-✓ Read f226.ts
-✓ Read f227.ts
-✓ Read f228.ts
-✓ Read f229.ts
-✓ Read f230.ts
-✓ Read f231.ts
-✓ Read f232.ts
-✓ Read f233.ts
-✓ Read f234.ts
-✓ Read f235.ts
-✓ Read f236.ts
-✓ Read f237.ts
-✓ Read f238.ts
-✓ Read f239.ts
-✓ Read f240.ts
-✓ Read f241.ts
-✓ Read f242.ts
-✓ Read f243.ts
-✓ Read f244.ts
-✓ Read f245.ts
-✓ Read f246.ts
-✓ Read f247.ts
-✓ Read f248.ts
-✓ Read f249.ts
-✓ Read f250.ts
-✓ Read f251.ts
-✓ Read f252.ts
-✓ Read f253.ts
-✓ Read f254.ts
-✓ Read f255.ts
-✓ Read f256.ts
-✓ Read f257.ts
-✓ Read f258.ts
-✓ Read f259.ts
-✓ Read f260.ts
-✓ Read f261.ts
-✓ Read f262.ts
-✓ Read f263.ts
-✓ Read f264.ts
-✓ Read f265.ts
-✓ Read f266.ts
-✓ Read f267.ts
-✓ Read f268.ts
-✓ Read f269.ts
-✓ Read f270.ts
-✓ Read f271.ts
-✓ Read f272.ts
-✓ Read f273.ts
-✓ Read f274.ts
-✓ Read f275.ts
-✓ Read f276.ts
-✓ Read f277.ts
-✓ Read f278.ts
-✓ Read f279.ts
-✓ Read f280.ts
-✓ Read f281.ts
-✓ Read f282.ts
-✓ Read f283.ts
-✓ Read f284.ts
-✓ Read f285.ts
-✓ Read f286.ts
-✓ Read f287.ts
-✓ Read f288.ts
-✓ Read f289.ts
-✓ Read f290.ts
-✓ Read f291.ts
-✓ Read f292.ts
-✓ Read f293.ts
-✓ Read f294.ts
-✓ Read f295.ts
-✓ Read f296.ts
-✓ Read f297.ts
-✓ Read f298.ts
-✓ Read f299.ts
-[DONE] thinking → planning → executing → done · 1 steps · 0s
-Evolved to: ●●○○○ Double Helix (DNA) [2/5] (took 1 steps in 0s)
-jeo> done
-Starting new tmux session: jeo-feature-branch-jeo-claw-qp3ifk
-Starting new tmux session: jeo-feature-branch-jeo-claw-qp3ifk-model-gemini-2-5-flash-think-high-steps-7
-Starting new tmux session: jeo-feature-branch-jeo-claw-qp3ifk-model-provider-same-very-long-m-1bevym
-Starting new tmux session: jeo-feature-branch-jeo-claw-qp3ifk-model-provider-same-very-long-m-z3ptu4
-Starting new independent tmux session: jeo-main-jeo-claw-qp3ifk-2 (another live jeo session already owns jeo-main-jeo-claw-qp3ifk; reattach later with: tmux attach -t jeo-main-jeo-claw-qp3ifk-2)
-Starting new tmux session: jeo-main-jeo-claw-qp3ifk
-  (no steps)
-Evolved to: ●○○○○ Primordial Cell [1/5] (took 0 steps in 0s)
-jeo> done
-Mocked resolveCredential called for: anthropic
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) 🚀 [JEO-CLAW] Team Execution started for plan: plan-b
-  └─ Subagent: Executor · model ollama/qwen · ≤15 steps
-  [AGENT] stream:step Executor thinking 1/15
-  [AGENT] stream:error Executor completed WITHOUT any successful write/edit/bash — treat its changed-files claim as unverified.
-  [AGENT] stream:complete Executor finished task
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) ✅ [JEO-CLAW] Team Execution COMPLETED successfully for plan: plan-b
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) 🚀 [JEO-CLAW] Team Execution started for plan: plan-x
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) ✅ [JEO-CLAW] Team Execution COMPLETED successfully for plan: plan-x
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) 🚀 [JEO-CLAW] Team Execution started for plan: plan-f
-  └─ Subagent: Executor · model ollama/qwen · ≤15 steps
-  [AGENT] stream:step Executor thinking 1/15
-  [AGENT] stream:error Executor report incomplete: missing Summary:, Changed Files:, Verification:
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) ❌ [JEO-CLAW] Team Execution FAILED on task: "fragile task"
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) 🚀 [JEO-CLAW] Team Execution started for plan: plan-f
-  └─ Subagent: Executor · model ollama/qwen · ≤15 steps
-  [AGENT] stream:step Executor thinking 1/15
-  [AGENT] stream:error Executor completed WITHOUT any successful write/edit/bash — treat its changed-files claim as unverified.
-  [AGENT] stream:complete Executor finished task
-[DISCORD] 🛠️ [JEO ENGINE] (specialized coding tool) ✅ [JEO-CLAW] Team Execution COMPLETED successfully for plan: plan-f
-Task 1 created: "Test task description"
-Task 1 created: "First task"
-Task 2 created: "Second task"
-Task 1 created: "Task to delete"
-Task 1 created: "Task to toggle"
+compare/runner.test.ts:
+(pass) runComparison invokes RunFn correct number of times and with correct run indices [1.01ms]
+(pass) runComparison rejects invalid or unsafe run counts [0.39ms]
+(pass) compareAndSummarize returns both samples and summaries correctly [0.78ms]
+
+compare/dashboard.test.ts:
+(pass) dashboard renders both runtime names and all 5 metric families and is non-empty with static data [0.68ms]
+(pass) dashboard rendering with summaries generated from a deterministic mock RunFn [0.43ms]
+
+compare/metrics.test.ts:
+(pass) summarize - empty input returns empty array [0.07ms]
+(pass) summarize - math correct with known samples [0.23ms]
+(pass) summarize - a runtime with zero samples handled gracefully [0.15ms]
+
+hive/start.test.ts:
+(pass) buildChildSpecs - environment isolation and port mapping [2.27ms]
+
+hive/runtime-auth.test.ts:
+(pass) prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh [3.37ms]
+(pass) seedZeroclawProviderModel patches an existing empty providers table and is idempotent [1.89ms]
+(pass) prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it [4.63ms]
+(pass) prepareRuntimeConfig redacts OAuth payloads from startup failures [2.25ms]
+
+discord/approval.test.ts:
+(pass) ApprovalRegistry: action-scoped lifecycle with consume [2.39ms]
+(pass) ApprovalRegistry prunes stale terminal records and preserves recent approvals [0.27ms]
+(pass) ApprovalRegistry bounded mode evicts consumed records before approved records [3.84ms]
+(pass) guardHighRisk: blocks, consumes matching action approval, and isolates actions [0.32ms]
+(pass) bot handlers: buildHandlers routes action-scoped events and manages registry [0.14ms]
+(pass) bot handlers with bridging: request creates workflow, action approval bridges to store, config set yolo is rejected [0.03ms]
+(pass) bot handlers reply to direct mentions and parse commands after mention [0.02ms]
+(pass) bot handlers can fan out request both into both runtimes [0.02ms]
+(pass) bot handlers reject commands from the wrong guild or channel [0.02ms]
+(pass) bot handlers require approval permission for approve/reject/config-set [0.02ms]
+(pass) discordCommandDefinitions registers the production slash command surface [0.05ms]
+(pass) bot handlers reply with delivery failures instead of hanging [0.04ms]
+(pass) bot interaction handlers defer before forwarding and edit final response [0.02ms]
+(pass) bot handlers allow approval commands for authorized approvers in the approval channel [0.02ms]
+
+discord/commands.test.ts:
+(pass) parseCommand: request command [0.40ms]
+(pass) parseCommand: approve command requires workflow id and action [0.14ms]
+(pass) parseCommand: reject command requires workflow id and action [0.08ms]
+(pass) parseCommand: config set command [0.30ms]
+(pass) parseCommand: unknown commands [0.08ms]
+(pass) parseCommand: ping command [0.03ms]
+(pass) validateConfigValue validations [0.21ms]
+
+config/validate.test.ts:
+(pass) both runtime configs pass every validation check [1.37ms]
+(pass) A/B fairness: identical model id [0.15ms]
+(pass) runtime configs keep only env-referenced provider secrets and no embedded Discord control block [0.13ms]
+(pass) exactly 5 roles in each runtime [0.12ms]
+
+secrets/loader.test.ts:
+(pass) all runtime roles receive only read-only startup github token [0.79ms]
+(pass) write roles are eligible for mediated write secret release [0.48ms]
+(pass) non-write roles cannot request mediated write secrets [0.27ms]
+(pass) runtime roles never receive control-plane secrets [0.25ms]
+(pass) control services receive only control-plane secrets [0.38ms]
+(pass) missing required secret is a hard failure with sanitized upstream details [0.27ms]
+(pass) blank and whitespace-only secret values are rejected [0.27ms]
+(pass) generated shared secrets enforce minimum length [0.24ms]
+(pass) redact masks every secret value [0.19ms]
+(pass) redact masks overlapping secret values longest-first [0.06ms]
+(pass) FileSecretSource and secretSourceFromEnv support local file-backed secrets [0.78ms]
+(pass) every runtime role requires the OpenAI Codex OAuth key and not the legacy API key, and control services do not require either [0.24ms]
+
+glue/state-machine.test.ts:
+(pass) createWorkflow sets up initial state [0.15ms]
+(pass) advanceStage walks automatic stages until PR creation approval is required [0.39ms]
+(pass) pr-create requires pr.create approval before scheduling review [0.19ms]
+(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.20ms]
+(pass) merge stage merges when CI, review, and pr.merge approval are true [0.13ms]
+(pass) applyEvent sets fields and matching pending action approvals correctly [0.21ms]
+(pass) advanceStage does not resurrect rejected or merged states [0.22ms]
+(pass) legacy approved boolean cannot synthesize merge approvals [0.19ms]
+(pass) applyEvent ignores early approvals before matching pending action [0.26ms]
+(pass) applyEvent does not mutate terminal workflows [0.26ms]
+
+glue/server.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+42 | }
+     ^
+error: Unexpected }
+    at /tmp/jeoclaw-repo-rPqojL/glue/server.ts:42:1
+-------------------------------
+
+
+glue/write-executor.test.ts:
+(pass) executeApprovedWriteAction reuses an existing open PR for the deterministic head [1.25ms]
+(pass) executeApprovedWriteAction honors custom GitHub API base URL [0.22ms]
+
+glue/github-webhook.test.ts:
+(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.38ms]
+(pass) parseWebhook handles pull_request event [0.23ms]
+(pass) parseWebhook validates pull_request number shape [0.11ms]
+(pass) parseWebhook handles check_suite conclusion success [0.05ms]
+(pass) parseWebhook handles check_suite conclusion failure [0.05ms]
+(pass) parseWebhook handles status success [0.03ms]
+(pass) parseWebhook handles status pending [0.03ms]
+(pass) parseWebhook handles status failure [0.04ms]
+(pass) parseWebhook handles pull_request_review approved and changes requested [0.06ms]
+(pass) parseWebhook exposes workflowId without a second JSON parse [0.03ms]
+(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.10ms]
+(pass) parseWebhook accepts strict direct boolean fields [0.06ms]
+
+glue/runtime-dispatch.test.ts:
+(pass) dispatchStageWork reports contextual error for non-JSON runtime failures [0.72ms]
+
+glue/merge-gate.test.ts:
+(pass) merge gate allows when all true [0.06ms]
+(pass) merge gate blocks when each single condition is false [0.08ms]
+
+control/start.test.ts:
+(pass) commandForService maps control services to startup commands [0.08ms]
+(pass) bindTerminationHandlers forwards registered signals and unregisters on cleanup [0.22ms]
+(pass) resolveControlEnvironment loads control secrets from Secret Manager inputs [0.46ms]
+(pass) resolveControlEnvironment rejects missing project or prefix [0.15ms]
+(pass) resolveControlEnvironment rejects blank loaded secrets [0.08ms]
+(pass) resolveControlEnvironment drops ambient non-control secrets from child env [0.18ms]
+
+runtimes/start.test.ts:
+(pass) commandForRuntime maps runtimes to startup commands [0.13ms]
+(pass) runtime termination helpers forward signals and stop the server [0.30ms]
+(pass) resolveRuntimeEnvironment loads least-privilege role secrets [0.53ms]
+(pass) resolveRuntimeEnvironment drops ambient secrets outside the role allowlist [0.16ms]
+(pass) resolveRuntimeEnvironment rejects missing role/project/prefix [0.11ms]
+(pass) prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh [1.44ms]
+(pass) seedZeroclawProviderModel patches an existing empty providers table and is idempotent [0.90ms]
+(pass) prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it [2.64ms]
+(pass) prepareRuntimeConfig redacts OAuth payloads from startup failures [0.96ms]
+(pass) validateRuntimeDispatchPayload enforces runtime/role/stage matching [0.18ms]
+(pass) validateRuntimeDispatchPayload rejects oversized request text [0.05ms]
+(pass) validateRuntimeDispatchPayload rejects write-stage dispatch at runtime boundary [0.04ms]
+(pass) executeStageWork writes a tangible stage artifact [0.92ms]
+(pass) handleDispatchRequest authenticates and writes artifact plus receipt [2.40ms]
+(pass) handleDispatchRequest rejects oversized bodies before writing artifacts [1.08ms]
+
+qa/status-relay.test.ts:
+(pass) StatusRelayHandler includes repo in content when provided [0.65ms]
+(pass) StatusRelayHandler defaults to Sovereign emoji when claw is Sovereign [0.33ms]
+
+qa/red-team.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+-------------------------------
+
+
+scripts/preflight-live.test.ts:
+(pass) checkLiveEnv reports missing required bootstrap inputs only [0.24ms]
+(pass) checkLiveEnv in file mode drops the GCP project requirement but requires the file path [0.05ms]
+(pass) checkLiveEnv warns on plaintext secret env and Discord auto-provisioning [0.18ms]
+(pass) requiredSecretIds derives the live Secret Manager manifest [0.06ms]
+(pass) runLivePreflight succeeds when env and all required secrets are present [0.52ms]
+(pass) runLivePreflight fails closed on missing or empty secrets [0.40ms]
+(pass) runLivePreflight supports file-backed secrets without GCLOUD_PROJECT [0.63ms]
+
+scripts/browser-status.test.ts:
+(pass) renderStatusHtml includes container and workflow data [0.23ms]
+
+scripts/check-compose.test.ts:
+(pass) compose security posture: every static check passes [93.93ms]
+(pass) no service mounts the host Docker socket or host workspace [25.57ms]
+(pass) runtime-role services are isolated from the edge network [13.36ms]
+(pass) only egress-proxy and discord-bot attach to edge [11.40ms]
+(pass) control services use expected networks and stay hardened [10.69ms]
+(pass) runtime-role services have unique state and worktree volumes [12.38ms]
+(pass) runChecks detects forbidden environment variables [18.84ms]
+
+scripts/mock-github.test.ts:
+(pass) mock github service supports PR create, list, and merge [11.60ms]
+
+ops/scripts/capture-knowledge.test.ts:
+(pass) slugify normalizes to kebab-case and keeps 한글 [0.23ms]
+(pass) validateInput requires title/slug/summary [0.21ms]
+(pass) buildArtifacts emits raw + wiki + log + index content [0.59ms]
+(pass) applyCapture writes raw, wiki, appends log, inserts index link [1.11ms]
+(pass) applyCapture preserves existing raw source (immutable) [0.31ms]
+(pass) applyCapture preserves existing wiki page (LLM-owned) [0.24ms]
+(pass) applyCapture is idempotent for index link and log line [0.34ms]
+(pass) parseArgs reads flags and derives slug from title when omitted [0.28ms]
+(pass) runCapture returns failure result on invalid input [0.38ms]
+
+2 tests failed:
+
+ 125 pass
+ 2 fail
+ 2 errors
+ 591 expect() calls
+Ran 127 tests across 24 files. [752.00ms]

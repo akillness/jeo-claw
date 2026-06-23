@@ -9,8 +9,9 @@ import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
 import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
 
 export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
-export const pendingQueue: string[] = [];
+export const pendingQueue = new Set<string>();
 let isProcessingQueue = false;
+
 
 const workflowLocks = new Map<string, Promise<void>>();
 
@@ -32,10 +33,9 @@ export async function withWorkflowLock<T>(workflowId: string, fn: () => Promise<
     }
   }
 }
-
 export function enqueueWorkflow(wfId: string) {
-  if (!pendingQueue.includes(wfId)) {
-    pendingQueue.push(wfId);
+  if (!pendingQueue.has(wfId)) {
+    pendingQueue.add(wfId);
   }
 }
 
@@ -83,12 +83,13 @@ async function processQueue(opts: WorkflowExecutionOpts) {
   if (isProcessingQueue) return;
   isProcessingQueue = true;
   try {
-    if (isAnyWorkflowRunning(opts.store)) return;
-    
-    while (pendingQueue.length > 0) {
+    while (pendingQueue.size > 0) {
       if (isAnyWorkflowRunning(opts.store)) break;
-      const nextWfId = pendingQueue.shift();
+      const nextWfId = pendingQueue.values().next().value;
+      pendingQueue.delete(nextWfId);
+
       if (!nextWfId) continue;
+
       
       const wf = opts.store.get(nextWfId);
       if (wf && !workflowTerminal(wf)) {
@@ -475,12 +476,15 @@ export async function handleControlDispatchRequest(
     opts.store.set(updated.id, updated);
     await notifyStatus(updated, `Action ${body.action} consumed`);
     // Memory Leak Fix: Remove terminal workflows from pendingQueue
-    const newPendingQueue = pendingQueue.filter(id => {
+
+    for (const id of pendingQueue) {
       const w = opts.store.get(id);
-      return w && !workflowTerminal(w);
-    });
-    pendingQueue.length = 0;
-    pendingQueue.push(...newPendingQueue);
+      if (!w || workflowTerminal(w)) {
+        pendingQueue.delete(id);
+      }
+    }
+
+
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
       success: true,
@@ -537,7 +541,8 @@ export async function handleControlEventRequest(
     }
 
     pruneWorkflowStore(opts.store, opts.storePolicy);
-    return json(201, { success: true, workflow: wf, queuePosition: pendingQueue.length });
+    return json(201, { success: true, workflow: wf, queuePosition: pendingQueue.size });
+
   }
 
   if (event.type === "approve" || event.type === "reject") {
@@ -607,7 +612,7 @@ export async function handleControlEventRequest(
       opts.store.set(wfId, newWf);
       
       enqueueWorkflow(wfId);
-replace
+
       if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
         processQueue(opts as WorkflowExecutionOpts).catch(console.error);
       }
@@ -822,7 +827,7 @@ export function start() {
   // [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.
   // Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
   // This prevents workflows from getting stuck due to memory crashes or direct database injections.
-  let isAutoHealRunning = false;
+
   setInterval(async () => {
       if (isAutoHealRunning) return;
       isAutoHealRunning = true;
@@ -830,14 +835,14 @@ export function start() {
           const allWfs = store.values();
           
           // 1. Re-queue stranded 'queued' workflows
-          const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.includes(w.id));
+          const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.has(w.id));
           if (queuedWfs.length > 0) {
               console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
               for (const wf of queuedWfs) {
                   enqueueWorkflow(wf.id);
-replace
               }
           }
+
 
           // 2. Detect and reset Zombie workflows (stuck in 'pending'/'running' for > 15 mins)
           const ZOMBIE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -857,7 +862,7 @@ replace
                       wf.status = "queued";
                       store.set(wf.id, wf);
                       enqueueWorkflow(wf.id);
-replace
+
                       zombiesRescued = true;
                   }
               }

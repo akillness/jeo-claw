@@ -1,0 +1,198 @@
+Exit code 1
+bun test v1.3.14 (0d9b296a)
+
+
+compare/runner.test.ts:
+(pass) runComparison invokes RunFn correct number of times and with correct run indices [1.02ms]
+(pass) runComparison rejects invalid or unsafe run counts [0.33ms]
+(pass) compareAndSummarize returns both samples and summaries correctly [0.54ms]
+
+compare/dashboard.test.ts:
+(pass) dashboard renders both runtime names and all 5 metric families and is non-empty with static data [0.46ms]
+(pass) dashboard rendering with summaries generated from a deterministic mock RunFn [0.26ms]
+
+compare/metrics.test.ts:
+(pass) summarize - empty input returns empty array [0.05ms]
+(pass) summarize - math correct with known samples [0.17ms]
+(pass) summarize - a runtime with zero samples handled gracefully [0.08ms]
+
+hive/start.test.ts:
+(pass) buildChildSpecs - environment isolation and port mapping [2.15ms]
+
+hive/runtime-auth.test.ts:
+(pass) prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh [2.02ms]
+(pass) seedZeroclawProviderModel patches an existing empty providers table and is idempotent [1.74ms]
+(pass) prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it [3.11ms]
+(pass) prepareRuntimeConfig redacts OAuth payloads from startup failures [1.11ms]
+
+discord/approval.test.ts:
+(pass) ApprovalRegistry: action-scoped lifecycle with consume [1.74ms]
+(pass) ApprovalRegistry prunes stale terminal records and preserves recent approvals [0.45ms]
+(pass) ApprovalRegistry bounded mode evicts consumed records before approved records [0.48ms]
+(pass) guardHighRisk: blocks, consumes matching action approval, and isolates actions [4.25ms]
+(pass) bot handlers: buildHandlers routes action-scoped events and manages registry [0.44ms]
+(pass) bot handlers with bridging: request creates workflow, action approval bridges to store, config set yolo is rejected [0.05ms]
+(pass) bot handlers reply to direct mentions and parse commands after mention [0.03ms]
+(pass) bot handlers can fan out request both into both runtimes [0.02ms]
+(pass) bot handlers reject commands from the wrong guild or channel [0.02ms]
+(pass) bot handlers require approval permission for approve/reject/config-set [0.02ms]
+(pass) discordCommandDefinitions registers the production slash command surface [0.09ms]
+(pass) bot handlers reply with delivery failures instead of hanging [0.14ms]
+(pass) bot interaction handlers defer before forwarding and edit final response [0.06ms]
+(pass) bot handlers allow approval commands for authorized approvers in the approval channel [0.04ms]
+
+discord/commands.test.ts:
+(pass) parseCommand: request command [0.55ms]
+(pass) parseCommand: approve command requires workflow id and action [0.16ms]
+(pass) parseCommand: reject command requires workflow id and action [0.07ms]
+(pass) parseCommand: config set command [0.36ms]
+(pass) parseCommand: unknown commands [0.09ms]
+(pass) parseCommand: ping command [0.04ms]
+(pass) validateConfigValue validations [0.24ms]
+
+config/validate.test.ts:
+(pass) both runtime configs pass every validation check [3.66ms]
+(pass) A/B fairness: identical model id [0.30ms]
+(pass) runtime configs keep only env-referenced provider secrets and no embedded Discord control block [0.18ms]
+(pass) exactly 5 roles in each runtime [0.17ms]
+
+secrets/loader.test.ts:
+(pass) all runtime roles receive only read-only startup github token [0.86ms]
+(pass) write roles are eligible for mediated write secret release [0.36ms]
+(pass) non-write roles cannot request mediated write secrets [0.34ms]
+(pass) runtime roles never receive control-plane secrets [0.48ms]
+(pass) control services receive only control-plane secrets [1.37ms]
+(pass) missing required secret is a hard failure with sanitized upstream details [0.50ms]
+(pass) blank and whitespace-only secret values are rejected [0.24ms]
+(pass) generated shared secrets enforce minimum length [0.16ms]
+(pass) redact masks every secret value [0.25ms]
+(pass) redact masks overlapping secret values longest-first [0.06ms]
+(pass) FileSecretSource and secretSourceFromEnv support local file-backed secrets [0.93ms]
+(pass) every runtime role requires the OpenAI Codex OAuth key and not the legacy API key, and control services do not require either [0.29ms]
+
+glue/state-machine.test.ts:
+(pass) createWorkflow sets up initial state [1.56ms]
+(pass) advanceStage walks automatic stages until PR creation approval is required [1.00ms]
+(pass) pr-create requires pr.create approval before scheduling review [0.31ms]
+(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.33ms]
+(pass) merge stage merges when CI, review, and pr.merge approval are true [0.27ms]
+(pass) applyEvent sets fields and matching pending action approvals correctly [0.21ms]
+(pass) advanceStage does not resurrect rejected or merged states [0.23ms]
+(pass) legacy approved boolean cannot synthesize merge approvals [0.20ms]
+(pass) applyEvent ignores early approvals before matching pending action [0.18ms]
+(pass) applyEvent does not mutate terminal workflows [0.28ms]
+
+glue/server.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+42 | }
+     ^
+error: Unexpected }
+    at /tmp/jeoclaw-repo-rPqojL/glue/server.ts:42:1
+-------------------------------
+
+
+glue/write-executor.test.ts:
+(pass) executeApprovedWriteAction reuses an existing open PR for the deterministic head [1.04ms]
+(pass) executeApprovedWriteAction honors custom GitHub API base URL [0.47ms]
+
+glue/github-webhook.test.ts:
+(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.55ms]
+(pass) parseWebhook handles pull_request event [0.29ms]
+(pass) parseWebhook validates pull_request number shape [0.10ms]
+(pass) parseWebhook handles check_suite conclusion success [0.09ms]
+(pass) parseWebhook handles check_suite conclusion failure [0.08ms]
+(pass) parseWebhook handles status success [0.07ms]
+(pass) parseWebhook handles status pending [0.06ms]
+(pass) parseWebhook handles status failure [0.09ms]
+(pass) parseWebhook handles pull_request_review approved and changes requested [0.13ms]
+(pass) parseWebhook exposes workflowId without a second JSON parse [0.09ms]
+(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.20ms]
+(pass) parseWebhook accepts strict direct boolean fields [0.08ms]
+
+glue/runtime-dispatch.test.ts:
+(pass) dispatchStageWork reports contextual error for non-JSON runtime failures [0.81ms]
+
+glue/merge-gate.test.ts:
+(pass) merge gate allows when all true [0.12ms]
+(pass) merge gate blocks when each single condition is false [0.10ms]
+
+control/start.test.ts:
+(pass) commandForService maps control services to startup commands [0.10ms]
+(pass) bindTerminationHandlers forwards registered signals and unregisters on cleanup [0.31ms]
+(pass) resolveControlEnvironment loads control secrets from Secret Manager inputs [0.82ms]
+(pass) resolveControlEnvironment rejects missing project or prefix [0.22ms]
+(pass) resolveControlEnvironment rejects blank loaded secrets [0.13ms]
+(pass) resolveControlEnvironment drops ambient non-control secrets from child env [0.23ms]
+
+runtimes/start.test.ts:
+(pass) commandForRuntime maps runtimes to startup commands [0.59ms]
+(pass) runtime termination helpers forward signals and stop the server [0.55ms]
+(pass) resolveRuntimeEnvironment loads least-privilege role secrets [1.20ms]
+(pass) resolveRuntimeEnvironment drops ambient secrets outside the role allowlist [0.28ms]
+(pass) resolveRuntimeEnvironment rejects missing role/project/prefix [0.15ms]
+(pass) prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh [2.89ms]
+(pass) seedZeroclawProviderModel patches an existing empty providers table and is idempotent [2.08ms]
+(pass) prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it [3.44ms]
+(pass) prepareRuntimeConfig redacts OAuth payloads from startup failures [1.28ms]
+(pass) validateRuntimeDispatchPayload enforces runtime/role/stage matching [0.28ms]
+(pass) validateRuntimeDispatchPayload rejects oversized request text [0.15ms]
+(pass) validateRuntimeDispatchPayload rejects write-stage dispatch at runtime boundary [0.07ms]
+(pass) executeStageWork writes a tangible stage artifact [1.02ms]
+(pass) handleDispatchRequest authenticates and writes artifact plus receipt [2.17ms]
+(pass) handleDispatchRequest rejects oversized bodies before writing artifacts [1.35ms]
+
+qa/status-relay.test.ts:
+(pass) StatusRelayHandler includes repo in content when provided [1.82ms]
+(pass) StatusRelayHandler defaults to Sovereign emoji when claw is Sovereign [0.19ms]
+
+qa/red-team.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+-------------------------------
+
+
+scripts/preflight-live.test.ts:
+(pass) checkLiveEnv reports missing required bootstrap inputs only [0.26ms]
+(pass) checkLiveEnv in file mode drops the GCP project requirement but requires the file path [0.05ms]
+(pass) checkLiveEnv warns on plaintext secret env and Discord auto-provisioning [0.22ms]
+(pass) requiredSecretIds derives the live Secret Manager manifest [0.10ms]
+(pass) runLivePreflight succeeds when env and all required secrets are present [0.57ms]
+(pass) runLivePreflight fails closed on missing or empty secrets [0.42ms]
+(pass) runLivePreflight supports file-backed secrets without GCLOUD_PROJECT [0.65ms]
+
+scripts/browser-status.test.ts:
+(pass) renderStatusHtml includes container and workflow data [0.28ms]
+
+scripts/check-compose.test.ts:
+(pass) compose security posture: every static check passes [53.55ms]
+(pass) no service mounts the host Docker socket or host workspace [8.55ms]
+(pass) runtime-role services are isolated from the edge network [12.24ms]
+(pass) only egress-proxy and discord-bot attach to edge [7.23ms]
+(pass) control services use expected networks and stay hardened [7.67ms]
+(pass) runtime-role services have unique state and worktree volumes [6.00ms]
+(pass) runChecks detects forbidden environment variables [9.66ms]
+
+scripts/mock-github.test.ts:
+(pass) mock github service supports PR create, list, and merge [9.42ms]
+
+ops/scripts/capture-knowledge.test.ts:
+(pass) slugify normalizes to kebab-case and keeps 한글 [0.24ms]
+(pass) validateInput requires title/slug/summary [0.15ms]
+(pass) buildArtifacts emits raw + wiki + log + index content [0.36ms]
+(pass) applyCapture writes raw, wiki, appends log, inserts index link [0.67ms]
+(pass) applyCapture preserves existing raw source (immutable) [0.23ms]
+(pass) applyCapture preserves existing wiki page (LLM-owned) [0.21ms]
+(pass) applyCapture is idempotent for index link and log line [0.26ms]
+(pass) parseArgs reads flags and derives slug from title when omitted [0.20ms]
+(pass) runCapture returns failure result on invalid input [0.31ms]
+
+2 tests failed:
+
+ 125 pass
+ 2 fail
+ 2 errors
+ 591 expect() calls
+Ran 127 tests across 24 files. [796.00ms]
