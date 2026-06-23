@@ -12,6 +12,27 @@ export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_D
 export const pendingQueue: string[] = [];
 let isProcessingQueue = false;
 
+const workflowLocks = new Map<string, Promise<void>>();
+
+export async function withWorkflowLock<T>(workflowId: string, fn: () => Promise<T>): Promise<T> {
+  const existingLock = workflowLocks.get(workflowId) || Promise.resolve();
+  let releaseLock: () => void;
+  const newLock = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+  const nextLock = existingLock.then(() => newLock);
+  workflowLocks.set(workflowId, nextLock);
+  try {
+    await existingLock;
+    return await fn();
+  } finally {
+    releaseLock!();
+    if (workflowLocks.get(workflowId) === nextLock) {
+      workflowLocks.delete(workflowId);
+    }
+  }
+}
+
 export function enqueueWorkflow(wfId: string) {
   if (!pendingQueue.includes(wfId)) {
     pendingQueue.push(wfId);
@@ -75,7 +96,7 @@ async function processQueue(opts: WorkflowExecutionOpts) {
         opts.store.set(wf.id, wf);
         let updated;
         try {
-          updated = await progressWorkflowState(wf, opts);
+          updated = await withWorkflowLock(wf.id, () => progressWorkflowState(wf, opts));
         } catch (err: any) {
           console.error("Workflow failed with error:", err);
           wf.status = "failed";
@@ -527,7 +548,7 @@ export async function handleControlEventRequest(
     const wasMerged = wf.status === "merged";
     let updated = applyEvent(wf, event);
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-      updated = await progressWorkflowState(updated, {
+      updated = await withWorkflowLock(wf.id, () => progressWorkflowState(updated, { 
         store: opts.store,
         controlEventSecret: opts.controlEventSecret,
         prefix: opts.prefix,
@@ -535,7 +556,7 @@ export async function handleControlEventRequest(
         writeDeps: opts.writeDeps,
         runtimeDispatchSecret: opts.runtimeDispatchSecret,
         dispatchFetchImpl: opts.dispatchFetchImpl,
-      });
+      }));
     }
     opts.store.set(event.workflowId, updated);
     
@@ -681,7 +702,7 @@ export async function handleWebhookRequest(
 
   if (workflowState) {
     let nextState = applyEvent(workflowState, parsed);
-    nextState = await progressWorkflowState(nextState, opts);
+    nextState = await withWorkflowLock(nextState.id, () => progressWorkflowState(nextState, opts));
     opts.store.set(nextState.id, nextState);
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, { success: true, workflow: nextState });
@@ -746,7 +767,7 @@ export function start() {
              };
              let updated = applyEvent(wf, fakeEvent);
              if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-                 updated = await progressWorkflowState(updated, opts);
+                 updated = await withWorkflowLock(wf.id, () => progressWorkflowState(updated, opts));
              }
              store.set(wf.id, updated);
              pruneWorkflowStore(store, opts.storePolicy);

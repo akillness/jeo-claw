@@ -32,7 +32,6 @@ export class SQLiteWorkflowStore implements WorkflowStore {
     this.sizeStmt = this.db.query("SELECT COUNT(*) as count FROM workflows");
     this.hasRunningStmt = this.db.query("SELECT 1 FROM workflows WHERE json_extract(data, '$.status') IN ('running', 'pending') LIMIT 1");
   }
-replace
 
   private init() {
     this.db.run("PRAGMA journal_mode = WAL;");

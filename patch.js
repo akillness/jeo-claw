@@ -1,32 +1,7 @@
 const fs = require('fs');
 let content = fs.readFileSync('glue/server.ts', 'utf8');
-content = content.replace(/async function processQueue[\s\S]*?^}/m, `async function processQueue(opts: WorkflowExecutionOpts) {
-  if (isAnyWorkflowRunning(opts.store)) return;
-  
-  while (pendingQueue.length > 0) {
-    if (isAnyWorkflowRunning(opts.store)) break;
-    const nextWfId = pendingQueue.shift();
-    if (!nextWfId) continue;
-    
-    const wf = opts.store.get(nextWfId);
-    if (wf) {
-      wf.status = "pending";
-      let updated;
-      try {
-        updated = await progressWorkflowState(wf, opts);
-      } catch (err: any) {
-        console.error("Workflow failed with error:", err);
-        wf.status = "failed";
-        opts.store.set(wf.id, wf);
-        await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
-        continue;
-      }
-      opts.store.set(updated.id, updated);
-      await notifyStatus(updated, "Workflow started from queue");
-      if (!workflowTerminal(updated)) {
-        break;
-      }
-    }
-  }
-}`);
+content = content.replace(
+  'export const pendingQueue: string[] = [];\nlet isProcessingQueue = false;\n',
+  `export const pendingQueue: string[] = [];\nlet isProcessingQueue = false;\n\nconst workflowLocks = new Map<string, Promise<void>>();\n\nexport async function withWorkflowLock<T>(workflowId: string, fn: () => Promise<T>): Promise<T> {\n  const existingLock = workflowLocks.get(workflowId) || Promise.resolve();\n  let releaseLock: () => void;\n  const newLock = new Promise<void>((resolve) => {\n    releaseLock = resolve;\n  });\n  const nextLock = existingLock.then(() => newLock);\n  workflowLocks.set(workflowId, nextLock);\n  try {\n    await existingLock;\n    return await fn();\n  } finally {\n    releaseLock!();\n    if (workflowLocks.get(workflowId) === nextLock) {\n      workflowLocks.delete(workflowId);\n    }\n  }\n}\n`
+);
 fs.writeFileSync('glue/server.ts', content);
