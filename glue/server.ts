@@ -624,6 +624,9 @@ export async function handleControlEventRequest(
     }
 
     pruneWorkflowStore(opts.store, opts.storePolicy);
+    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+      processQueue(opts as WorkflowExecutionOpts).catch(console.error);
+    }
     return json(200, { success: true, workflow: updated });
   }
 
@@ -715,6 +718,7 @@ export async function handleWebhookRequest(
     nextState = await withWorkflowLock(nextState.id, () => progressWorkflowState(nextState, opts));
     opts.store.set(nextState.id, nextState);
     pruneWorkflowStore(opts.store, opts.storePolicy);
+    processQueue(opts).catch(console.error);
     return json(200, { success: true, workflow: nextState });
   }
 
