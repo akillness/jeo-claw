@@ -136,52 +136,46 @@ export function applyEvent(
   event: Partial<Pick<WorkflowState, "prNumber" | "ciPassed" | "reviewPassed">> &
     { type?: string; action?: HighRiskAction; user?: string }
 ): WorkflowState {
+  if (terminal(state)) {
+    return state;
+  }
+
+  if (!event || typeof event !== "object") {
+    return state;
+  }
+
+  let changed = false;
   let nextState = { ...state };
 
-  if (terminal(nextState)) {
-    return nextState;
-  }
-
-  if (event && typeof event === "object") {
-    // Idempotency: Ignore duplicate events that don't change state
-    let isDuplicate = true;
-    if (event.type) isDuplicate = false;
-    if (event.prNumber !== undefined && event.prNumber !== nextState.prNumber) isDuplicate = false;
-    if (event.ciPassed !== undefined && event.ciPassed !== nextState.ciPassed) isDuplicate = false;
-    if (event.reviewPassed !== undefined && event.reviewPassed !== nextState.reviewPassed) isDuplicate = false;
-    
-    // If the event has no relevant fields, it's not a duplicate, it's just empty, but we can treat it as no-op.
-    const hasRelevantFields = event.prNumber !== undefined || event.ciPassed !== undefined || event.reviewPassed !== undefined || event.type !== undefined;
-
-    if (isDuplicate && hasRelevantFields) {
-      return nextState;
+  if (event.type === "approve" && event.action) {
+    if (acceptsActionDecision(nextState, event.action)) {
+      nextState = markAction(nextState, event.action, "approved", event.user);
+      nextState.approved = event.action === "pr.merge" ? true : nextState.approved;
+      if (nextState.pendingAction === event.action) nextState.pendingAction = undefined;
+      changed = true;
     }
-
-    if (event.type === "approve" && event.action) {
-      if (acceptsActionDecision(nextState, event.action)) {
-        nextState = markAction(nextState, event.action, "approved", event.user);
-        nextState.approved = event.action === "pr.merge" ? true : nextState.approved;
-        if (nextState.pendingAction === event.action) nextState.pendingAction = undefined;
-      }
-    } else if (event.type === "reject" && event.action) {
-      if (acceptsActionDecision(nextState, event.action)) {
-        nextState = markAction(nextState, event.action, "rejected", event.user);
-        nextState.approved = false;
-        nextState.status = "rejected";
-        nextState.pendingAction = event.action;
-      }
-    }
-
-    if (event.prNumber !== undefined) {
-      nextState.prNumber = event.prNumber;
-    }
-    if (event.ciPassed !== undefined) {
-      nextState.ciPassed = event.ciPassed === true;
-    }
-    if (event.reviewPassed !== undefined) {
-      nextState.reviewPassed = event.reviewPassed === true;
+  } else if (event.type === "reject" && event.action) {
+    if (acceptsActionDecision(nextState, event.action)) {
+      nextState = markAction(nextState, event.action, "rejected", event.user);
+      nextState.approved = false;
+      nextState.status = "rejected";
+      nextState.pendingAction = event.action;
+      changed = true;
     }
   }
 
-  return nextState;
+  if (event.prNumber !== undefined && event.prNumber !== nextState.prNumber) {
+    nextState.prNumber = event.prNumber;
+    changed = true;
+  }
+  if (event.ciPassed !== undefined && (event.ciPassed === true) !== nextState.ciPassed) {
+    nextState.ciPassed = event.ciPassed === true;
+    changed = true;
+  }
+  if (event.reviewPassed !== undefined && (event.reviewPassed === true) !== nextState.reviewPassed) {
+    nextState.reviewPassed = event.reviewPassed === true;
+    changed = true;
+  }
+
+  return changed ? nextState : state;
 }

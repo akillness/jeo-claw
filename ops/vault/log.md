@@ -19,3 +19,4 @@ updated: 2026-06-10
 - 2026-06-20 · [[wiki/sources/ouroboros-deep-refactoring-and-branch-cleanup]] — Ouroboros Evolution Deep Refactoring and Repository Cleanup (memory-leak, auto-rebuild, discord-fix, cleanup, main)
 - 2026-06-24 · [[wiki/sources/deep-refactoring]] — Deep Refactoring (refactoring, optimization)
 - 2026-06-24 · [[wiki/sources/deep-refactoring-cycle-148]] — Ouroboros Evolution Cycle 148 - Deep Refactoring (performance, security, refactoring)
+- 2026-06-24 · [[wiki/sources/deep-refactor-157]] — Ouroboros Evolution Cycle: Spec-Kit Driven Deep Refactoring (refactoring, idempotency, debouncing, performance)

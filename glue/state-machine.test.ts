@@ -167,3 +167,21 @@ test("applyEvent does not mutate terminal workflows", () => {
   expect(afterReject).toEqual(state);
   expect(afterWebhook).toEqual(state);
 });
+ 
+
+test("applyEvent idempotency: returns same object reference if no changes", () => {
+  const state = createWorkflow("wf-idempotent", "zeroclaw", "test");
+  const event = { prNumber: 123, ciPassed: true, reviewPassed: false };
+  
+  const state1 = applyEvent(state, event);
+  expect(state1).not.toBe(state);
+  expect(state1.prNumber).toBe(123);
+  expect(state1.ciPassed).toBe(true);
+  expect(state1.reviewPassed).toBe(false);
+
+  const state2 = applyEvent(state1, event);
+  expect(state2).toBe(state1);
+
+  const state3 = applyEvent(state1, { type: "approve", action: "pr.merge", user: "bob" });
+  expect(state3).toBe(state1); // Should not change because it's not awaiting approval
+});

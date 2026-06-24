@@ -556,19 +556,26 @@ export async function handleControlEventRequest(
       return json(404, { error: "Workflow not found" });
     }
     const wasMerged = wf.status === "merged";
-    let updated = applyEvent(wf, event);
-    if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-      updated = await withWorkflowLock(wf.id, () => progressWorkflowState(updated, { 
-        store: opts.store,
-        controlEventSecret: opts.controlEventSecret,
-        prefix: opts.prefix,
-        sourceFactory: opts.sourceFactory,
-        writeDeps: opts.writeDeps,
-        runtimeDispatchSecret: opts.runtimeDispatchSecret,
-        dispatchFetchImpl: opts.dispatchFetchImpl,
-      }));
-    }
-    opts.store.set(event.workflowId, updated);
+    let updated = await withWorkflowLock(wf.id, async () => {
+      const currentState = opts.store.get(wf.id) || wf;
+      let updatedState = applyEvent(currentState, event);
+      if (updatedState !== currentState) {
+        opts.store.set(updatedState.id, updatedState);
+      }
+      if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+        updatedState = await progressWorkflowState(updatedState, { 
+          store: opts.store,
+          controlEventSecret: opts.controlEventSecret,
+          prefix: opts.prefix,
+          sourceFactory: opts.sourceFactory,
+          writeDeps: opts.writeDeps,
+          runtimeDispatchSecret: opts.runtimeDispatchSecret,
+          dispatchFetchImpl: opts.dispatchFetchImpl,
+        });
+        opts.store.set(updatedState.id, updatedState);
+      }
+      return updatedState;
+    });
     
     // Ouroboros / Continuous Evolution Loop
     if (!wasMerged && updated.status === "merged") {
@@ -714,9 +721,18 @@ export async function handleWebhookRequest(
   }
 
   if (workflowState) {
-    let nextState = applyEvent(workflowState, parsed);
-    nextState = await withWorkflowLock(nextState.id, () => progressWorkflowState(nextState, opts));
-    opts.store.set(nextState.id, nextState);
+    const workflowId = workflowState.id;
+    let nextState = await withWorkflowLock(workflowId, async () => {
+      // Re-read state inside the lock to prevent race conditions
+      const currentState = opts.store.get(workflowId) || workflowState;
+      let updatedState = applyEvent(currentState!, parsed);
+      if (updatedState !== currentState) {
+        opts.store.set(updatedState.id, updatedState);
+      }
+      updatedState = await progressWorkflowState(updatedState, opts);
+      opts.store.set(updatedState.id, updatedState);
+      return updatedState;
+    });
     pruneWorkflowStore(opts.store, opts.storePolicy);
     processQueue(opts).catch(console.error);
     return json(200, { success: true, workflow: nextState });
@@ -779,13 +795,20 @@ export function start() {
                  user: "system-auto-approver",
                  force: true
              };
-             let updated = applyEvent(wf, fakeEvent);
-             if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-                 updated = await withWorkflowLock(wf.id, () => progressWorkflowState(updated, opts));
-             }
+             let updated = await withWorkflowLock(wf.id, async () => {
+                 const currentState = store.get(wf.id) || wf;
+                 let updatedState = applyEvent(currentState, fakeEvent);
+                 if (updatedState !== currentState) {
+                     store.set(updatedState.id, updatedState);
+                 }
+                 if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+                     updatedState = await progressWorkflowState(updatedState, opts);
+                     store.set(updatedState.id, updatedState);
+                 }
+                 return updatedState;
+             });
              store.set(wf.id, updated);
              pruneWorkflowStore(store, opts.storePolicy);
-             continue;
            } catch(e) {
                console.error(`[Auto-Approve] Failed for ${wf.id}:`, e);
                // Mark as failed to prevent infinite retry loops on API errors
