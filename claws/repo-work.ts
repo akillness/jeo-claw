@@ -3,6 +3,62 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { WorkflowArtifact } from "../glue/contract.ts";
+/**
+ * Coding-agent model pool used by {@link generateImprovement}. Ordered by
+ * preference; the runner falls through to the next entry whenever an attempt
+ * fails. Provider/model pairs MUST resolve to the intended provider in the
+ * agent's model registry:
+ *  - Antigravity Claude ids (`claude-sonnet-4-6`) are unique to the Antigravity
+ *    catalog, so the bare id routes correctly.
+ *  - Antigravity Gemini ids collide with the public Gemini catalog by heuristic
+ *    (`gemini-*` → provider "gemini"), so they MUST carry the `antigravity/`
+ *    prefix. The bare `gemini-3.1-pro` form mis-routed to the public Gemini
+ *    provider and failed every fallback with
+ *    "resolves to gemini, not requested provider antigravity".
+ * The Gemini entries share the Antigravity OAuth credential with the Claude
+ * entry but use a separate model quota, so they remain usable when the Claude
+ * model hits its daily Antigravity 429 window.
+ */
+export interface AgentModelSpec {
+  provider: string;
+  model: string;
+}
+
+export const AGENT_MODEL_POOL: readonly AgentModelSpec[] = [
+  { provider: "antigravity", model: "claude-sonnet-4-6" },
+  { provider: "antigravity", model: "antigravity/gemini-3.1-pro-low" },
+  { provider: "antigravity", model: "antigravity/gemini-3-pro-low" },
+  { provider: "anthropic", model: "claude-3-5-sonnet-20241022" },
+];
+
+export type AgentRunOutcome =
+  | { ok: true }
+  | { ok: false; transient: boolean; reason: string };
+
+/**
+ * Classify a single coding-agent invocation. The agent prints config errors
+ * (provider/model mismatch, missing OAuth) to stdout/stderr and STILL exits 0,
+ * so exit code alone cannot decide success — the combined output must be
+ * inspected. `transient` distinguishes rate limits / crashes (retry helps)
+ * from permanent misconfiguration (retrying the same spec cannot help).
+ */
+export function classifyAgentRun(exitCode: number | null, output: string): AgentRunOutcome {
+  const text = output || "";
+  if (/Rate limited|HTTP 429|(?:^|\s)429(?:\s|$|\))/.test(text)) {
+    return { ok: false, transient: true, reason: "rate-limited (HTTP 429)" };
+  }
+  if (/not requested provider|resolves to .*not requested/.test(text)) {
+    return { ok: false, transient: false, reason: "provider/model mismatch — misconfigured model id" };
+  }
+  if (/requires .*OAuth|auth login|No API key|missing .*credential/i.test(text)) {
+    return { ok: false, transient: false, reason: "missing provider credentials" };
+  }
+  if (exitCode !== 0) {
+    return { ok: false, transient: true, reason: `agent exited with code ${exitCode}` };
+  }
+  return { ok: true };
+}
+
 
 export interface RepoAnalysis {
   repo: string;
@@ -234,25 +290,29 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. EXAMPLE:\\n\\nsrc/app.ts\\n≔10..12\\nnew content for line 10\\nnew content for line 11\\nnew content for line 12\\n\\nDO NOT USE MARKDOWN CODE BLOCKS AROUND THE EDIT.\\n\\n[CRITICAL RULE] If 'Edit rejected: changed on disk' occurs, you MUST use the 'read' tool to re-read the file to get the latest hash, and then retry the 'edit'.\\n\\n[CRITICAL RULE] DO NOT use `git commit` or `git stash` to clean up your changes. Leave modified files as unstaged or staged so they can be collected.";
-    const models = [
-        "antigravity:claude-sonnet-4-6",
-        "antigravity:gemini-3.1-pro",
-        "anthropic:claude-3-5-sonnet-20241022"
-    ];
     let agentResult: any;
-    for (const modelSpec of models) {
-        const [prov, modelName] = modelSpec.split(":");
+    let agentSucceeded = false;
+    let lastFailure = "no models attempted";
+    for (const spec of AGENT_MODEL_POOL) {
+        const { provider: prov, model: modelName } = spec;
         notes.push(`Running coding agent with provider: ${prov}, model: ${modelName}`);
         const ts = Date.now();
         agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${modelName} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${modelName} exit code: ${agentResult.exitCode}`);
-        
+
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
-        if (agentResult.exitCode === 0 && !outStr.includes("Rate limited") && !outStr.includes("429")) break;
-        
-        notes.push(`[Model Pooling] Fallback triggered (exitCode: ${agentResult.exitCode}, rateLimited: ${outStr.includes("Rate limited")}). Cleaning up repo state before retry...`);
+        const outcome = classifyAgentRun(agentResult.exitCode, outStr);
+        if (outcome.ok) {
+            agentSucceeded = true;
+            lastFailure = "";
+            break;
+        }
+
+        lastFailure = `${prov}/${modelName}: ${outcome.reason}`;
+        notes.push(`[Model Pooling] Fallback triggered (${outcome.reason}, transient=${outcome.transient}). Cleaning up repo state before retry...`);
         await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
     }
+
     
     // PREVENT DATA LOSS: Save agent stdout/stderr
     try {
@@ -272,7 +332,9 @@ ${agentResult.stderr.toString()}`;
         notes.push(`Failed to save agent logs: ${e.message}`);
     }
 
-    if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}. See logs for details.`);
+    if (!agentSucceeded) {
+        throw new Error(`All ${AGENT_MODEL_POOL.length} coding-agent model attempts failed. Last failure — ${lastFailure}. See agent logs for details.`);
+    }
 
     // Get unstaged/uncommitted and STAGED changes
     const gitDiffUnstaged = await $`cd ${tempDir} && git diff HEAD --name-only || git diff --name-only`.nothrow().text();
