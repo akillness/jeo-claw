@@ -234,18 +234,24 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. EXAMPLE:\\n\\nsrc/app.ts\\n≔10..12\\nnew content for line 10\\nnew content for line 11\\nnew content for line 12\\n\\nDO NOT USE MARKDOWN CODE BLOCKS AROUND THE EDIT.\\n\\n[CRITICAL RULE] If 'Edit rejected: changed on disk' occurs, you MUST use the 'read' tool to re-read the file to get the latest hash, and then retry the 'edit'.\\n\\n[CRITICAL RULE] DO NOT use `git commit` or `git stash` to clean up your changes. Leave modified files as unstaged or staged so they can be collected.";
-    const models = [
-        "antigravity:claude-sonnet-4-6",
-        "antigravity:gemini-3.1-pro",
-        "anthropic:claude-3-5-sonnet-20241022"
+    // jeo-code routes `--model` by a provider-qualifying prefix. A bare id is
+    // matched heuristically: `gemini-3.1-pro` resolves to the `gemini` provider,
+    // so `--provider antigravity --model gemini-3.1-pro` is rejected with
+    // "selected model ... resolves to gemini, not requested provider antigravity".
+    // Antigravity models must therefore carry the `antigravity/` prefix; anthropic
+    // ids already resolve to anthropic and pass through unprefixed.
+    const models: { provider: string; model: string }[] = [
+        { provider: "antigravity", model: "antigravity/claude-sonnet-4-6" },
+        { provider: "antigravity", model: "antigravity/gemini-3.1-pro" },
+        { provider: "anthropic", model: "claude-3-5-sonnet-20241022" },
     ];
     let agentResult: any;
-    for (const modelSpec of models) {
-        const [prov, modelName] = modelSpec.split(":");
+    for (const { provider: prov, model: modelName } of models) {
         notes.push(`Running coding agent with provider: ${prov}, model: ${modelName}`);
         const ts = Date.now();
         agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${modelName} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${modelName} exit code: ${agentResult.exitCode}`);
+
         
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
         if (agentResult.exitCode === 0 && !outStr.includes("Rate limited") && !outStr.includes("429")) break;
