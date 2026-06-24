@@ -238,11 +238,13 @@ export async function generateImprovement(
     // matched heuristically: `gemini-3.1-pro` resolves to the `gemini` provider,
     // so `--provider antigravity --model gemini-3.1-pro` is rejected with
     // "selected model ... resolves to gemini, not requested provider antigravity".
-    // Antigravity models must therefore carry the `antigravity/` prefix; anthropic
-    // ids already resolve to anthropic and pass through unprefixed.
+    // Antigravity models must therefore (1) carry the `antigravity/` prefix AND
+    // (2) be a real catalog id. The Gemini 3.1 Pro entries are tier-suffixed
+    // (`antigravity/gemini-3.1-pro-low` / `-high`); a bare `antigravity/gemini-3.1-pro`
+    // is not a known model. Anthropic ids already resolve to anthropic unprefixed.
     const models: { provider: string; model: string }[] = [
         { provider: "antigravity", model: "antigravity/claude-sonnet-4-6" },
-        { provider: "antigravity", model: "antigravity/gemini-3.1-pro" },
+        { provider: "antigravity", model: "antigravity/gemini-3.1-pro-low" },
         { provider: "anthropic", model: "claude-3-5-sonnet-20241022" },
     ];
     let agentResult: any;
