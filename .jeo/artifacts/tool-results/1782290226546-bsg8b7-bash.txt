@@ -1,0 +1,135 @@
+./node_modules/discord.js/typings/index.d.ts:1262:  public adapters: Map<Snowflake, InternalDiscordGatewayAdapterLibraryMethods>;
+./node_modules/discord.js/typings/index.d.ts:3494:  private _evals: Map<string, Promise<unknown>>;
+./node_modules/discord.js/typings/index.d.ts:3496:  private _fetches: Map<string, Promise<unknown>>;
+./node_modules/discord.js/typings/index.d.ts:8082:        : Value extends ReadonlyMap<unknown, unknown> | ReadonlySet<unknown>
+./node_modules/undici/types/content-type.d.ts:6:  parameters: Map<string, string>
+./node_modules/bun-types/globals.d.ts:628:  registry: Map<
+./node_modules/bun-types/globals.d.ts:641:      dependencies: Array<(typeof Loader)["registry"] extends Map<any, infer V> ? V : any>;
+./node_modules/bun-types/test.d.ts:2242:    //     _refs?: Map<T, number>,
+./node_modules/bun-types/bun.d.ts:9285:    files(glob?: string | readonly string[]): Promise<Map<string, File>>;
+./node_modules/@discordjs/collection/dist/index.d.ts:14:type ReadonlyCollection<K, V> = Omit<Collection<K, V>, 'delete' | 'ensure' | 'forEach' | 'get' | 'reverse' | 'set' | 'sort' | 'sweep'> & ReadonlyMap<K, V>;
+./node_modules/@discordjs/collection/dist/index.d.ts:20:interface Collection<K, V> extends Map<K, V> {
+./node_modules/@discordjs/collection/dist/index.d.ts:30:declare class Collection<K, V> extends Map<K, V> {
+./node_modules/@discordjs/collection/dist/index.d.ts:217:    flatMap<T>(fn: (value: V, key: K, collection: this) => Collection<K, T>): Collection<K, T>;
+./node_modules/@discordjs/collection/dist/index.d.ts:218:    flatMap<T, This>(fn: (this: This, value: V, key: K, collection: this) => Collection<K, T>, thisArg: This): Collection<K, T>;
+./node_modules/@discordjs/rest/node_modules/@discordjs/collection/dist/index.d.ts:14:type ReadonlyCollection<Key, Value> = Omit<Collection<Key, Value>, 'clear' | 'delete' | 'ensure' | 'forEach' | 'get' | 'reverse' | 'set' | 'sort' | 'sweep'> & ReadonlyMap<Key, Value>;
+./node_modules/@discordjs/rest/node_modules/@discordjs/collection/dist/index.d.ts:20:interface Collection<Key, Value> extends Map<Key, Value> {
+./node_modules/@discordjs/rest/node_modules/@discordjs/collection/dist/index.d.ts:30:declare class Collection<Key, Value> extends Map<Key, Value> {
+./node_modules/@discordjs/rest/node_modules/@discordjs/collection/dist/index.d.ts:240:    flatMap<NewValue>(fn: (value: Value, key: Key, collection: this) => Collection<Key, NewValue>): Collection<Key, NewValue>;
+./node_modules/@discordjs/rest/node_modules/@discordjs/collection/dist/index.d.ts:241:    flatMap<NewValue, This>(fn: (this: This, value: Value, key: Key, collection: this) => Collection<Key, NewValue>, thisArg: This): Collection<Key, NewValue>;
+./node_modules/@discordjs/ws/node_modules/@discordjs/collection/dist/index.d.ts:14:type ReadonlyCollection<Key, Value> = Omit<Collection<Key, Value>, 'clear' | 'delete' | 'ensure' | 'forEach' | 'get' | 'reverse' | 'set' | 'sort' | 'sweep'> & ReadonlyMap<Key, Value>;
+./node_modules/@discordjs/ws/node_modules/@discordjs/collection/dist/index.d.ts:20:interface Collection<Key, Value> extends Map<Key, Value> {
+./node_modules/@discordjs/ws/node_modules/@discordjs/collection/dist/index.d.ts:30:declare class Collection<Key, Value> extends Map<Key, Value> {
+./node_modules/@discordjs/ws/node_modules/@discordjs/collection/dist/index.d.ts:240:    flatMap<NewValue>(fn: (value: Value, key: Key, collection: this) => Collection<Key, NewValue>): Collection<Key, NewValue>;
+./node_modules/@discordjs/ws/node_modules/@discordjs/collection/dist/index.d.ts:241:    flatMap<NewValue, This>(fn: (this: This, value: Value, key: Key, collection: this) => Collection<Key, NewValue>, thisArg: This): Collection<Key, NewValue>;
+./node_modules/undici-types/mock-call-history.d.ts:35:  toMap (): Map<MockCallHistoryLog.MockCallHistoryLogProperties, string | Record<string, string | string[]> | null | undefined>
+./node_modules/undici-types/content-type.d.ts:6:  parameters: Map<string, string>
+./node_modules/yaml/dist/schema/yaml-1.1/set.d.ts:9:export declare class YAMLSet<T = unknown> extends YAMLMap<T, Scalar<null> | null> {
+./node_modules/yaml/dist/schema/yaml-1.1/omap.d.ts:16:     * If `ctx` is given, the return type is actually `Map<unknown, unknown>`,
+./node_modules/yaml/dist/doc/anchors.d.ts:20:    sourceObjects: Map<unknown, {
+./node_modules/yaml/dist/doc/createNode.d.ts:10:    sourceObjects: Map<unknown, {
+./node_modules/yaml/dist/nodes/toJS.d.ts:9:    anchors: Map<Node, AnchorData>;
+./node_modules/yaml/dist/nodes/Node.d.ts:11:export type Node<T = unknown> = Alias | Scalar<T> | YAMLMap<unknown, T> | YAMLSeq<T>;
+./node_modules/yaml/dist/nodes/Node.d.ts:15:} ? YAMLMap<NodeType<keyof T>, NodeType<T[keyof T]>> : T extends {
+./node_modules/yaml/dist/nodes/Node.d.ts:17:} ? YAMLMap<NodeType<keyof T>, NodeType<T[keyof T]>> : Node;
+./node_modules/yaml/dist/nodes/identity.d.ts:17:export declare const isMap: <K = unknown, V = unknown>(node: any) => node is YAMLMap<K, V>;
+./node_modules/yaml/dist/nodes/identity.d.ts:21:export declare function isCollection<K = unknown, V = unknown>(node: any): node is YAMLMap<K, V> | YAMLSeq<V>;
+./node_modules/yaml/dist/nodes/identity.d.ts:23:export declare const hasAnchor: <K = unknown, V = unknown>(node: unknown) => node is Scalar<V> | YAMLMap<K, V> | YAMLSeq<V>;
+./node_modules/yaml/dist/nodes/YAMLMap.d.ts:10:export type MapLike = Map<unknown, unknown> | Set<unknown> | Record<string | number | symbol, unknown>;
+./node_modules/yaml/dist/nodes/YAMLMap.d.ts:13:    interface Parsed<K extends ParsedNode = ParsedNode, V extends ParsedNode | null = ParsedNode | null> extends YAMLMap<K, V> {
+./node_modules/yaml/dist/nodes/YAMLMap.d.ts:19:export declare class YAMLMap<K = unknown, V = unknown> extends Collection {
+./node_modules/yaml/dist/nodes/YAMLMap.d.ts:49:    toJSON<T extends MapLike = Map<unknown, unknown>>(_?: unknown, ctx?: ToJSContext, Type?: {
+./node_modules/@types/node/perf_hooks.d.ts:387:        readonly percentiles: Map<number, number>;
+./node_modules/@types/node/perf_hooks.d.ts:392:        readonly percentilesBigInt: Map<bigint, bigint>;
+./node_modules/@types/node/util/types.d.ts:296:    function isMap<T>(
+./node_modules/@types/node/util/types.d.ts:298:    ): object is T extends ReadonlyMap<any, any> ? (unknown extends T ? never : ReadonlyMap<any, any>)
+./node_modules/@types/node/util/types.d.ts:299:        : Map<unknown, unknown>;
+./node_modules/@types/node/util/types.d.ts:535:    function isWeakMap(object: unknown): object is WeakMap<object, unknown>;
+./node_modules/@types/node/http.d.ts:333:    interface ServerEventMap<
+./node_modules/@types/node/http.d.ts:473:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:476:        emit<E extends keyof ServerEventMap>(eventName: E, ...args: ServerEventMap<Request, Response>[E]): boolean;
+./node_modules/@types/node/http.d.ts:480:            listener?: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:485:        ): ((...args: ServerEventMap<Request, Response>[E]) => void)[];
+./node_modules/@types/node/http.d.ts:489:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:494:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:499:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:504:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:509:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:514:        ): ((...args: ServerEventMap<Request, Response>[E]) => void)[];
+./node_modules/@types/node/http.d.ts:521:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/http.d.ts:614:        setHeaders(headers: Headers | Map<string, number | string | readonly string[]>): this;
+./node_modules/@types/node/events.d.ts:4:    type EventMap<T> = Record<keyof T, any[]>;
+./node_modules/@types/node/events.d.ts:5:    type IfEventMap<Events extends EventMap<Events>, True, False> = {} extends Events ? False : True;
+./node_modules/@types/node/events.d.ts:6:    type Args<Events extends EventMap<Events>, EventName extends string | symbol> = IfEventMap<
+./node_modules/@types/node/events.d.ts:13:    type EventNames<Events extends EventMap<Events>, EventName extends string | symbol> = IfEventMap<
+./node_modules/@types/node/events.d.ts:18:    type Listener<Events extends EventMap<Events>, EventName extends string | symbol> = IfEventMap<
+./node_modules/@types/node/events.d.ts:53:    class EventEmitter<T extends EventMap<T> = any> {
+./node_modules/@types/node/events.d.ts:56:    interface EventEmitter<T extends EventMap<T> = any> extends NodeJS.EventEmitter<T> {}
+./node_modules/@types/node/events.d.ts:59:            interface EventEmitter<T extends EventMap<T> = any> {
+./node_modules/@types/node/events.d.ts:820:        interface InternalEventEmitter<T extends EventMap<T>> extends EventEmitter {
+./node_modules/@types/node/http2.d.ts:945:    interface ServerHttp2SessionEventMap<
+./node_modules/@types/node/http2.d.ts:1062:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1068:            ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1074:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1081:            ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1087:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1094:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1101:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1108:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1115:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1122:            ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1131:                ...args: ServerHttp2SessionEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1295:    interface Http2ServerEventMap<
+./node_modules/@types/node/http2.d.ts:1319:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1325:            ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1331:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1337:        ): ((...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]) => void)[];
+./node_modules/@types/node/http2.d.ts:1342:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1349:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1356:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1363:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1370:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1376:        ): ((...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]) => void)[];
+./node_modules/@types/node/http2.d.ts:1384:                ...args: Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1390:    interface Http2SecureServerEventMap<
+./node_modules/@types/node/http2.d.ts:1395:    > extends tls.ServerEventMap, Http2ServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response> {
+./node_modules/@types/node/http2.d.ts:1408:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1414:            ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1420:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1427:            ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1433:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1440:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1447:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1454:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1461:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1468:            ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/http2.d.ts:1477:                ...args: Http2SecureServerEventMap<Http1Request, Http1Response, Http2Request, Http2Response>[E]
+./node_modules/@types/node/console.d.ts:24:            inspectOptions?: InspectOptions | ReadonlyMap<NodeJS.WritableStream, InspectOptions> | undefined;
+./node_modules/@types/node/util.d.ts:407:    export function getSystemErrorMap(): Map<number, [string, string]>;
+./node_modules/@types/node/https.d.ts:39:    interface ServerEventMap<
+./node_modules/@types/node/https.d.ts:42:    > extends http.ServerEventMap<Request, Response>, tls.ServerEventMap {}
+./node_modules/@types/node/https.d.ts:69:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/https.d.ts:72:        emit<E extends keyof ServerEventMap>(eventName: E, ...args: ServerEventMap<Request, Response>[E]): boolean;
+./node_modules/@types/node/https.d.ts:76:            listener?: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/https.d.ts:81:        ): ((...args: ServerEventMap<Request, Response>[E]) => void)[];
+./node_modules/@types/node/https.d.ts:85:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/https.d.ts:90:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/https.d.ts:95:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/https.d.ts:100:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/https.d.ts:105:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/@types/node/https.d.ts:110:        ): ((...args: ServerEventMap<Request, Response>[E]) => void)[];
+./node_modules/@types/node/https.d.ts:117:            listener: (...args: ServerEventMap<Request, Response>[E]) => void,
+./node_modules/ts-mixer/dist/types/mixin-tracking.d.ts:3:export declare const registerMixins: (mixedClass: any, constituents: Function[]) => WeakMap<any, Function[]>;
+./node_modules/ts-mixer/dist/esm/mixin-tracking.d.ts:3:export declare const registerMixins: (mixedClass: any, constituents: Function[]) => WeakMap<any, Function[]>;
+./ops/scripts/capture-knowledge.test.ts:15:  files = new Map<string, string>();
+./scripts/mock-github.ts:13:const pulls = new Map<number, PullRequestRecord>();
+./scripts/mock-github.test.ts:4:  const pulls = new Map<number, any>();
+./control/start.ts:62:  const handlers = new Map<NodeJS.Signals, SignalHandler>();
+./control/start.test.ts:20:  const registered = new Map<string, () => void>();
+./glue/server.test.ts:353:  const store = new Map<string, WorkflowState>();
+./glue/server.ts:16:const workflowLocks = new Map<string, Promise<void>>();
+./glue/memory-store.ts:5:  private map = new Map<string, WorkflowState>();
+./discord/approval.ts:48:  private states = new Map<string, ApprovalRecord>();
+./discord/bot.ts:782:  const workflowMessageMap = new Map<string, string>();
+./runtimes/start.ts:81:  const handlers = new Map<NodeJS.Signals, SignalHandler>();
+./runtimes/start.test.ts:22:  const registered = new Map<string, () => void>();

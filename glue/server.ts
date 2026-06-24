@@ -68,23 +68,25 @@ async function notifyStatus(workflow: WorkflowState, message: string) {
   }
 }
 
-function isAnyWorkflowRunning(storeToUse: WorkflowStoreLike): boolean {
-  if (typeof storeToUse.hasRunningWorkflows === "function") {
-    return storeToUse.hasRunningWorkflows();
+function getRunningWorkflowsCount(storeToUse: WorkflowStoreLike): number {
+  if (typeof storeToUse.getRunningWorkflowsCount === "function") {
+    return storeToUse.getRunningWorkflowsCount();
   }
+  let count = 0;
   const values = storeToUse.values();
   for (const workflow of values) {
-    if (workflow.status === "running" || workflow.status === "pending") return true;
+    if (workflow.status === "running" || workflow.status === "pending") count++;
   }
-  return false;
+  return count;
 }
 
+const MAX_CONCURRENT_WORKFLOWS = parseInt(process.env.MAX_CONCURRENT_WORKFLOWS || "5", 10);
 async function processQueue(opts: WorkflowExecutionOpts) {  
   if (isProcessingQueue) return;
   isProcessingQueue = true;
   try {
     while (pendingQueue.size > 0) {
-      if (isAnyWorkflowRunning(opts.store)) break;
+      if (getRunningWorkflowsCount(opts.store) >= MAX_CONCURRENT_WORKFLOWS) break;
       const nextWfId = pendingQueue.values().next().value;
       pendingQueue.delete(nextWfId);
 
@@ -108,7 +110,9 @@ async function processQueue(opts: WorkflowExecutionOpts) {
         opts.store.set(updated.id, updated);
         await notifyStatus(updated, "Workflow started from queue");
         if (!workflowTerminal(updated)) {
-          break;
+          if (getRunningWorkflowsCount(opts.store) >= MAX_CONCURRENT_WORKFLOWS) {
+            break;
+          }
         }
       }
     }
@@ -116,6 +120,7 @@ async function processQueue(opts: WorkflowExecutionOpts) {
     isProcessingQueue = false;
   }
 }
+
 
 
 const DEFAULT_MAX_WORKFLOWS = 500;
