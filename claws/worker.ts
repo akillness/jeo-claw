@@ -40,26 +40,22 @@ serve({ idleTimeout: 0,
         
         const details = `Worker ${role} (Sovereign Engine) started processing stage ${body.stage} for repository ${body.repo || "jeo-claw"}. Collaborative chain initiated via JOC Control Tower.`;
         
-        if (reportDirective) await reportDirective({
-          id: directiveId,
-          workflowId: body.workflowId,
-          stage: body.stage,
-          role: role,
-          action: body.action || (body.stage === "research-code" ? "patch" : body.stage === "review" ? "verify" : "execute"),
-          tool: tool || "jeo-internal",
-          collaborators: ["@제로가재", "@NullClaw-Bot", "@ResearcherClaw", "@SovereignClaw"],
-          details: details
-        });
-
-        // Report collaboration if multiple claws are involved
-        if (role === "researcher-coder") {
-           if (reportCollaboration) await reportCollaboration({
-             workflowId: body.workflowId,
-             from: "@ResearcherClaw",
-             to: "@NullClaw-Bot",
-             type: "call",
-             content: `Initiating code analysis for ${body.repo || "jeo-claw"}. Requesting A/B runtime comparison support. @SovereignClaw monitor latency.`
-           });
+        const endpoint = process.env.JEO_STATUS_ENDPOINT;
+        if (endpoint) {
+          await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workflowId: body.workflowId,
+              runtime: body.runtime || "zeroclaw",
+              stage: body.stage,
+              status: "running",
+              pendingAction: undefined,
+              message: `Worker ${role} is now executing ${body.stage} using ${tool || "internal sovereign tools"}. Collaborative orchestration sequence in progress.\n\n**Details:** ${details}`,
+              repo: body.repo || "akillness/jeo-claw",
+              claw: role
+            })
+          });
         }
 
         // Report status as well

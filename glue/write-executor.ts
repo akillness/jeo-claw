@@ -157,11 +157,14 @@ export async function executeApprovedWriteAction(
     let data = existing;
     if (!data) {
       try {
+        let safeTitle = workflow.request.split("\n")[0].substring(0, 100);
+        if (safeTitle.length < 5) safeTitle = `Automated Evolution PR (${workflow.id})`;
+
         data = await githubRequest(apiBaseUrl, `/repos/${owner}/${repo}/pulls`, token, {
           method: "POST",
           body: JSON.stringify({
-            title: workflow.request,
-            body: `Automated PR for workflow ${workflow.id} (${workflow.runtime})`,
+            title: safeTitle,
+            body: `Automated PR for workflow ${workflow.id} (${workflow.runtime})\n\n### Request\n\`\`\`text\n${workflow.request}\n\`\`\``,
             head,
             base: deps.targetBranch,
             draft: false,

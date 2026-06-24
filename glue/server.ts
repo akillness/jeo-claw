@@ -807,7 +807,7 @@ export function start() {
     if (isAutoMergeRunning) return;
     isAutoMergeRunning = true;
     try {
-      for (const wf of store.values()) {
+      for (const wf of store.getActiveWorkflows()) {
         // [AUTO-APPROVE INJECTED] If it is awaiting approval for ANY stage, automatically approve it.
         if (wf.status === "awaiting-approval" && wf.pendingAction) {
            console.log(`[Auto-Approve] Workflow ${wf.id} is awaiting ${wf.pendingAction}. Auto-approving per sovereign override.`);
@@ -890,10 +890,10 @@ export function start() {
       if (isAutoHealRunning) return;
       isAutoHealRunning = true;
       try {
-          const allWfs = store.values();
+          const activeWfs = store.getActiveWorkflows();
           
           // 1. Re-queue stranded 'queued' workflows
-          const queuedWfs = allWfs.filter((w: any) => w.status === "queued" && !pendingQueue.has(w.id));
+          const queuedWfs = activeWfs.filter((w: any) => w.status === "queued" && !pendingQueue.has(w.id));
           if (queuedWfs.length > 0) {
               console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
               for (const wf of queuedWfs) {
@@ -905,7 +905,7 @@ export function start() {
           // 2. Detect and reset Zombie workflows (stuck in 'pending'/'running' for > 15 mins)
           const ZOMBIE_TIMEOUT_MS = 15 * 60 * 1000;
           let zombiesRescued = false;
-          for (const wf of allWfs) {
+          for (const wf of activeWfs) {
               if (wf.status === "pending" || wf.status === "running") {
                   let lastActiveTime = Date.now(); // default to now if no history
                   if (wf.history && wf.history.length > 0) {
@@ -951,6 +951,12 @@ export function start() {
   (server as any)._autoMergeInterval = autoMergeInterval;
   (server as any)._autoHealInterval = autoHealInterval;
 
+  const origStop = server.stop.bind(server);
+  server.stop = (closeActiveConnections?: boolean) => {
+    clearInterval(autoMergeInterval);
+    clearInterval(autoHealInterval);
+    origStop(closeActiveConnections);
+  };
   return server;
 }
 

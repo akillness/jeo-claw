@@ -32,6 +32,10 @@ export class MemoryWorkflowStore implements WorkflowStore {
     return false;
   }
 
+  getActiveWorkflows(): WorkflowState[] {
+    return Array.from(this.map.values()).filter(w => w.status !== "completed" && w.status !== "failed" && w.status !== "merged");
+  }
+
   get size(): number {
     return this.map.size;
   }

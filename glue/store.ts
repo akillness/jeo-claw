@@ -9,6 +9,7 @@ export interface WorkflowStore {
   set(id: string, state: WorkflowState): void;
   delete(id: string): void;
   values(): WorkflowState[];
+  getActiveWorkflows(): WorkflowState[];
   size: number;
   getRunningWorkflowsCount?(): number;
   hasDuplicateRequest?(request: string): boolean;
@@ -20,6 +21,7 @@ export class SQLiteWorkflowStore implements WorkflowStore {
   private setStmt: Statement;
   private deleteStmt: Statement;
   private valuesStmt: Statement;
+  private activeStmt: Statement;
   private sizeStmt: Statement;
   private runningCountStmt: Statement;
   private hasDuplicateStmt: Statement;
@@ -32,6 +34,7 @@ export class SQLiteWorkflowStore implements WorkflowStore {
     this.setStmt = this.db.query("INSERT OR REPLACE INTO workflows (id, data, last_touched) VALUES (?, ?, ?)");
     this.deleteStmt = this.db.query("DELETE FROM workflows WHERE id = ?");
     this.valuesStmt = this.db.query("SELECT data FROM workflows");
+    this.activeStmt = this.db.query("SELECT data FROM workflows WHERE json_extract(data, '$.status') NOT IN ('completed', 'failed', 'merged')");
     this.sizeStmt = this.db.query("SELECT COUNT(*) as count FROM workflows");
     this.runningCountStmt = this.db.query("SELECT COUNT(*) as count FROM workflows WHERE json_extract(data, '$.status') IN ('running', 'pending')");
     this.hasDuplicateStmt = this.db.query("SELECT 1 FROM workflows WHERE json_extract(data, '$.request') = ? AND json_extract(data, '$.status') IN ('queued', 'pending', 'running', 'awaiting-approval') LIMIT 1");
@@ -76,6 +79,11 @@ export class SQLiteWorkflowStore implements WorkflowStore {
 
   values(): WorkflowState[] {
     const rows = this.valuesStmt.all() as { data: string }[];
+    return rows.map(r => JSON.parse(r.data));
+  }
+
+  getActiveWorkflows(): WorkflowState[] {
+    const rows = this.activeStmt.all() as { data: string }[];
     return rows.map(r => JSON.parse(r.data));
   }
 

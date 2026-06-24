@@ -233,13 +233,14 @@ export async function generateImprovement(
 
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
-    const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. Failing to do so will cause immediate abort.";
-    const models = ["gemini-3.1-pro-low"];
+    const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. EXAMPLE:\\n\\nsrc/app.ts\\n≔10..12\\nnew content for line 10\\nnew content for line 11\\nnew content for line 12\\n\\nDO NOT USE MARKDOWN CODE BLOCKS AROUND THE EDIT.\\n\\n[CRITICAL RULE] If 'Edit rejected: changed on disk' occurs, you MUST use the 'read' tool to re-read the file to get the latest hash, and then retry the 'edit'.\\n\\n[CRITICAL RULE] DO NOT use `git commit` or `git stash` to clean up your changes. Leave modified files as unstaged or staged so they can be collected.";
+    const models = ["antigravity/gemini-3.1-pro-low"];
             let agentResult: any;
             for (const model of models) {
-                notes.push(`Running coding agent with provider: antigravity, model: ${model}`);
+                const prov = "antigravity";
+                notes.push(`Running coding agent with provider: ${prov}, model: ${model}`);
                 const ts = Date.now();
-                agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider antigravity --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
+                agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${model} exit code: ${agentResult.exitCode}`);
         
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
@@ -269,8 +270,13 @@ ${agentResult.stderr.toString()}`;
 
     if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}. See logs for details.`);
 
-    const gitDiff = await $`cd ${tempDir} && git diff --name-only`.text();
-    const modifiedFiles = gitDiff.split("\n").map(f => f.trim()).filter(f => f.length > 0);
+    // Get unstaged/uncommitted and STAGED changes
+    const gitDiffUnstaged = await $`cd ${tempDir} && git diff HEAD --name-only || git diff --name-only`.nothrow().text();
+    
+    // Get committed changes against origin/main (or origin/HEAD)
+    const gitDiffCommitted = await $`cd ${tempDir} && git diff origin/main...HEAD --name-only || git diff origin/master...HEAD --name-only || echo ""`.nothrow().text();
+    
+    const modifiedFiles = [...gitDiffUnstaged.split("\n"), ...gitDiffCommitted.split("\n")].map(f => f.trim()).filter(f => f.length > 0);
 
     const gitUntracked = await $`cd ${tempDir} && git ls-files --others --exclude-standard`.text();
     const untrackedFiles = gitUntracked.split("\n").map(f => f.trim()).filter(f => f.length > 0);
@@ -283,8 +289,8 @@ ${agentResult.stderr.toString()}`;
     } else {
       summary = `실제 코딩 에이전트(gjc)가 코드를 수정했습니다. 변경된 파일: ${allChanged.join(', ')}`;
       for (const file of allChanged) {
-        if (finalArtifacts.length >= 10) {
-          notes.push(`dropped-artifact: max 10 files exceeded (${file})`);
+        if (finalArtifacts.length >= 30) {
+          notes.push(`dropped-artifact: max 30 files exceeded (${file})`);
           continue;
         }
         const filePath = join(tempDir, file);
@@ -295,8 +301,8 @@ ${agentResult.stderr.toString()}`;
         }
         const fileContent = await fileObj.text();
         
-        if (Buffer.byteLength(fileContent, "utf8") > 64 * 1024) {
-          notes.push(`dropped-artifact: ${file} exceeds 64KB`);
+        if (Buffer.byteLength(fileContent, "utf8") > 1024 * 1024) {
+          notes.push(`dropped-artifact: ${file} exceeds 1MB`);
           continue;
         }
 
@@ -305,6 +311,10 @@ ${agentResult.stderr.toString()}`;
           content: fileContent,
         });
       }
+    }
+    
+    if (finalArtifacts.length === 0) {
+      throw new Error("Agent finished but made zero valid code changes (finalArtifacts is empty). Aborting workflow.");
     }
   } catch (err: any) {
     notes.push(`Error during real agent execution: ${err.message}`);
