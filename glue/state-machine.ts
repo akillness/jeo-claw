@@ -144,13 +144,16 @@ export function applyEvent(
 
   if (event && typeof event === "object") {
     // Idempotency: Ignore duplicate events that don't change state
-    const isDuplicate = 
-      (event.prNumber !== undefined && event.prNumber === nextState.prNumber) &&
-      (event.ciPassed !== undefined && event.ciPassed === nextState.ciPassed) &&
-      (event.reviewPassed !== undefined && event.reviewPassed === nextState.reviewPassed) &&
-      (!event.type);
+    let isDuplicate = true;
+    if (event.type) isDuplicate = false;
+    if (event.prNumber !== undefined && event.prNumber !== nextState.prNumber) isDuplicate = false;
+    if (event.ciPassed !== undefined && event.ciPassed !== nextState.ciPassed) isDuplicate = false;
+    if (event.reviewPassed !== undefined && event.reviewPassed !== nextState.reviewPassed) isDuplicate = false;
+    
+    // If the event has no relevant fields, it's not a duplicate, it's just empty, but we can treat it as no-op.
+    const hasRelevantFields = event.prNumber !== undefined || event.ciPassed !== undefined || event.reviewPassed !== undefined || event.type !== undefined;
 
-    if (isDuplicate) {
+    if (isDuplicate && hasRelevantFields) {
       return nextState;
     }
 

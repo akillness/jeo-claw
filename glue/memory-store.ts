@@ -19,6 +19,18 @@ export class MemoryWorkflowStore implements WorkflowStore {
   values(): WorkflowState[] {
     return Array.from(this.map.values());
   }
+  values(): WorkflowState[] {
+    return Array.from(this.map.values());
+  }
+
+  hasDuplicateRequest(request: string): boolean {
+    for (const w of this.map.values()) {
+      if (w.request === request && (w.status === "queued" || w.status === "pending" || w.status === "running" || w.status === "awaiting-approval")) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   get size(): number {
     return this.map.size;
