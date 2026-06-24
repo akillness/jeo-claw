@@ -143,6 +143,17 @@ export function applyEvent(
   }
 
   if (event && typeof event === "object") {
+    // Idempotency: Ignore duplicate events that don't change state
+    const isDuplicate = 
+      (event.prNumber !== undefined && event.prNumber === nextState.prNumber) &&
+      (event.ciPassed !== undefined && event.ciPassed === nextState.ciPassed) &&
+      (event.reviewPassed !== undefined && event.reviewPassed === nextState.reviewPassed) &&
+      (!event.type);
+
+    if (isDuplicate) {
+      return nextState;
+    }
+
     if (event.type === "approve" && event.action) {
       if (acceptsActionDecision(nextState, event.action)) {
         nextState = markAction(nextState, event.action, "approved", event.user);
