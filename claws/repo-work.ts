@@ -202,6 +202,67 @@ ${staleRecommendation}
 `;
 }
 
+/**
+ * Output markers that indicate a coding-agent invocation produced NO real work even
+ * when the process exits 0. The agent CLI prints these and `return`s with exit code 0
+ * (e.g. `error: selected model '…' resolves to gemini, not requested provider
+ * antigravity.` from launch.ts, or a soft 429 rate-limit notice), so exit code alone
+ * cannot distinguish a real success from a no-op. Treat any of these as a failed
+ * attempt so the model-pool fallback advances to the next candidate instead of
+ * falsely declaring success and aborting with zero artifacts.
+ */
+export const FATAL_OUTPUT_MARKERS = [
+  "Rate limited",
+  "429",
+  "resolves to",            // provider/model mismatch (launch.ts)
+  "not requested provider", // provider/model mismatch (launch.ts)
+  "No credentials",
+  "Invalid API key",
+  "authentication failed",
+] as const;
+
+export function hasFatalOutputMarker(output: string): boolean {
+  return FATAL_OUTPUT_MARKERS.some((marker) => output.includes(marker));
+}
+
+/**
+ * An agent attempt counts as a real success only when it exits cleanly, leaves the
+ * working tree actually changed, and printed none of the fatal no-op markers. Exit
+ * code 0 alone is insufficient because the CLI exits 0 on provider/model mismatch
+ * and soft rate-limit notices without touching any files.
+ */
+export function isAgentAttemptSuccessful(
+  exitCode: number,
+  output: string,
+  dirty: boolean
+): boolean {
+  return exitCode === 0 && dirty && !hasFatalOutputMarker(output);
+}
+
+/**
+ * Build the ordered `provider:model` fallback pool. The operator-configured
+ * `LLM_PROVIDER`/`LLM_MODEL` pair (when set) is tried first, followed by valid,
+ * correctly provider-qualified fallbacks. Note: a bare `gemini-3.1-pro` resolves to
+ * the public `gemini` provider, so the Antigravity variant MUST be provider-qualified
+ * (`antigravity/gemini-3.1-pro-low`) to route to Antigravity instead of erroring out.
+ */
+export function buildModelPool(env?: { provider?: string; model?: string }): string[] {
+  const pool: string[] = [];
+  const provider = env?.provider?.trim();
+  const model = env?.model?.trim();
+  if (provider && model) {
+    pool.push(`${provider}:${model}`);
+  }
+  const defaults = [
+    "anthropic:claude-3-5-sonnet-20241022",
+    "antigravity:antigravity/gemini-3.1-pro-low",
+  ];
+  for (const candidate of defaults) {
+    if (!pool.includes(candidate)) pool.push(candidate);
+  }
+  return pool;
+}
+
 
 export async function generateImprovement(
   runtime: string,
@@ -234,26 +295,47 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. EXAMPLE:\\n\\nsrc/app.ts\\n≔10..12\\nnew content for line 10\\nnew content for line 11\\nnew content for line 12\\n\\nDO NOT USE MARKDOWN CODE BLOCKS AROUND THE EDIT.\\n\\n[CRITICAL RULE] If 'Edit rejected: changed on disk' occurs, you MUST use the 'read' tool to re-read the file to get the latest hash, and then retry the 'edit'.\\n\\n[CRITICAL RULE] DO NOT use `git commit` or `git stash` to clean up your changes. Leave modified files as unstaged or staged so they can be collected.";
-    const models = [
-        "antigravity:claude-sonnet-4-6",
-        "antigravity:gemini-3.1-pro",
-        "anthropic:claude-3-5-sonnet-20241022"
-    ];
+    const models = buildModelPool({
+      provider: process.env.LLM_PROVIDER,
+      model: process.env.LLM_MODEL,
+    });
+    notes.push(`Model pool: ${models.join(" -> ")}`);
     let agentResult: any;
+    let attemptSucceeded = false;
+    const attemptSummaries: string[] = [];
     for (const modelSpec of models) {
-        const [prov, modelName] = modelSpec.split(":");
+        const sep = modelSpec.indexOf(":");
+        const prov = sep >= 0 ? modelSpec.slice(0, sep) : modelSpec;
+        const modelName = sep >= 0 ? modelSpec.slice(sep + 1) : "";
         notes.push(`Running coding agent with provider: ${prov}, model: ${modelName}`);
         const ts = Date.now();
         agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${modelName} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${modelName} exit code: ${agentResult.exitCode}`);
-        
+
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
-        if (agentResult.exitCode === 0 && !outStr.includes("Rate limited") && !outStr.includes("429")) break;
-        
-        notes.push(`[Model Pooling] Fallback triggered (exitCode: ${agentResult.exitCode}, rateLimited: ${outStr.includes("Rate limited")}). Cleaning up repo state before retry...`);
+        // Did the agent actually leave changes? Exit code 0 alone is not enough: the
+        // CLI exits 0 on provider/model mismatch and soft rate-limit notices without
+        // touching any files. Check the working tree (modified/staged/untracked) AND
+        // commits ahead of origin in case the agent committed despite the strict rule.
+        const porcelain = (await $`cd ${tempDir} && git status --porcelain`.nothrow().text()).trim();
+        const aheadCount = parseInt(
+          (await $`cd ${tempDir} && git rev-list --count origin/HEAD..HEAD 2>/dev/null || echo 0`.nothrow().text()).trim() || "0",
+          10
+        );
+        const dirty = porcelain.length > 0 || (Number.isFinite(aheadCount) && aheadCount > 0);
+
+        if (isAgentAttemptSuccessful(agentResult.exitCode, outStr, dirty)) {
+          attemptSucceeded = true;
+          notes.push(`[Model Pooling] Success with provider: ${prov}, model: ${modelName}`);
+          break;
+        }
+
+        const fatal = hasFatalOutputMarker(outStr);
+        attemptSummaries.push(`${prov}:${modelName} (exit ${agentResult.exitCode}, fatalMarker=${fatal}, dirty=${dirty})`);
+        notes.push(`[Model Pooling] Fallback triggered (exitCode: ${agentResult.exitCode}, fatalMarker: ${fatal}, dirty: ${dirty}). Cleaning up repo state before retry...`);
         await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
     }
-    
+
     // PREVENT DATA LOSS: Save agent stdout/stderr
     try {
         const fs = await import("node:fs/promises");
@@ -272,7 +354,12 @@ ${agentResult.stderr.toString()}`;
         notes.push(`Failed to save agent logs: ${e.message}`);
     }
 
-    if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}. See logs for details.`);
+    if (!attemptSucceeded) {
+      throw new Error(
+        `All ${models.length} model-pool candidates failed to produce changes. Attempts: ${attemptSummaries.join("; ")}. See logs for details.`
+      );
+    }
+
 
     // Get unstaged/uncommitted and STAGED changes
     const gitDiffUnstaged = await $`cd ${tempDir} && git diff HEAD --name-only || git diff --name-only`.nothrow().text();
