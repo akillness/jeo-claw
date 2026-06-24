@@ -24,3 +24,4 @@ updated: 2026-06-10
 - 2026-06-24 · [[wiki/sources/deep-refactor-concurrency]] — Deep Refactoring for Concurrency and Performance (performance, concurrency)
 - 2026-06-24 · [[wiki/sources/deep-refactoring-cycle-166]] — Deep Refactoring Cycle 166: Non-blocking Queue Processing (performance, concurrency, glue)
 - 2026-06-24 · [[wiki/sources/deep-refactoring-172]] — Deep Refactoring Cycle 172 (refactoring, performance, memory, idempotency)
+- 2026-06-24 · [[wiki/sources/deep-refactoring-cycle-175]] — Ouroboros Evolution Cycle: Spec-Kit Driven Deep Refactoring (Cycle #175) (performance, memory, concurrency, glue)

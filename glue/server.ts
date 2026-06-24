@@ -563,29 +563,35 @@ export async function handleControlEventRequest(
       return json(404, { error: "Workflow not found" });
     }
     const wasMerged = wf.status === "merged";
-    let updated = await withWorkflowLock(wf.id, async () => {
-      const currentState = opts.store.get(wf.id) || wf;
-      let updatedState = applyEvent(currentState, event);
-      if (updatedState !== currentState) {
-        opts.store.set(updatedState.id, updatedState);
-      }
-      if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-        updatedState = await progressWorkflowState(updatedState, { 
-          store: opts.store,
-          controlEventSecret: opts.controlEventSecret,
-          prefix: opts.prefix,
-          sourceFactory: opts.sourceFactory,
-          writeDeps: opts.writeDeps,
-          runtimeDispatchSecret: opts.runtimeDispatchSecret,
-          dispatchFetchImpl: opts.dispatchFetchImpl,
-        });
-        opts.store.set(updatedState.id, updatedState);
-      }
-      if (workflowTerminal(updatedState)) {
-        pendingQueue.delete(updatedState.id);
-      }
-      return updatedState;
-    });
+    let updated;
+    try {
+      updated = await withWorkflowLock(wf.id, async () => {
+        const currentState = opts.store.get(wf.id) || wf;
+        let updatedState = applyEvent(currentState, event);
+        if (updatedState !== currentState) {
+          opts.store.set(updatedState.id, updatedState);
+        }
+        if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
+          updatedState = await progressWorkflowState(updatedState, { 
+            store: opts.store,
+            controlEventSecret: opts.controlEventSecret,
+            prefix: opts.prefix,
+            sourceFactory: opts.sourceFactory,
+            writeDeps: opts.writeDeps,
+            runtimeDispatchSecret: opts.runtimeDispatchSecret,
+            dispatchFetchImpl: opts.dispatchFetchImpl,
+          });
+          opts.store.set(updatedState.id, updatedState);
+        }
+        if (workflowTerminal(updatedState)) {
+          pendingQueue.delete(updatedState.id);
+        }
+        return updatedState;
+      });
+    } catch (err) {
+      console.error("Error processing control event workflow state:", err);
+      return json(500, { error: "Internal server error processing workflow" });
+    }
     
     // Ouroboros / Continuous Evolution Loop
     if (!wasMerged && updated.status === "merged") {
@@ -732,20 +738,26 @@ export async function handleWebhookRequest(
 
   if (workflowState) {
     const workflowId = workflowState.id;
-    let nextState = await withWorkflowLock(workflowId, async () => {
-      // Re-read state inside the lock to prevent race conditions
-      const currentState = opts.store.get(workflowId) || workflowState;
-      let updatedState = applyEvent(currentState!, parsed);
-      if (updatedState !== currentState) {
+    let nextState;
+    try {
+      nextState = await withWorkflowLock(workflowId, async () => {
+        // Re-read state inside the lock to prevent race conditions
+        const currentState = opts.store.get(workflowId) || workflowState;
+        let updatedState = applyEvent(currentState!, parsed);
+        if (updatedState !== currentState) {
+          opts.store.set(updatedState.id, updatedState);
+        }
+        updatedState = await progressWorkflowState(updatedState, opts);
         opts.store.set(updatedState.id, updatedState);
-      }
-      updatedState = await progressWorkflowState(updatedState, opts);
-      opts.store.set(updatedState.id, updatedState);
-      if (workflowTerminal(updatedState)) {
-        pendingQueue.delete(updatedState.id);
-      }
-      return updatedState;
-    });
+        if (workflowTerminal(updatedState)) {
+          pendingQueue.delete(updatedState.id);
+        }
+        return updatedState;
+      });
+    } catch (err) {
+      console.error("Error processing webhook workflow state:", err);
+      return json(500, { error: "Internal server error processing workflow" });
+    }
     pruneWorkflowStore(opts.store, opts.storePolicy);
     processQueue(opts).catch(console.error);
     return json(200, { success: true, workflow: nextState });

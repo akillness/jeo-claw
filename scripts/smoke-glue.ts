@@ -7,10 +7,12 @@ import type { SecretSource } from "../secrets/loader.ts";
 const webhookSecret = "smoke-webhook-secret";
 const controlSecret = "smoke-control-secret";
 const runtimeDispatchSecret = "smoke-runtime-dispatch-secret";
+process.env.JEO_SECRET_SOURCE = "mock";
+process.env.TARGET_REPO = "acme/repo";
+process.env.TARGET_BRANCH = "main";
 
-class StaticSecretSource implements SecretSource {
-  constructor(private readonly secrets: Record<string, string>) {}
-
+class MockSource implements SecretSource {
+  constructor(private secrets: Record<string, string>) {}
   async access(secretId: string): Promise<string> {
     const value = this.secrets[secretId];
     if (value === undefined) throw new Error(`missing smoke secret: ${secretId}`);
@@ -110,8 +112,7 @@ const githubFetchImpl: typeof fetch = (async (url: string | URL | Request, init?
 }) as typeof fetch;
 
 const store = new MemoryWorkflowStore();
-const sourceFactory = () => new StaticSecretSource({ "jeo-claw-github-token-rw": "ghp_write_smoke" });
-
+const sourceFactory = () => new MockSource({ "jeo-claw-github-token-rw": "ghp_write_smoke" });
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
