@@ -234,14 +234,18 @@ export async function generateImprovement(
     notes.push(`Running coding agent for request: ${request}`);
     const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
     const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. EXAMPLE:\\n\\nsrc/app.ts\\n≔10..12\\nnew content for line 10\\nnew content for line 11\\nnew content for line 12\\n\\nDO NOT USE MARKDOWN CODE BLOCKS AROUND THE EDIT.\\n\\n[CRITICAL RULE] If 'Edit rejected: changed on disk' occurs, you MUST use the 'read' tool to re-read the file to get the latest hash, and then retry the 'edit'.\\n\\n[CRITICAL RULE] DO NOT use `git commit` or `git stash` to clean up your changes. Leave modified files as unstaged or staged so they can be collected.";
-    const models = ["antigravity/gemini-3.1-pro-low"];
-            let agentResult: any;
-            for (const model of models) {
-                const prov = "antigravity";
-                notes.push(`Running coding agent with provider: ${prov}, model: ${model}`);
-                const ts = Date.now();
-                agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${model} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
-        notes.push(`model ${model} exit code: ${agentResult.exitCode}`);
+    const models = [
+        "antigravity:claude-sonnet-4-6",
+        "antigravity:gemini-3.1-pro",
+        "anthropic:claude-3-5-sonnet-20241022"
+    ];
+    let agentResult: any;
+    for (const modelSpec of models) {
+        const [prov, modelName] = modelSpec.split(":");
+        notes.push(`Running coding agent with provider: ${prov}, model: ${modelName}`);
+        const ts = Date.now();
+        agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${modelName} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
+        notes.push(`model ${modelName} exit code: ${agentResult.exitCode}`);
         
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
         if (agentResult.exitCode === 0 && !outStr.includes("Rate limited") && !outStr.includes("429")) break;
