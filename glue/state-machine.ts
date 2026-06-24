@@ -46,6 +46,9 @@ function consumeActions(state: WorkflowState, actions: readonly HighRiskAction[]
 function blockForAction(state: WorkflowState, action: HighRiskAction): WorkflowState {
   const pending = state.actionApprovals?.[action];
   const withPending = pending ? state : markAction(state, action, "pending");
+  if (state.status === "awaiting-approval" && state.pendingAction === action) {
+    return state;
+  }
   return {
     ...withPending,
     pendingAction: action,
@@ -98,6 +101,9 @@ export function advanceStage(state: WorkflowState): WorkflowState {
     if (!gateResult.allowed) {
       const missingApproval = MERGE_ACTIONS.find((action) => !hasApprovedAction(state, action));
       const blocked = missingApproval ? blockForAction(state, missingApproval) : state;
+      if (state.status === "awaiting-approval" && state.pendingAction === (missingApproval ?? blocked.pendingAction)) {
+        return state;
+      }
       return {
         ...blocked,
         status: "awaiting-approval",

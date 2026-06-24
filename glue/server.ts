@@ -581,6 +581,9 @@ export async function handleControlEventRequest(
         });
         opts.store.set(updatedState.id, updatedState);
       }
+      if (workflowTerminal(updatedState)) {
+        pendingQueue.delete(updatedState.id);
+      }
       return updatedState;
     });
     
@@ -738,6 +741,9 @@ export async function handleWebhookRequest(
       }
       updatedState = await progressWorkflowState(updatedState, opts);
       opts.store.set(updatedState.id, updatedState);
+      if (workflowTerminal(updatedState)) {
+        pendingQueue.delete(updatedState.id);
+      }
       return updatedState;
     });
     pruneWorkflowStore(opts.store, opts.storePolicy);

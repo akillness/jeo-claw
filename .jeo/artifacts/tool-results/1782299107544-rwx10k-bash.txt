@@ -1,0 +1,86 @@
+Exit code 1
+bun test v1.3.14 (0d9b296a)
+
+
+glue/state-machine.test.ts:
+(pass) createWorkflow sets up initial state [0.30ms]
+(pass) advanceStage walks automatic stages until PR creation approval is required [0.53ms]
+(pass) pr-create requires pr.create approval before scheduling review [0.37ms]
+(pass) merge stage blocks and stays awaiting-approval if conditions not met [0.50ms]
+(pass) merge stage merges when CI, review, and pr.merge approval are true [0.46ms]
+(pass) applyEvent sets fields and matching pending action approvals correctly [0.57ms]
+(pass) advanceStage does not resurrect rejected or merged states [0.23ms]
+(pass) legacy approved boolean cannot synthesize merge approvals [0.19ms]
+(pass) applyEvent ignores early approvals before matching pending action [0.24ms]
+(pass) applyEvent does not mutate terminal workflows [0.32ms]
+(pass) applyEvent idempotency: returns same object reference if no changes [0.10ms]
+
+glue/server.test.ts:
+(pass) handleWebhookRequest returns 401 on bad signature [2.95ms]
+(pass) handleWebhookRequest rejects oversized webhook payloads before signature parsing [0.80ms]
+(pass) handleWebhookRequest exposes health without webhook signature [0.47ms]
+146 |     store,
+147 |   });
+148 |   expect(res.status).toBe(200);
+149 |   const updated = store.get("wf-123");
+150 |   expect(updated?.prNumber).toBe(42);
+151 |   expect(updated?.stage).toBe("merge");
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: "merge"
+Received: "pr-review-schedule"
+
+      at <anonymous> (/tmp/jeoclaw-repo-gksTxW/glue/server.test.ts:151:26)
+(fail) handleWebhookRequest returns 200 on valid pull_request event [2.79ms]
+(pass) handleWebhookRequest rejects non-boolean webhook fields without mutating workflow [0.92ms]
+(pass) validateRuntimeDispatchPayload rejects arbitrary egress and host-control fields [0.19ms]
+(pass) handleControlEventRequest rejects unauthenticated mutations [1.22ms]
+(pass) handleControlEventRequest creates workflows and ignores early approvals [1.20ms]
+(pass) handleControlEventRequest executes approved PR creation through the live write path [2.96ms]
+(pass) handleWebhookRequest executes approved merge through the live write path [1.55ms]
+(pass) config-set through control-event is explicit not-implemented [0.56ms]
+(pass) ping control event returns pong [0.29ms]
+(pass) debug workflows endpoint lists current workflow summaries [0.80ms]
+(pass) handleControlDispatchRequest rejects unauthenticated or unapproved write release [1.21ms]
+(pass) handleControlDispatchRequest releases write secret only for approved matching role/action and consumes approval [1.27ms]
+(pass) handleControlDispatchRequest rejects role/action mismatch [0.78ms]
+(pass) handleControlDispatchRequest binds release to stored workflow runtime stage and readiness [0.80ms]
+(pass) handleControlDispatchRequest refuses merge credential release before CI and review are true [0.91ms]
+(pass) unmatched signed webhook reports non-success body [0.79ms]
+(pass) start throws when required secrets/bootstrap inputs are missing or blank [0.40ms]
+(pass) pruneWorkflowStore evicts stale terminal workflows before active workflows [0.62ms]
+(pass) handleControlEventRequest prunes workflow store after mutations [0.73ms]
+
+glue/write-executor.test.ts:
+(pass) executeApprovedWriteAction reuses an existing open PR for the deterministic head [0.34ms]
+(pass) executeApprovedWriteAction honors custom GitHub API base URL [0.19ms]
+
+glue/github-webhook.test.ts:
+(pass) verifySignature accepts correctly-HMAC'd body and rejects tampered one/secret [0.17ms]
+(pass) parseWebhook handles pull_request event [0.08ms]
+(pass) parseWebhook validates pull_request number shape [0.07ms]
+(pass) parseWebhook handles check_suite conclusion success [0.04ms]
+(pass) parseWebhook handles check_suite conclusion failure [0.03ms]
+(pass) parseWebhook handles status success [0.03ms]
+(pass) parseWebhook handles status pending [0.03ms]
+(pass) parseWebhook handles status failure [0.03ms]
+(pass) parseWebhook handles pull_request_review approved and changes requested [0.10ms]
+(pass) parseWebhook exposes workflowId without a second JSON parse [0.11ms]
+(pass) parseWebhook rejects truthy-but-not-boolean direct status fields [0.19ms]
+(pass) parseWebhook accepts strict direct boolean fields [0.10ms]
+
+glue/runtime-dispatch.test.ts:
+(pass) dispatchStageWork reports contextual error for non-JSON runtime failures [0.30ms]
+
+glue/merge-gate.test.ts:
+(pass) merge gate allows when all true [0.08ms]
+(pass) merge gate blocks when each single condition is false [0.08ms]
+
+1 tests failed:
+(fail) handleWebhookRequest returns 200 on valid pull_request event [2.79ms]
+
+ 49 pass
+ 1 fail
+ 160 expect() calls
+Ran 50 tests across 6 files. [98.00ms]
