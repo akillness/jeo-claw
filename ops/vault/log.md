@@ -20,3 +20,4 @@ updated: 2026-06-10
 - 2026-06-24 · [[wiki/sources/deep-refactoring]] — Deep Refactoring (refactoring, optimization)
 - 2026-06-24 · [[wiki/sources/deep-refactoring-cycle-148]] — Ouroboros Evolution Cycle 148 - Deep Refactoring (performance, security, refactoring)
 - 2026-06-24 · [[wiki/sources/deep-refactor-157]] — Ouroboros Evolution Cycle: Spec-Kit Driven Deep Refactoring (refactoring, idempotency, debouncing, performance)
+- 2026-06-24 · [[wiki/sources/ouroboros-cycle-160]] — Ouroboros Evolution Cycle 160 (evolution, performance, survey)
