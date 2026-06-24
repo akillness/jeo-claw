@@ -842,7 +842,8 @@ export function start() {
   // Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
   // This prevents workflows from getting stuck due to memory crashes or direct database injections.
 
-  setInterval(async () => {
+  let isAutoHealRunning = false;
+  const autoHealInterval = setInterval(async () => {
       if (isAutoHealRunning) return;
       isAutoHealRunning = true;
       try {
@@ -892,7 +893,7 @@ export function start() {
       }
   }, 15000);
 
-  return Bun.serve({
+  const server = Bun.serve({
     port,
     async fetch(req) {
       const url = new URL(req.url);
@@ -902,5 +903,11 @@ export function start() {
       return handleWebhookRequest(req, opts);
     },
   });
+
+  // Attach intervals to server object for cleanup during tests
+  (server as any)._autoMergeInterval = autoMergeInterval;
+  (server as any)._autoHealInterval = autoHealInterval;
+
+  return server;
 }
 

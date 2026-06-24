@@ -779,8 +779,8 @@ export async function start(): Promise<Client> {
   const glueEndpoint = requireTrimmed("GLUE_EVENT_ENDPOINT", policy.controlEndpoint);
   const controlEventSecret = requireTrimmed("JEO_CONTROL_EVENT_SECRET", policy.controlEventSecret);
 
-  
   const workflowMessageMap = new Map<string, string>();
+  const MAX_MESSAGE_MAP_SIZE = 1000;
   const sendToChannel = async (workflowId: string | undefined, content: string, components?: any[]) => {
     if (content.length > 1950) {
       content = content.substring(0, 1950) + "... (truncated)";
@@ -811,6 +811,10 @@ export async function start(): Promise<Client> {
         });
         if (workflowId) {
           workflowMessageMap.set(workflowId, sent.id);
+          if (workflowMessageMap.size > MAX_MESSAGE_MAP_SIZE) {
+            const firstKey = workflowMessageMap.keys().next().value;
+            if (firstKey) workflowMessageMap.delete(firstKey);
+          }
         }
       }
     } catch (err) {
