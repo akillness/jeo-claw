@@ -172,19 +172,15 @@ export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: Workflow
   // Re-fetch values only if we need to prune by size, to avoid sorting already deleted items
   const currentValues = storeToPrune.values();
 
-  const candidates = currentValues.sort((a, b) => {
-    return workflowLastTouchedMs(a) - workflowLastTouchedMs(b);
-  });
+  const candidatesWithTime = currentValues.map(candidate => ({
+    candidate,
+    touchedMs: workflowLastTouchedMs(candidate)
+  })).sort((a, b) => a.touchedMs - b.touchedMs);
 
-  for (const candidate of candidates) {
+  for (const { candidate } of candidatesWithTime) {
     if (currentSize <= maxWorkflows) break;
     storeToPrune.delete(candidate.id);
     pendingQueue.delete(candidate.id);
-    currentSize--;
-  }
-  for (const candidate of candidates) {
-    if (currentSize <= maxWorkflows) break;
-    storeToPrune.delete(candidate.id);
     currentSize--;
   }
 }
@@ -483,15 +479,10 @@ export async function handleControlDispatchRequest(
     opts.store.set(updated.id, updated);
     await notifyStatus(updated, `Action ${body.action} consumed`);
     // Memory Leak Fix: Remove terminal workflows from pendingQueue
-
-    for (const id of pendingQueue) {
-      const w = opts.store.get(id);
-      if (!w || workflowTerminal(w)) {
-        pendingQueue.delete(id);
-      }
+    // Optimized: We only need to check the current workflow, processQueue handles the rest.
+    if (workflowTerminal(updated)) {
+      pendingQueue.delete(updated.id);
     }
-
-
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
       success: true,
