@@ -161,20 +161,27 @@ export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: Workflow
   for (const workflow of values) {
     if (workflowTerminal(workflow) && now - workflowLastTouchedMs(workflow) > terminalRetentionMs) {
       storeToPrune.delete(workflow.id);
+      pendingQueue.delete(workflow.id);
     }
   }
 
   const maxWorkflows = Math.max(1, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
-  const size = storeToPrune.size;
-  if (size <= maxWorkflows) return;
+  let currentSize = storeToPrune.size;
+  if (currentSize <= maxWorkflows) return;
 
+  // Re-fetch values only if we need to prune by size, to avoid sorting already deleted items
   const currentValues = storeToPrune.values();
 
   const candidates = currentValues.sort((a, b) => {
     return workflowLastTouchedMs(a) - workflowLastTouchedMs(b);
   });
 
-  let currentSize = size;
+  for (const candidate of candidates) {
+    if (currentSize <= maxWorkflows) break;
+    storeToPrune.delete(candidate.id);
+    pendingQueue.delete(candidate.id);
+    currentSize--;
+  }
   for (const candidate of candidates) {
     if (currentSize <= maxWorkflows) break;
     storeToPrune.delete(candidate.id);
@@ -517,10 +524,17 @@ export async function handleControlEventRequest(
   if (event.type === "request") {
     // [OOO RALPH / PERF PATCH] Deduplication / Debouncing Check
     // Prevent fork bombs and queue floods from cronjobs sending identical requests
-    const activeStates = ["queued", "pending", "running", "awaiting-approval"];
-    const isDuplicate = Array.from(opts.store.values()).some(w => 
-      w.request === event.request && activeStates.includes(w.status)
-    );
+    let isDuplicate = false;
+    if (typeof opts.store.hasDuplicateRequest === "function") {
+      isDuplicate = opts.store.hasDuplicateRequest(event.request);
+    } else {
+      for (const w of opts.store.values()) {
+        if (w.request === event.request && (w.status === "queued" || w.status === "pending" || w.status === "running" || w.status === "awaiting-approval")) {
+          isDuplicate = true;
+          break;
+        }
+      }
+    }
     
     if (isDuplicate && !(event as any).force) {
       console.log(`[Deduplication] Dropping identical request. A workflow with this request is already active.`);

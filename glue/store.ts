@@ -11,7 +11,9 @@ export interface WorkflowStore {
   values(): WorkflowState[];
   size: number;
   hasRunningWorkflows?(): boolean;
+  hasDuplicateRequest?(request: string): boolean;
 }
+
 export class SQLiteWorkflowStore implements WorkflowStore {
   private db: Database;
   private getStmt: Statement;
@@ -20,6 +22,7 @@ export class SQLiteWorkflowStore implements WorkflowStore {
   private valuesStmt: Statement;
   private sizeStmt: Statement;
   private hasRunningStmt: Statement;
+  private hasDuplicateStmt: Statement;
 
   constructor(path: string = "workflows.sqlite") {
     this.db = new Database(path);
@@ -31,6 +34,7 @@ export class SQLiteWorkflowStore implements WorkflowStore {
     this.valuesStmt = this.db.query("SELECT data FROM workflows");
     this.sizeStmt = this.db.query("SELECT COUNT(*) as count FROM workflows");
     this.hasRunningStmt = this.db.query("SELECT 1 FROM workflows WHERE json_extract(data, '$.status') IN ('running', 'pending') LIMIT 1");
+    this.hasDuplicateStmt = this.db.query("SELECT 1 FROM workflows WHERE json_extract(data, '$.request') = ? AND json_extract(data, '$.status') IN ('queued', 'pending', 'running', 'awaiting-approval') LIMIT 1");
   }
 
   private init() {
@@ -62,6 +66,11 @@ export class SQLiteWorkflowStore implements WorkflowStore {
 
   hasRunningWorkflows(): boolean {
     const row = this.hasRunningStmt.get();
+    return !!row;
+  }
+
+  hasDuplicateRequest(request: string): boolean {
+    const row = this.hasDuplicateStmt.get(request);
     return !!row;
   }
 
