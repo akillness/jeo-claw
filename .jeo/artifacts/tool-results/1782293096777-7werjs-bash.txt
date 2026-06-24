@@ -97,25 +97,23 @@ async function processQueue(opts: WorkflowExecutionOpts) {
       if (wf && !workflowTerminal(wf)) {
         wf.status = "pending";
         opts.store.set(wf.id, wf);
-        // Run workflow progression concurrently without blocking the queue
-        withWorkflowLock(wf.id, async () => {
-          try {
-            const updated = await progressWorkflowState(wf, opts);
-            opts.store.set(updated.id, updated);
-            await notifyStatus(updated, "Workflow started from queue");
-          } catch (err: any) {
-            console.error("Workflow failed with error:", err);
-            const failedWf = opts.store.get(wf.id) || wf;
-            failedWf.status = "failed";
-            opts.store.set(failedWf.id, failedWf);
-            await notifyStatus(failedWf, "Workflow failed: " + (err.message || String(err)));
-          }
-        }).catch(console.error);
-
-        if (getRunningWorkflowsCount(opts.store) >= MAX_CONCURRENT_WORKFLOWS) {
-          break;
+        let updated;
+        try {
+          updated = await withWorkflowLock(wf.id, () => progressWorkflowState(wf, opts));
+        } catch (err: any) {
+          console.error("Workflow failed with error:", err);
+          wf.status = "failed";
+          opts.store.set(wf.id, wf);
+          await notifyStatus(wf, "Workflow failed: " + (err.message || String(err)));
+          continue;
         }
-
+        opts.store.set(updated.id, updated);
+        await notifyStatus(updated, "Workflow started from queue");
+        if (!workflowTerminal(updated)) {
+          if (getRunningWorkflowsCount(opts.store) >= MAX_CONCURRENT_WORKFLOWS) {
+            break;
+          }
+        }
       }
     }
   } finally {
