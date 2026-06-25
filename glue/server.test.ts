@@ -1,4 +1,5 @@
 import { SQLiteWorkflowStore } from "./store";
+import { DeliveryIdempotencyCache } from "./webhook-idempotency.ts";
 import { test, expect } from "bun:test";
 import {
   handleWebhookRequest,
@@ -605,4 +606,64 @@ test("handleControlEventRequest prunes workflow store after mutations", async ()
   expect(res.status).toBe(201);
   expect(localStore.get("wf-old") !== undefined).toBe(false);
   expect(localStore.size).toBe(1);
+});
+
+test("handleWebhookRequest deduplicates redelivered webhooks by X-GitHub-Delivery", async () => {
+  const secret = "test_webhook_secret";
+  const store = new SQLiteWorkflowStore(":memory:");
+  const deliveryCache = new DeliveryIdempotencyCache();
+
+  const wf = createWorkflow("wf-dedupe", "zeroclaw", "impl feature");
+  wf.stage = "pr-review-schedule";
+  wf.prNumber = 77;
+  store.set("wf-dedupe", wf);
+
+  const body = JSON.stringify({ pull_request: { number: 77 } });
+  const hmac = createHmac("sha256", secret).update(body).digest("hex");
+  const opts = {
+    secret,
+    controlEventSecret: CONTROL_SECRET,
+    prefix: "jeo-claw",
+    sourceFactory,
+    writeDeps: { targetRepo: "acme/repo", targetBranch: "main" },
+    runtimeDispatchSecret: "runtime-dispatch-secret",
+    dispatchFetchImpl: runtimeDispatchFetchImpl,
+    store,
+    deliveryCache,
+  };
+  const makeReq = () =>
+    new Request("http://localhost/webhook", {
+      method: "POST",
+      headers: { "x-hub-signature-256": `sha256=${hmac}`, "x-github-delivery": "delivery-77" },
+      body,
+    });
+
+  const first = await handleWebhookRequest(makeReq(), opts);
+  expect(first.status).toBe(200);
+  const firstBody = (await first.json()) as { deduplicated?: boolean };
+  expect(firstBody.deduplicated).toBeUndefined();
+  expect(store.get("wf-dedupe")?.stage).toBe("merge");
+
+  // Tamper the store to a state the redelivery would *advance* if it were reprocessed.
+  const reset = store.get("wf-dedupe")!;
+  reset.stage = "pr-review-schedule";
+  store.set("wf-dedupe", reset);
+
+  const replay = await handleWebhookRequest(makeReq(), opts);
+  expect(replay.status).toBe(200);
+  const replayBody = (await replay.json()) as { deduplicated?: boolean; deliveryId?: string };
+  expect(replayBody.deduplicated).toBe(true);
+  expect(replayBody.deliveryId).toBe("delivery-77");
+  // Redelivery was dropped before any state mutation: stage stays where we reset it.
+  expect(store.get("wf-dedupe")?.stage).toBe("pr-review-schedule");
+
+  // A distinct delivery id for the same event is still processed.
+  const distinct = new Request("http://localhost/webhook", {
+    method: "POST",
+    headers: { "x-hub-signature-256": `sha256=${hmac}`, "x-github-delivery": "delivery-78" },
+    body,
+  });
+  const distinctRes = await handleWebhookRequest(distinct, opts);
+  expect(distinctRes.status).toBe(200);
+  expect(store.get("wf-dedupe")?.stage).toBe("merge");
 });
