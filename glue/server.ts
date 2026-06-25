@@ -7,9 +7,12 @@ import { loadWriteSecretsForRole, secretSourceFromEnv, type Role, type SecretSou
 import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
 import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
 import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
+import { DeliveryIdempotencyCache } from "./webhook-idempotency.ts";
 
 export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
 export const pendingQueue = new Set<string>();
+// Idempotency guard for retried/redelivered GitHub webhooks (keyed by X-GitHub-Delivery).
+export const deliveryIdempotency = new DeliveryIdempotencyCache();
 let isProcessingQueue = false;
 
 
@@ -347,6 +350,8 @@ interface WorkflowExecutionOpts extends WorkflowBrokerOpts {
   writeDeps: GitHubWriteDeps;
   runtimeDispatchSecret: string;
   dispatchFetchImpl?: typeof fetch;
+  /** Override the default delivery idempotency guard (mainly for tests). */
+  deliveryCache?: DeliveryIdempotencyCache;
 }
 
 async function brokerApprovedWriteCredentials(
@@ -708,6 +713,17 @@ export async function handleWebhookRequest(
 
   if (!verifySignature(rawBody, signatureHeader, opts.secret)) {
     return json(401, { error: "Unauthorized" });
+  }
+
+  // Idempotency guard: drop retried/redelivered webhooks (same X-GitHub-Delivery id).
+  // Checked only after signature verification so unauthenticated callers cannot poison
+  // the cache, and only when GitHub supplies a delivery id (direct/test posts opt out).
+  const deliveryId = req.headers.get("x-github-delivery");
+  if (deliveryId) {
+    const cache = opts.deliveryCache ?? deliveryIdempotency;
+    if (cache.check(deliveryId).duplicate) {
+      return json(200, { success: true, deduplicated: true, deliveryId });
+    }
   }
 
   let parsed;
