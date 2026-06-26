@@ -1,6 +1,7 @@
 import { serve } from "bun";
 import { generateImprovement } from "./repo-work.ts";
 import type { Stage, Runtime } from "../glue/contract.ts";
+import { isBannedTarget, normalizeRepo } from "../glue/banned-targets.ts";
 
 const role = process.argv[2] || "unknown";
 const port = parseInt(process.env.JEO_CLAW_PORT || "9201", 10);
@@ -19,7 +20,20 @@ serve({ idleTimeout: 0,
     }
     try {
       const body = await req.json() as any;
-      
+
+      // HARD LOCK: permanently refuse banned targets (e.g. akillness/jeo-code).
+      // Defense-in-depth — the orchestrator already drops these from the queue,
+      // but a worker must never perform code work against a banned repository.
+      if (isBannedTarget(body.repo)) {
+        console.warn(`[Hard Block] Worker ${role} refusing banned-target workflow ${body.workflowId} (repo ${normalizeRepo(body.repo)})`);
+        return new Response(JSON.stringify({
+          success: false,
+          skipped: true,
+          banned: true,
+          summary: `Target repository ${normalizeRepo(body.repo)} is permanently banned; work dropped.`,
+        }), { status: 403, headers: { "Content-Type": "application/json" } });
+      }
+
       console.log(`Claw ${role} stage ${body.stage} started for workflow ${body.workflowId}`);
 
       // SOVEREIGN DIRECTIVE: Notify Discord via Status Relay

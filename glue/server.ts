@@ -7,6 +7,7 @@ import { loadWriteSecretsForRole, secretSourceFromEnv, type Role, type SecretSou
 import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
 import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
 import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
+import { isBannedTarget, normalizeRepo } from "./banned-targets.ts";
 
 export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
 export const pendingQueue = new Set<string>();
@@ -33,7 +34,14 @@ export async function withWorkflowLock<T>(workflowId: string, fn: () => Promise<
     }
   }
 }
-export function enqueueWorkflow(wfId: string) {
+export function enqueueWorkflow(wfId: string, repo?: string) {
+  // Hard Lock: never let a permanently-banned target (e.g. akillness/jeo-code)
+  // enter the dispatch queue. Drop any stale entry already present too.
+  if (repo !== undefined && isBannedTarget(repo)) {
+    console.warn(`[Hard Block] Refusing to enqueue workflow ${wfId} targeting banned repo ${normalizeRepo(repo)}`);
+    pendingQueue.delete(wfId);
+    return;
+  }
   if (!pendingQueue.has(wfId)) {
     pendingQueue.add(wfId);
   }
@@ -94,6 +102,17 @@ async function processQueue(opts: WorkflowExecutionOpts) {
 
       
       const wf = opts.store.get(nextWfId);
+      // Hard Lock: drop banned targets (e.g. akillness/jeo-code) at dispatch time.
+      // This catches stale queue entries injected directly into SQLite that may
+      // have bypassed the intake/enqueue guards. Mark terminal so auto-heal and
+      // the dedup scan never resurrect them.
+      if (wf && isBannedTarget(wf.repo)) {
+        console.warn(`[Hard Block] Dropping queued workflow ${wf.id} targeting banned repo ${normalizeRepo(wf.repo)}`);
+        wf.status = "rejected";
+        opts.store.set(nextWfId, wf);
+        pendingQueue.delete(nextWfId);
+        continue;
+      }
       if (wf && !workflowTerminal(wf)) {
         wf.status = "pending";
         opts.store.set(wf.id, wf);
@@ -541,11 +560,23 @@ export async function handleControlEventRequest(
 
     const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const targetRepo = ("repo" in event && event.repo) ? event.repo : process.env.TARGET_REPO;
+
+    // Hard Lock: permanently banned targets (e.g. akillness/jeo-code) are
+    // dropped at intake. No workflow is created, nothing is queued, and the
+    // request never reaches a claw.
+    if (isBannedTarget(targetRepo)) {
+      console.warn(`[Hard Block] Rejecting request targeting banned repo ${normalizeRepo(targetRepo)}`);
+      return json(403, {
+        success: false,
+        error: `Target repository ${normalizeRepo(targetRepo)} is permanently banned and cannot receive agent code work.`,
+      });
+    }
+
     const wf = createWorkflow(wfId, event.runtime, event.request, targetRepo);
     wf.status = "queued";
     opts.store.set(wfId, wf);
     await notifyStatus(wf, "Workflow queued");
-    enqueueWorkflow(wfId);
+    enqueueWorkflow(wfId, wf.repo);
 
 
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
@@ -639,7 +670,7 @@ export async function handleControlEventRequest(
       newWf.status = "queued";
       opts.store.set(wfId, newWf);
       
-      enqueueWorkflow(wfId);
+      enqueueWorkflow(wfId, newWf.repo);
 
       if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
         processQueue(opts as WorkflowExecutionOpts).catch(console.error);
@@ -891,13 +922,28 @@ export function start() {
       isAutoHealRunning = true;
       try {
           const activeWfs = store.getActiveWorkflows();
-          
-          // 1. Re-queue stranded 'queued' workflows
+
+          // 0. Hard Lock purge: permanently remove banned targets (e.g.
+          // akillness/jeo-code) that may have been injected directly into
+          // SQLite. Mark terminal and evict from the queue so they are never
+          // re-dispatched and never reported as "stranded" again.
+          const bannedWfs = activeWfs.filter((w: any) => isBannedTarget(w.repo) && !workflowTerminal(w));
+          if (bannedWfs.length > 0) {
+              console.warn(`[Hard Block] Auto-Heal purging ${bannedWfs.length} banned-target workflow(s) from SQLite.`);
+              for (const wf of bannedWfs) {
+                  if (!wf.id) continue;
+                  wf.status = "rejected";
+                  store.set(wf.id, wf);
+                  pendingQueue.delete(wf.id);
+              }
+          }
+
+          // 1. Re-queue stranded 'queued' workflows (banned ones are now 'rejected' above).
           const queuedWfs = activeWfs.filter((w: any) => w.status === "queued" && !pendingQueue.has(w.id));
           if (queuedWfs.length > 0) {
               console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
               for (const wf of queuedWfs) {
-                  enqueueWorkflow(wf.id);
+                  enqueueWorkflow(wf.id, wf.repo);
               }
           }
 
@@ -919,7 +965,7 @@ export function start() {
                       console.warn(`[Auto-Heal] Zombie detected! Workflow ${wf.id} stuck in ${wf.status} for >15 mins. Resetting to queued.`);
                       wf.status = "queued";
                       store.set(wf.id, wf);
-                      enqueueWorkflow(wf.id);
+                      enqueueWorkflow(wf.id, wf.repo);
 
                       zombiesRescued = true;
                   }
