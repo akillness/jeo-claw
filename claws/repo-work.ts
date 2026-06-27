@@ -203,6 +203,36 @@ ${staleRecommendation}
 }
 
 
+// Failure markers that mean the coding agent never produced a healthy run even
+// when the process exits with code 0 — e.g. provider 404 model-not-found, rate
+// limiting (429), auth (401) failures, or jeo-code's provider/model resolution
+// rejection. A run that trips any of these MUST NOT be treated as success,
+// otherwise the workflow falsely auto-approves and merges empty/garbage work.
+export const AGENT_FAILURE_MARKERS: readonly string[] = [
+  "Rate limited",
+  "rate limit",
+  "429",
+  "404",
+  "not found",
+  "No endpoints",
+  "resolves to",
+  "model not found",
+  "Provider error",
+  "authentication",
+  "Unauthorized",
+  "401",
+];
+
+// Pure decision: did a single coding-agent invocation produce a healthy run?
+// Healthy requires exit code 0 AND no failure marker in combined stdout/stderr.
+export function evaluateAgentRun(
+  exitCode: number,
+  output: string
+): { healthy: boolean; marker: string | null } {
+  const marker = AGENT_FAILURE_MARKERS.find((m) => output.includes(m)) ?? null;
+  return { healthy: exitCode === 0 && marker === null, marker };
+}
+
 export async function generateImprovement(
   runtime: string,
   analysis: RepoAnalysis,
@@ -246,19 +276,26 @@ export async function generateImprovement(
         { provider: "anthropic", model: "claude-3-5-sonnet-20241022" },
     ];
     let agentResult: any;
+    let agentSucceeded = false;
     for (const { provider: prov, model: modelName } of models) {
         notes.push(`Running coding agent with provider: ${prov}, model: ${modelName}`);
         const ts = Date.now();
         agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${modelName} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
         notes.push(`model ${modelName} exit code: ${agentResult.exitCode}`);
 
-        
         const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
-        if (agentResult.exitCode === 0 && !outStr.includes("Rate limited") && !outStr.includes("429")) break;
-        
-        notes.push(`[Model Pooling] Fallback triggered (exitCode: ${agentResult.exitCode}, rateLimited: ${outStr.includes("Rate limited")}). Cleaning up repo state before retry...`);
+        const { healthy, marker } = evaluateAgentRun(agentResult.exitCode, outStr);
+        if (healthy) {
+            agentSucceeded = true;
+            notes.push(`[Model Pooling] Healthy run with provider ${prov}, model ${modelName}.`);
+            break;
+        }
+
+        notes.push(`[Model Pooling] Fallback triggered (exitCode: ${agentResult.exitCode}, failureMarker: ${marker ?? "none"}). Cleaning up repo state before retry...`);
         await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
     }
+
+
     
     // PREVENT DATA LOSS: Save agent stdout/stderr
     try {
@@ -278,7 +315,17 @@ ${agentResult.stderr.toString()}`;
         notes.push(`Failed to save agent logs: ${e.message}`);
     }
 
+    // FALSE-SUCCESS GUARD: if every model fallback failed (429/404/auth/resolution
+    // errors) the agent never produced a healthy run. Hard-stop the workflow (NO-OP)
+    // instead of letting an empty/garbage result advance to auto-approve and merge.
+    if (!agentSucceeded) {
+      throw new Error(
+        `All model fallbacks failed; coding agent never produced a healthy run (last exit code ${agentResult?.exitCode ?? "n/a"}). Aborting workflow (NO-OP). Recent notes: ${notes.slice(-6).join(" | ")}`
+      );
+    }
+
     if (agentResult.exitCode !== 0) throw new Error(`Agent execution aborted or failed with exit code ${agentResult.exitCode}. See logs for details.`);
+
 
     // Get unstaged/uncommitted and STAGED changes
     const gitDiffUnstaged = await $`cd ${tempDir} && git diff HEAD --name-only || git diff --name-only`.nothrow().text();
