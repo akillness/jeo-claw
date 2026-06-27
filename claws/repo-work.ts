@@ -271,9 +271,8 @@ export async function generateImprovement(
     // Antigravity models must therefore carry the `antigravity/` prefix; anthropic
     // ids already resolve to anthropic and pass through unprefixed.
     const models: { provider: string; model: string }[] = [
-        { provider: "antigravity", model: "antigravity/claude-sonnet-4-6" },
-        { provider: "antigravity", model: "antigravity/gemini-3.1-pro" },
-        { provider: "anthropic", model: "claude-3-5-sonnet-20241022" },
+        { provider: "antigravity", model: "antigravity/gemini-2.5-pro" },
+        { provider: "anthropic", model: "claude-opus-4-8" },
     ];
     let agentResult: any;
     let agentSucceeded = false;
