@@ -25,12 +25,13 @@ let targetRepo = "";
 let requestText = "";
 let targetName = "";
 
-const DEEP_RESEARCH_MANDATE = `
-[🚨 절대 강령: 사소한 변경으로 인한 무의미한 커밋·PR 전면 금지]
-- 단순 마크다운 포맷팅, 사소한 오타 수정, 또는 \`fix_frontmatter\`/\`flatten_skills\` 류 스크립트 실행 결과만으로 커밋을 만들거나 PR을 생성하는 것을 엄격히 금지한다. 이런 가벼운 변경만 남는다면 커밋·PR 없이 작업을 종료(NO-OP)하라.
+const DEEP_RESEARCH_MANDATE = \`
+[🚨 절대 강령: 사소한 변경으로 인한 무의미한 커밋·PR 전면 금지 및 판단 게이트(Judgment Gate) 통과 의무]
+- 판단 게이트(Judgment Gate) 자가 리뷰: 딥 리서치 및 코드 작업을 마친 뒤 PR을 생성하기 전, 반드시 스스로 비판적 리뷰(Critic)를 수행하여 \`.specify/review_judgment.md\`를 작성하라.
+- 이 변경이 "시스템의 근본적 성능/안정성을 향상시키거나 핵심 유틸리티를 실질적으로 고도화하는가?"를 엄격하게 평가하고, 기준 미달이거나 단순 포맷팅/오타 수정(\`fix_frontmatter\` 등) 수준이라면 과감히 워크플로우를 중단(NO-OP)하고 PR을 올리지 마라.
 - PR을 생성하기 전, 반드시 \`deep-dive\` 또는 \`survey\` 스킬을 활용한 심층 리서치(Deep Research)를 선행하라. 인과 가설 추적·근거 수집 없이 곧바로 코드를 건드리지 마라.
 - 코어 로직 최적화, 신규 아키텍처 도입, 알고리즘/동시성 구조 개선 등 '실질적이고 무거운(substantial & heavy)' 개선이 코드에 실제로 반영되었을 때만 커밋·PR을 생성하라.
-- PR 본문에는 선행한 Deep Research(deep-dive/survey)의 핵심 근거와, 변경이 '무거운 개선'에 해당하는 이유를 반드시 명시하라. 근거를 제시하지 못하는 변경은 PR 대상이 아니다.`;
+- PR 본문에는 선행한 Deep Research(deep-dive/survey)의 핵심 근거와 판단 게이트를 통과한 이유를 반드시 명시하라. 근거를 제시하지 못하는 변경은 PR 대상이 아니다.\`;
 
 if (targetMod === 0) {
     targetName = "jeo-claw";
