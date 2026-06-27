@@ -8,6 +8,7 @@ import {
   handleControlEventRequest,
   handleControlDispatchRequest,
   pruneWorkflowStore,
+  pendingQueue,
 } from "./server";
 import { createWorkflow, applyEvent, advanceStage } from "./state-machine";
 import type { WorkflowState } from "./contract";
@@ -241,6 +242,55 @@ test("handleControlEventRequest creates workflows and ignores early approvals", 
   const approveRes = await handleControlEventRequest(approveReq, { store: localStore, controlEventSecret: CONTROL_SECRET });
   expect(approveRes.status).toBe(200);
   expect(localStore.get(created.workflow.id)?.actionApprovals?.["pr.create"]?.status).toBeUndefined();
+});
+
+test("handleControlEventRequest hard-blocks banned jeo-code target at intake", async () => {
+  const localStore = new SQLiteWorkflowStore(":memory:");
+  const req = new Request("http://localhost/control-event", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-control-event-secret": CONTROL_SECRET,
+    },
+    body: JSON.stringify({
+      type: "request",
+      source: "discord",
+      runtime: "zeroclaw",
+      request: "improve jeo-code",
+      repo: "akillness/jeo-code",
+    }),
+  });
+  const queueBefore = pendingQueue.size;
+  const res = await handleControlEventRequest(req, { store: localStore, controlEventSecret: CONTROL_SECRET });
+  expect(res.status).toBe(403);
+  const body = (await res.json()) as { success: boolean; error: string };
+  expect(body.success).toBe(false);
+  expect(body.error).toContain("akillness/jeo-code");
+  // No workflow is created and nothing is queued for the banned target.
+  expect([...localStore.values()].length).toBe(0);
+  expect(pendingQueue.size).toBe(queueBefore);
+});
+
+test("handleControlEventRequest still accepts the allowed jeo-claw target", async () => {
+  const localStore = new SQLiteWorkflowStore(":memory:");
+  const req = new Request("http://localhost/control-event", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-control-event-secret": CONTROL_SECRET,
+    },
+    body: JSON.stringify({
+      type: "request",
+      source: "discord",
+      runtime: "zeroclaw",
+      request: "improve jeo-claw",
+      repo: "akillness/jeo-claw",
+    }),
+  });
+  const res = await handleControlEventRequest(req, { store: localStore, controlEventSecret: CONTROL_SECRET });
+  expect(res.status).toBe(201);
+  const body = (await res.json()) as { workflow: WorkflowState };
+  expect(body.workflow.repo).toBe("akillness/jeo-claw");
 });
 test("handleControlEventRequest executes approved PR creation through the live write path", async () => {
   const localStore = new SQLiteWorkflowStore(":memory:");
