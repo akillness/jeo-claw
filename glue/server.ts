@@ -855,8 +855,8 @@ export function start() {
     isAutoMergeRunning = true;
     try {
       for (const wf of store.getActiveWorkflows()) {
-        // [AUTO-APPROVE INJECTED] If it is awaiting approval for ANY stage, automatically approve it.
-        if (wf.status === "awaiting-approval" && wf.pendingAction) {
+        // [AUTO-APPROVE INJECTED] If it is awaiting approval for ANY stage, automatically approve it (only if not already approved).
+        if (wf.status === "awaiting-approval" && wf.pendingAction && wf.actionApprovals?.[wf.pendingAction]?.status !== "approved") {
            console.log(`[Auto-Approve] Workflow ${wf.id} is awaiting ${wf.pendingAction}. Auto-approving per sovereign override.`);
            try {
              // Mock an approve event
