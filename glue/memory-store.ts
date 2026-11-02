@@ -19,9 +19,6 @@ export class MemoryWorkflowStore implements WorkflowStore {
   values(): WorkflowState[] {
     return Array.from(this.map.values());
   }
-  values(): WorkflowState[] {
-    return Array.from(this.map.values());
-  }
 
   hasDuplicateRequest(request: string): boolean {
     for (const w of this.map.values()) {
@@ -33,7 +30,7 @@ export class MemoryWorkflowStore implements WorkflowStore {
   }
 
   getActiveWorkflows(): WorkflowState[] {
-    return Array.from(this.map.values()).filter(w => w.status !== "completed" && w.status !== "failed" && w.status !== "merged");
+    return Array.from(this.map.values()).filter(w => (w.status as string) !== "completed" && w.status !== "failed" && w.status !== "merged");
   }
 
   get size(): number {

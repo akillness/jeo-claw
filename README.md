@@ -1,24 +1,57 @@
 # jeo-claw
 
-<p>
+<p align="center">
+  <img src="assets/claw/family_jeoclaw.jpg" alt="jeo-code 붉은 가재 마법사와 jeopi 봉제인형 마스코트가 이끄는 Jeo Claw 패밀리 멀티 에이전트 스웜 아트워크" width="100%" />
+</p>
+
+<p align="center">
   <img alt="runtimes" src="https://img.shields.io/badge/runtimes-ZeroClaw%20%2B%20NullClaw-orange">
   <img alt="runtime" src="https://img.shields.io/badge/runtime-Bun-black?logo=bun">
   <img alt="language" src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white">
   <img alt="control" src="https://img.shields.io/badge/control-Discord-5865F2?logo=discord&logoColor=white">
   <img alt="secrets" src="https://img.shields.io/badge/secrets-gcloud%20Secret%20Manager-4285F4?logo=googlecloud&logoColor=white">
 </p>
-<p>
-  <img alt="tests" src="https://img.shields.io/badge/tests-120%20passing-brightgreen">
-  <img alt="type-check" src="https://img.shields.io/badge/tsc--noEmit-0%20errors-brightgreen">
-  <img alt="security gates" src="https://img.shields.io/badge/check%3Acompose-176%2F176-brightgreen">
-  <img alt="A/B fairness" src="https://img.shields.io/badge/config%20validate-16%2F16-brightgreen">
+<p align="center">
+  <img alt="tests" src="https://img.shields.io/badge/tests-198%20passing-brightgreen">
+  <img alt="security gates" src="https://img.shields.io/badge/check%3Acompose-32%2F32-brightgreen">
+  <img alt="A/B fairness" src="https://img.shields.io/badge/config%20validate-26%2F26-brightgreen">
   <img alt="autonomy" src="https://img.shields.io/badge/autonomy-supervised-blue">
-  <img alt="license" src="https://img.shields.io/badge/visibility-private-lightgrey">
+  <img alt="license" src="https://img.shields.io/badge/visibility-public-lightgrey">
 </p>
 
 이중 런타임(**ZeroClaw** · **NullClaw**) 에이전틱 PR 오케스트레이션. 로컬 Docker 우선, **Discord**로 제어, 대상 저장소는 `akillness/jeo-claw` 자체. 두 런타임을 동일 LLM(OpenAI gpt-5) 설정으로 공존시켜 **상시 A/B 비교**하며, 모든 작업은 `ops/` 자기진화 운영체계(계획→검증→지식적재→진화)를 거쳐 claw 스스로를 발전시킨다.
 
 > 설계 근거: `.gjc/specs/deep-interview-jeo-claw-docker-security.md` + `.gjc/plans/ralplan/2026-06-08-0954-05fb/pending-approval.md`. 운영 doctrine: `ops/CONSTITUTION.md` · `ops/WORKFLOW.md` · `ops/RULES.md`.
+
+---
+
+## Jeo Claw 멀티 에이전트 생태계 (Jeo Claw Swarm)
+
+jeo-code와 jeopi의 독창적인 세계관—**붉은 가재 코딩 마법사(jeo-code Mascot)**와 **후드 봉제인형 동반자(jeopi Mascot)**의 공조 아래, 단일 에이전트의 환각이나 상태 단절을 방지하고 **5대 전문화된 Claw 에이전트(Jeo Claw Family & Jeopi Swarm)**가 협력하여 요구사항 도출부터 배포까지 완결하는 완전 자율 엔지니어링 스웜(Swarm)입니다. 각 Claw는 가재의 정밀한 집게발과 jeopi의 철저한 비평가(Critic) 게이트 수호 정신을 결합하여 설계되었습니다.
+
+<p align="center">
+  <img src="assets/claw/pdclaw.jpg" width="19%" alt="PD Claw" />
+  <img src="assets/claw/aiclaw.jpg" width="19%" alt="AI Claw" />
+  <img src="assets/claw/engineclaw.jpg" width="19%" alt="Engine Claw" />
+  <img src="assets/claw/newsclaw.jpg" width="19%" alt="News Claw" />
+  <img src="assets/claw/zeroclaw.webp" width="19%" alt="Zero Claw" />
+</p>
+
+| 에이전트 | 명칭 | 핵심 임무 및 게이트 | 주요 구동 도구 및 파이프라인 |
+| :--- | :--- | :--- | :--- |
+| 📋 **PD Claw** | **Product Director** | 소크라테스식 인터뷰로 요구사항 모호성 제거, PRD & 유저스토리 동결, Spec Seed 생성 | `ops/specs/<slug>/request.md`, `spec.md` |
+| 🧠 **AI Claw** | **Intelligence & Architect** | 비용 인식 프롬프트 라우팅, 아키텍처 비평가(Critic) [OKAY] 합의 영속화, 플랜 다이제스트 서명 | `ops/plans/<slug>/plan.md`, `tasks.md` |
+| ⚙️ **Engine Claw** | **Parallel Executor** | Git Worktree 격리 병렬 실행, 콘텐츠 앵커(`42ab|`) 기반 무결성 편집, 부모 프로세스 변이 감사 | `researcher-coder`, `reviewer`, `edit` |
+| 📡 **News Claw** | **Monitor & Telemetry** | 실시간 원격 데몬 중계 (Discord/Telegram/Slack), 하위 에이전트 수명주기 엣지 브로드캐스트, 외부 지식 주입 | `discord/bot.ts`, `compare/dashboard.ts` |
+| 🛡️ **Zero Claw** | **Verifier & Release** | 증거 기반 종합 검증(Ultragoal), 테스트 실패 시 자가 치유 루프, 무결성 검증 PR 자동 생성 및 릴리즈 | `glue/merge-gate.ts`, `pr-creator`, `merger` |
+
+---
+
+## 파이프라인 & 워크플로우
+
+<p align="center">
+  <img src="assets/jeo-claw-workflow.svg" alt="Jeo Claw Multi-Agent Swarm Orchestration Workflow" width="100%" />
+</p>
 
 ## 아키텍처 한눈에
 

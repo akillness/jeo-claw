@@ -49,6 +49,7 @@ GitHub webhook ─▶ glue/server.ts (HTTP :8787)
 
 | Path | Purpose |
 |------|---------|
+| `assets/` | Jeo Claw 멀티 에이전트 스웜 아트워크 및 워크플로우 벡터 다이어그램 (`assets/claw/*`, `jeo-claw-workflow.svg`) |
 | `glue/` | Webhook receiver, workflow state machine, merge-gate policy, shared `contract.ts` |
 | `discord/` | Discord.js control bot, command parser, high-risk approval registry |
 | `compare/` | A/B run orchestrator, metric aggregation, dashboard rendering |
@@ -60,7 +61,6 @@ GitHub webhook ─▶ glue/server.ts (HTTP :8787)
 | `qa/` | Adversarial red-team test suite |
 | `artifacts/` | QA evidence (red-team report/transcript, verify transcript) |
 | `ops/` | Self-evolving operating doctrine: spec-kit workflow (constitution/spec/plan/tasks/verify) + rtk·graphify·obsidian·llm-wiki knowledge loop. Start at `ops/RULES.md`. Knowledge vault in `ops/vault/`; `ops/scripts/capture-knowledge.ts` files completed work |
-
 ## Development Commands
 
 Run all commands from this directory (`jeo-claw/`). **Use Bun, not npm/node.**

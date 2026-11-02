@@ -1,10 +1,14 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-06-08 | Updated: 2026-06-08 -->
+<!-- Generated: 2026-06-08 | Updated: 2026-11-02 -->
 
 # 기본 워크플로우 (WORKFLOW)
 
-spec-kit 파이프라인을 jeo-claw에 이식한 **모든 작업의 표준 절차**.
+jeo-code와 jeopi의 독창적인 세계관과 spec-kit 파이프라인을 jeo-claw에 이식한 **모든 작업의 표준 절차**.
 사용자 요청을 분석하는 순간부터 최종 결과물·지식적재·진화까지 한 사이클.
+
+<p align="center">
+  <img src="../assets/jeo-claw-workflow.svg" alt="Jeo Claw Multi-Agent Swarm Orchestration Workflow" width="100%" />
+</p>
 
 ```
 요청(Discord/user)
