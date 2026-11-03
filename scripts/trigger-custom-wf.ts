@@ -12,10 +12,10 @@ async function run() {
     // The target repo based on the URL in the goal
     const repo = "jeo-claw";
     
-    const wf = createWorkflow(wfId, "sc_jeo", goal);
+    const wf = createWorkflow(wfId, "zeroclaw", goal);
     wf.repo = repo;
     
-    await store.set(wf.id, wf);
+    await store.set(wf.id!, wf);
     console.log(`Successfully injected workflow ${wfId} into SQLite store.`);
 }
 

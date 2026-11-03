@@ -1,43 +1,70 @@
-import { spawn } from "child_process";
+import { createHash } from "node:crypto";
 import { verifySignature, parseWebhook } from "./github-webhook";
 
 import { applyEvent, advanceStage, createWorkflow } from "./state-machine";
-import type { WorkflowState, ControlEvent, HighRiskAction } from "./contract";
-import { loadWriteSecretsForRole, secretSourceFromEnv, type Role, type SecretSource } from "../secrets/loader.ts";
+import { parseControlMode, type ControlMode, type WorkflowState, type ControlEvent, type HighRiskAction } from "./contract";
+import { loadWriteSecretsForRole, secretSourceFromEnv, SecretAccessCleanupError, type Role, type SecretSource } from "../secrets/loader.ts";
 import { executeApprovedWriteAction, type GitHubWriteDeps } from "./write-executor.ts";
 import { dispatchStageWork, dispatchableStage } from "./runtime-dispatch.ts";
 import { SQLiteWorkflowStore, type WorkflowStore } from "./store.ts";
 import { DeliveryIdempotencyCache } from "./webhook-idempotency.ts";
 import { isBannedTarget, normalizeRepo } from "./banned-targets.ts";
+import { reconcileGitHubHeadEvidence } from "./head-evidence.ts";
 
-export const store: WorkflowStore = new SQLiteWorkflowStore(process.env.SQLITE_DB_PATH || "workflows.sqlite");
+const processControlMode = parseControlMode(process.env.JEO_CONTROL_MODE);
+function ordinaryFrozen(mode?: ControlMode): boolean {
+  return processControlMode === "probe-only" || mode === "probe-only";
+}
+const defaultStorePath = process.env.SQLITE_DB_PATH || "workflows.sqlite";
+let defaultStore: SQLiteWorkflowStore | undefined;
+function getDefaultStore(): SQLiteWorkflowStore {
+  return defaultStore ??= new SQLiteWorkflowStore(defaultStorePath);
+}
+// Importing the server or injecting a probe store must not open ordinary SQLite.
+export const store: WorkflowStore = {
+  get: (id) => getDefaultStore().get(id),
+  set: (id, state) => getDefaultStore().set(id, state),
+  delete: (id) => getDefaultStore().delete(id),
+  values: () => getDefaultStore().values(),
+  getActiveWorkflows: () => getDefaultStore().getActiveWorkflows(),
+  getRunningWorkflowsCount: () => getDefaultStore().getRunningWorkflowsCount(),
+  hasDuplicateRequest: (request) => getDefaultStore().hasDuplicateRequest(request),
+  get size() { return getDefaultStore().size; },
+};
 export const pendingQueue = new Set<string>();
 // Idempotency guard for retried/redelivered GitHub webhooks (keyed by X-GitHub-Delivery).
 export const deliveryIdempotency = new DeliveryIdempotencyCache();
 let isProcessingQueue = false;
+let queueReservations = 0;
 
 
 const workflowLocks = new Map<string, Promise<void>>();
+const deliveryLocks = new Map<string, Promise<void>>();
 
 export async function withWorkflowLock<T>(workflowId: string, fn: () => Promise<T>): Promise<T> {
-  const existingLock = workflowLocks.get(workflowId) || Promise.resolve();
+  return withLock(workflowLocks, workflowId, fn);
+}
+
+async function withLock<T>(locks: Map<string, Promise<void>>, workflowId: string, fn: () => Promise<T>): Promise<T> {
+  const existingLock = locks.get(workflowId) || Promise.resolve();
   let releaseLock: () => void;
   const newLock = new Promise<void>((resolve) => {
     releaseLock = resolve;
   });
   const nextLock = existingLock.then(() => newLock);
-  workflowLocks.set(workflowId, nextLock);
+  locks.set(workflowId, nextLock);
   try {
     await existingLock;
     return await fn();
   } finally {
     releaseLock!();
-    if (workflowLocks.get(workflowId) === nextLock) {
-      workflowLocks.delete(workflowId);
+    if (locks.get(workflowId) === nextLock) {
+      locks.delete(workflowId);
     }
   }
 }
 export function enqueueWorkflow(wfId: string, repo?: string) {
+  if (ordinaryFrozen()) return;
   // Hard Lock: never let a permanently-banned target (e.g. akillness/jeo-code)
   // enter the dispatch queue. Drop any stale entry already present too.
   if (repo !== undefined && isBannedTarget(repo)) {
@@ -52,31 +79,56 @@ export function enqueueWorkflow(wfId: string, repo?: string) {
 
 
 
-async function notifyStatus(workflow: WorkflowState, message: string) {
+async function notifyStatus(workflow: WorkflowState, message: string, shutdownSignal?: AbortSignal) {
   if (process.env.NODE_ENV === "test") return;
   const endpoint = process.env.JEO_STATUS_ENDPOINT;
   if (!endpoint) return;
+  const secret = process.env.JEO_STATUS_RELAY_SECRET?.trim();
+  if (!secret || secret === process.env.JEO_CONTROL_EVENT_SECRET?.trim()) return;
+  let statusUrl: URL;
+  try {
+    statusUrl = new URL(endpoint);
+  } catch {
+    return;
+  }
+  if (statusUrl.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(statusUrl.hostname) || statusUrl.username || statusUrl.password) return;
   // Auto-detect if we are in Sovereign (orchestrator) context or worker context
   // In glue/server.ts, we are always in Sovereign context.
   const claw = "🏰 Sovereign";
+  const controller = new AbortController();
+  const abortOnShutdown = () => controller.abort();
+  if (shutdownSignal?.aborted) return;
+  shutdownSignal?.addEventListener("abort", abortOnShutdown, { once: true });
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
     await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      redirect: "error",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", "x-status-relay-secret": secret },
       body: JSON.stringify({
         workflowId: workflow.id,
         runtime: workflow.runtime,
         stage: workflow.stage,
         status: workflow.status,
+        headSha: workflow.headSha,
         pendingAction: workflow.pendingAction,
         message,
         repo: workflow.repo,
         claw,
       })
     });
-  } catch (err) {
-    console.error("Failed to notify status:", err);
+  } catch {
+    console.error("Failed to notify status");
+  } finally {
+    clearTimeout(timeout);
+    shutdownSignal?.removeEventListener("abort", abortOnShutdown);
   }
+}
+
+function workflowId(workflow: WorkflowState): string {
+  if (!workflow.id) throw new Error("Workflow is missing an id");
+  return workflow.id;
 }
 
 function getRunningWorkflowsCount(storeToUse: WorkflowStoreLike): number {
@@ -93,48 +145,54 @@ function getRunningWorkflowsCount(storeToUse: WorkflowStoreLike): number {
 
 const MAX_CONCURRENT_WORKFLOWS = parseInt(process.env.MAX_CONCURRENT_WORKFLOWS || "5", 10);
 async function processQueue(opts: WorkflowExecutionOpts) {  
-  if (isProcessingQueue) return;
+  if (ordinaryFrozen(opts.controlMode)) return;
+  if (isProcessingQueue || opts.shutdownSignal?.aborted) return;
   isProcessingQueue = true;
   try {
-    while (pendingQueue.size > 0) {
-      if (getRunningWorkflowsCount(opts.store) >= MAX_CONCURRENT_WORKFLOWS) break;
+    while (pendingQueue.size > 0 && !opts.shutdownSignal?.aborted) {
+      if (getRunningWorkflowsCount(opts.store) + queueReservations >= MAX_CONCURRENT_WORKFLOWS) break;
       const nextWfId = pendingQueue.values().next().value;
+      if (nextWfId === undefined) break;
       pendingQueue.delete(nextWfId);
-
       if (!nextWfId) continue;
 
       
       const wf = opts.store.get(nextWfId);
-      // Hard Lock: drop banned targets (e.g. akillness/jeo-code) at dispatch time.
-      // This catches stale queue entries injected directly into SQLite that may
-      // have bypassed the intake/enqueue guards. Mark terminal so auto-heal and
-      // the dedup scan never resurrect them.
-      if (wf && isBannedTarget(wf.repo)) {
-        console.warn(`[Hard Block] Dropping queued workflow ${wf.id} targeting banned repo ${normalizeRepo(wf.repo)}`);
-        wf.status = "rejected";
-        opts.store.set(nextWfId, wf);
-        pendingQueue.delete(nextWfId);
-        continue;
-      }
-      if (wf && !workflowTerminal(wf)) {
-        wf.status = "pending";
-        opts.store.set(wf.id, wf);
-        // Run workflow progression concurrently without blocking the queue
-        withWorkflowLock(wf.id, async () => {
-          try {
-            const updated = await progressWorkflowState(wf, opts);
-            opts.store.set(updated.id, updated);
-            await notifyStatus(updated, "Workflow started from queue");
-          } catch (err: any) {
-            console.error("Workflow failed with error:", err);
-            const failedWf = opts.store.get(wf.id) || wf;
-            failedWf.status = "failed";
-            opts.store.set(failedWf.id, failedWf);
-            await notifyStatus(failedWf, "Workflow failed: " + (err.message || String(err)));
+      if (wf && wf.status === "queued") {
+        queueReservations++;
+        const task: Promise<void> = withWorkflowLock(nextWfId, async () => {
+          queueReservations--;
+          if (opts.shutdownSignal?.aborted) return;
+          const current = opts.store.get(nextWfId);
+          if (!current || current.status !== "queued") return;
+          if (isBannedTarget(current.repo)) {
+            current.status = "rejected";
+            opts.store.set(nextWfId, current);
+            return;
           }
-        }).catch(console.error);
+          current.status = "pending";
+          opts.store.set(nextWfId, current);
+          try {
+            const updated = await progressWorkflowState(current, opts);
+            if (opts.shutdownSignal?.aborted) return;
+            opts.store.set(workflowId(updated), updated);
+            await notifyStatus(updated, "Workflow started from queue", opts.shutdownSignal);
+          } catch (error) {
+            if (error instanceof SecretAccessCleanupError) opts.cleanupFailures?.push(error);
+            if (opts.shutdownSignal?.aborted) return;
+            console.error("Workflow failed");
+            const failedWf = opts.store.get(nextWfId) || current;
+            failedWf.status = "failed";
+            opts.store.set(workflowId(failedWf), failedWf);
+            await notifyStatus(failedWf, "Workflow failed", opts.shutdownSignal);
+          }
+        }).catch(console.error).finally(() => {
+          opts.inFlight?.delete(task);
+          if (!opts.shutdownSignal?.aborted) processQueue(opts).catch(console.error);
+        });
+        opts.inFlight?.add(task);
 
-        if (getRunningWorkflowsCount(opts.store) >= MAX_CONCURRENT_WORKFLOWS) {
+        if (getRunningWorkflowsCount(opts.store) + queueReservations >= MAX_CONCURRENT_WORKFLOWS) {
           break;
         }
 
@@ -183,33 +241,34 @@ function workflowLastTouchedMs(state: WorkflowState): number {
 }
 
 export function pruneWorkflowStore(storeToPrune: WorkflowStore, policy: WorkflowStorePolicy = {}): void {
+  if (ordinaryFrozen()) return;
   const now = policy.now?.() ?? Date.now();
   const terminalRetentionMs = policy.terminalRetentionMs ?? DEFAULT_TERMINAL_WORKFLOW_RETENTION_MS;
   const values = storeToPrune.values();
     
   for (const workflow of values) {
     if (workflowTerminal(workflow) && now - workflowLastTouchedMs(workflow) > terminalRetentionMs) {
-      storeToPrune.delete(workflow.id);
-      pendingQueue.delete(workflow.id);
+      storeToPrune.delete(workflowId(workflow));
+      pendingQueue.delete(workflowId(workflow));
     }
   }
 
-  const maxWorkflows = Math.max(1, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
+  const maxWorkflows = Math.max(0, policy.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
   let currentSize = storeToPrune.size;
   if (currentSize <= maxWorkflows) return;
 
   // Re-fetch values only if we need to prune by size, to avoid sorting already deleted items
   const currentValues = storeToPrune.values();
 
-  const candidatesWithTime = currentValues.map(candidate => ({
+  const candidatesWithTime = currentValues.filter(workflowTerminal).map(candidate => ({
     candidate,
     touchedMs: workflowLastTouchedMs(candidate)
   })).sort((a, b) => a.touchedMs - b.touchedMs);
 
   for (const { candidate } of candidatesWithTime) {
     if (currentSize <= maxWorkflows) break;
-    storeToPrune.delete(candidate.id);
-    pendingQueue.delete(candidate.id);
+    storeToPrune.delete(workflowId(candidate));
+    pendingQueue.delete(workflowId(candidate));
     currentSize--;
   }
 }
@@ -222,6 +281,32 @@ function bodyTooLarge(req: Request, maxBytes: number): boolean {
   if (!contentLength) return false;
   const parsed = Number(contentLength);
   return Number.isFinite(parsed) && parsed > maxBytes;
+}
+
+async function readBoundedBody(req: Request, maxBytes: number): Promise<string | undefined> {
+  if (bodyTooLarge(req, maxBytes)) {
+    void req.body?.cancel().catch(() => {});
+    return undefined;
+  }
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let body = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return body + decoder.decode();
+      size += value.byteLength;
+      if (size > maxBytes) {
+        void reader.cancel().catch(() => {});
+        return undefined;
+      }
+      body += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 const FORBIDDEN_RUNTIME_DISPATCH_FIELDS = new Set([
@@ -298,11 +383,14 @@ function readyForMerge(state: WorkflowState): boolean {
     state.prNumber !== undefined &&
     state.ciPassed === true &&
     state.reviewPassed === true &&
-    state.actionApprovals?.["pr.merge"]?.status === "approved"
+    state.actionApprovals?.["pr.merge"]?.status === "approved" &&
+    typeof state.headSha === "string" && /^[0-9a-f]{40}$/.test(state.headSha) &&
+    state.actionApprovals["pr.merge"]?.headSha === state.headSha
   );
 }
 
 function brokerRequestMismatch(body: RuntimeDispatchPayload, workflow: WorkflowState): string | undefined {
+  if (workflow.webhookPendingDigest !== undefined) return "Workflow requires webhook recovery";
   if (body.runtime !== workflow.runtime) {
     return "Dispatch runtime/workflow mismatch";
   }
@@ -359,18 +447,23 @@ type WorkflowStoreLike = WorkflowStore;
 
 interface WorkflowBrokerOpts {
   store: WorkflowStoreLike;
+  controlMode?: ControlMode;
   controlEventSecret: string;
   prefix: string;
   sourceFactory: () => SecretSource;
   storePolicy?: WorkflowStorePolicy;
+  shutdownSignal?: AbortSignal;
 }
 
 interface WorkflowExecutionOpts extends WorkflowBrokerOpts {
   writeDeps: GitHubWriteDeps;
   runtimeDispatchSecret: string;
-  dispatchFetchImpl?: typeof fetch;
+  dispatchFetchImpl?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
   /** Override the default delivery idempotency guard (mainly for tests). */
   deliveryCache?: DeliveryIdempotencyCache;
+  inFlight?: Set<Promise<unknown>>;
+  cleanupFailures?: Error[];
+  reconcileHeadEvidence?: typeof reconcileGitHubHeadEvidence;
 }
 
 async function brokerApprovedWriteCredentials(
@@ -378,6 +471,10 @@ async function brokerApprovedWriteCredentials(
   action: HighRiskAction,
   opts: WorkflowBrokerOpts,
 ): Promise<{ role: Role; credentials: Record<string, string> }> {
+  if (ordinaryFrozen(opts.controlMode)) throw new Error("Ordinary workflows frozen in probe-only mode");
+  if (action === "pr.merge") {
+    throw new Error("Merge disabled: effective GitHub policy cannot yet be verified safely");
+  }
   const role = roleForAction(action);
   if (!role) {
     throw new Error(`Unsupported broker action: ${action}`);
@@ -386,7 +483,7 @@ async function brokerApprovedWriteCredentials(
   if (approval?.status !== "approved") {
     throw new Error(`Action ${action} is not approved`);
   }
-  const credentials = await loadWriteSecretsForRole(role, opts.sourceFactory(), { prefix: opts.prefix });
+  const credentials = await loadWriteSecretsForRole(role, opts.sourceFactory(), { prefix: opts.prefix, signal: opts.shutdownSignal });
   return { role, credentials };
 }
 
@@ -394,20 +491,28 @@ async function maybeExecuteApprovedWriteTransition(
   state: WorkflowState,
   opts: WorkflowExecutionOpts,
 ): Promise<WorkflowState | undefined> {
+  if (ordinaryFrozen(opts.controlMode)) throw new Error("Ordinary workflows frozen in probe-only mode");
+  const id = workflowId(state);
   if (readyForCreate(state)) {
     const { credentials } = await brokerApprovedWriteCredentials(state, "pr.create", opts);
     const writeToken = credentials.GITHUB_TOKEN;
     if (!writeToken) throw new Error("Approved PR-create token missing");
+    opts.shutdownSignal?.throwIfAborted();
     const executed = await executeApprovedWriteAction(state, "pr.create", writeToken, opts.writeDeps);
-    return advanceStage(executed.workflow);
+    const advanced = advanceStage(executed.workflow);
+    opts.store.set(id, advanced);
+    return advanced;
   }
 
   if (readyForMerge(state)) {
     const { credentials } = await brokerApprovedWriteCredentials(state, "pr.merge", opts);
     const writeToken = credentials.GITHUB_TOKEN;
     if (!writeToken) throw new Error("Approved merge token missing");
+    opts.shutdownSignal?.throwIfAborted();
     const executed = await executeApprovedWriteAction(state, "pr.merge", writeToken, opts.writeDeps);
-    return advanceStage(executed.workflow);
+    const advanced = advanceStage(executed.workflow);
+    opts.store.set(id, advanced);
+    return advanced;
   }
 
   return undefined;
@@ -416,31 +521,26 @@ async function maybeDispatchStageTransition(
   state: WorkflowState,
   opts: WorkflowExecutionOpts,
 ): Promise<WorkflowState | undefined> {
+  if (ordinaryFrozen(opts.controlMode)) throw new Error("Ordinary workflows frozen in probe-only mode");
   if (!dispatchableStage(state.stage)) return undefined;
-  const res = await dispatchStageWork(state, {
+  await dispatchStageWork(state, {
     runtimeDispatchSecret: opts.runtimeDispatchSecret,
     fetchImpl: opts.dispatchFetchImpl,
+    shutdownSignal: opts.shutdownSignal,
   });
-  const advanced = advanceStage(state);
-  if ((res as any).artifacts) {
-    advanced.artifacts = (res as any).artifacts;
-  }
-  if ((res as any).ciPassed === true) {
-    advanced.ciPassed = true;
-  }
-  if ((res as any).reviewPassed === true) {
-    advanced.reviewPassed = true;
-  }
-  return advanced;
+  opts.shutdownSignal?.throwIfAborted();
+  return advanceStage(state);
 }
 
 
 async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecutionOpts): Promise<WorkflowState> {
+  if (ordinaryFrozen(opts.controlMode)) throw new Error("Ordinary workflows frozen in probe-only mode");
   let current = state;
   while (true) {
+    opts.shutdownSignal?.throwIfAborted();
     if (current.status === "merged" || current.status === "rejected" || current.status === "failed") {
       if (current.status !== state.status) {
-        await notifyStatus(current, `Workflow reached terminal state: ${current.status}`);
+        await notifyStatus(current, `Workflow reached terminal state: ${current.status}`, opts.shutdownSignal);
       }
       return current;
     }
@@ -452,19 +552,22 @@ async function progressWorkflowState(state: WorkflowState, opts: WorkflowExecuti
     }
 
     const executed = await maybeExecuteApprovedWriteTransition(current, opts);
+    opts.shutdownSignal?.throwIfAborted();
     if (executed) {
       current = executed;
       continue;
     }
 
     const advanced = advanceStage(current);
+    if (advanced.status === "merged") return current;
     if (advanced.stage !== state.stage || advanced.status !== state.status) {
       if (advanced.status === "awaiting-approval" && advanced.pendingAction) {
-        await notifyStatus(advanced, `Approval required for ${advanced.pendingAction} at stage ${advanced.stage}`);
+        await notifyStatus(advanced, `Approval required for ${advanced.pendingAction} at stage ${advanced.stage}`, opts.shutdownSignal);
       } else if (advanced.status !== "awaiting-approval") {
-        await notifyStatus(advanced, `Workflow advanced to ${advanced.stage} (${advanced.status})`);
+        await notifyStatus(advanced, `Workflow advanced to ${advanced.stage} (${advanced.status})`, opts.shutdownSignal);
       }
     }
+    opts.shutdownSignal?.throwIfAborted();
     return advanced;
   }
 }
@@ -473,16 +576,21 @@ export async function handleControlDispatchRequest(
   req: Request,
   opts: WorkflowBrokerOpts,
 ): Promise<Response> {
+  if (opts.shutdownSignal?.aborted) return json(503, { error: "Server is shutting down" });
   if (!requireControlSecret(opts.controlEventSecret, req.headers.get("x-control-event-secret"))) {
     return json(401, { error: "Unauthorized" });
   }
 
   let payload: unknown;
   try {
-    payload = await req.json();
+    const body = await readBoundedBody(req, MAX_WEBHOOK_BODY_BYTES);
+    if (body === undefined) return json(413, { error: "Payload too large" });
+    payload = JSON.parse(body);
   } catch {
     return json(400, { error: "Invalid JSON" });
   }
+  if (opts.shutdownSignal?.aborted) return json(503, { error: "Server is shutting down" });
+  if (ordinaryFrozen(opts.controlMode)) return json(403, { error: "Ordinary workflows frozen in probe-only mode", reason: "probe-only" });
 
   const validation = validateRuntimeDispatchPayload(payload);
   if (!validation.ok) {
@@ -490,6 +598,7 @@ export async function handleControlDispatchRequest(
   }
 
   const body = payload as RuntimeDispatchPayload;
+  if (body.action === "pr.merge") return json(503, { error: "Merge is disabled pending GitHub policy verification" });
   const expectedRole = roleForAction(body.action);
   if (!expectedRole || expectedRole !== body.role) {
     return json(403, { error: "Dispatch role/action mismatch" });
@@ -507,12 +616,12 @@ export async function handleControlDispatchRequest(
 
   try {
     const updated = consumeApprovedAction(workflow, body.action);
-    opts.store.set(updated.id, updated);
-    await notifyStatus(updated, `Action ${body.action} consumed`);
+    opts.store.set(workflowId(updated), updated);
+    await notifyStatus(updated, `Action ${body.action} consumed`, opts.shutdownSignal);
     // Memory Leak Fix: Remove terminal workflows from pendingQueue
     // Optimized: We only need to check the current workflow, processQueue handles the rest.
     if (workflowTerminal(updated)) {
-      pendingQueue.delete(updated.id);
+      pendingQueue.delete(workflowId(updated));
     }
     pruneWorkflowStore(opts.store, opts.storePolicy);
     return json(200, {
@@ -531,6 +640,7 @@ export async function handleControlEventRequest(
   req: Request,
   opts: Partial<WorkflowExecutionOpts> & { store: WorkflowStoreLike; controlEventSecret: string }
 ): Promise<Response> {
+  if (opts.shutdownSignal?.aborted) return json(503, { error: "Server is shutting down" });
   const providedSecret = req.headers.get("x-control-event-secret");
   if (!requireControlSecret(opts.controlEventSecret, providedSecret)) {
     return json(401, { error: "Unauthorized" });
@@ -538,10 +648,15 @@ export async function handleControlEventRequest(
 
   let event: ControlEvent;
   try {
-    event = (await req.json()) as ControlEvent;
+    const body = await readBoundedBody(req, MAX_WEBHOOK_BODY_BYTES);
+    if (body === undefined) return json(413, { error: "Payload too large" });
+    event = JSON.parse(body) as ControlEvent;
   } catch {
     return json(400, { error: "Invalid JSON" });
   }
+  if (opts.shutdownSignal?.aborted) return json(503, { error: "Server is shutting down" });
+  if (!event || typeof event !== "object" || Array.isArray(event)) return json(400, { error: "Invalid control event" });
+  if (ordinaryFrozen(opts.controlMode) && event.type !== "ping") return json(409, { error: "Ordinary workflows frozen in probe-only mode", reason: "probe-only" });
 
   if (event.type === "request") {
     // [OOO RALPH / PERF PATCH] Deduplication / Debouncing Check
@@ -577,11 +692,17 @@ export async function handleControlEventRequest(
       });
     }
 
+    const maxWorkflows = Math.max(1, opts.storePolicy?.maxWorkflows ?? DEFAULT_MAX_WORKFLOWS);
+    pruneWorkflowStore(opts.store, { ...opts.storePolicy, maxWorkflows: maxWorkflows - 1 });
+    if (opts.store.size >= maxWorkflows) {
+      return json(503, { success: false, error: "Workflow capacity reached" });
+    }
+
     const wf = createWorkflow(wfId, event.runtime, event.request, targetRepo);
     wf.status = "queued";
     opts.store.set(wfId, wf);
-    await notifyStatus(wf, "Workflow queued");
     enqueueWorkflow(wfId, wf.repo);
+    await notifyStatus(wf, "Workflow queued", opts.shutdownSignal);
 
 
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
@@ -594,18 +715,28 @@ export async function handleControlEventRequest(
   }
 
   if (event.type === "approve" || event.type === "reject") {
+    if (event.source !== "discord") {
+      return json(403, { error: "Approval decisions must originate from Discord" });
+    }
+    const allowedKeys = event.type === "approve"
+      ? ["type", "source", "workflowId", "action", "user", "headSha"]
+      : ["type", "source", "workflowId", "action", "user"];
+    if (Object.keys(event).some((key) => !allowedKeys.includes(key))) {
+      return json(400, { error: "Unexpected approval fields" });
+    }
     const wf = opts.store.get(event.workflowId);
     if (!wf) {
       return json(404, { error: "Workflow not found" });
     }
-    const wasMerged = wf.status === "merged";
     let updated;
     try {
-      updated = await withWorkflowLock(wf.id, async () => {
-        const currentState = opts.store.get(wf.id) || wf;
+      updated = await withWorkflowLock(workflowId(wf), async () => {
+        opts.shutdownSignal?.throwIfAborted();
+        const currentState = opts.store.get(workflowId(wf)) || wf;
+        if (currentState.webhookPendingDigest !== undefined) throw new Error("Workflow requires webhook recovery");
         let updatedState = applyEvent(currentState, event);
         if (updatedState !== currentState) {
-          opts.store.set(updatedState.id, updatedState);
+          opts.store.set(workflowId(updatedState), updatedState);
         }
         if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
           updatedState = await progressWorkflowState(updatedState, { 
@@ -616,71 +747,22 @@ export async function handleControlEventRequest(
             writeDeps: opts.writeDeps,
             runtimeDispatchSecret: opts.runtimeDispatchSecret,
             dispatchFetchImpl: opts.dispatchFetchImpl,
+            shutdownSignal: opts.shutdownSignal,
           });
-          opts.store.set(updatedState.id, updatedState);
+          opts.shutdownSignal?.throwIfAborted();
+          opts.store.set(workflowId(updatedState), updatedState);
         }
         if (workflowTerminal(updatedState)) {
-          pendingQueue.delete(updatedState.id);
+          pendingQueue.delete(workflowId(updatedState));
         }
         return updatedState;
       });
     } catch (err) {
+      if (err instanceof SecretAccessCleanupError) opts.cleanupFailures?.push(err);
       console.error("Error processing control event workflow state:", err);
       return json(500, { error: "Internal server error processing workflow" });
     }
     
-    // Ouroboros / Continuous Evolution Loop
-    if (!wasMerged && updated.status === "merged") {
-      // Auto-Rebuild Trigger
-      try {
-        console.log(`[Auto-Rebuild] PR merged, triggering docker rebuild...`);
-        const rebuild = spawn("docker", ["compose", "up", "-d", "--build", "claw-hive"], { cwd: "/app", stdio: "ignore", detached: true });
-        rebuild.unref();
-      } catch(e) { console.error("Auto-rebuild failed:", e); }
-
-    }
-    // [BRANCH CLEANUP] Automatically delete remote branch after merge or fail
-    if (!wasMerged && (updated.status === "merged" || updated.status === "failed")) {
-      try {
-        const branchName = updated.headRef;
-        if (branchName && branchName.startsWith("jeo/")) {
-          console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for workflow ${updated.id}`);
-          const fetchImpl = opts.dispatchFetchImpl || fetch;
-          let token = process.env.GITHUB_TOKEN;
-          if (!token && opts.sourceFactory) {
-            const secrets = await opts.sourceFactory();
-            token = secrets[`${opts.prefix}-github-token-rw`];
-          }
-          const repo = updated.repo;
-          if (token && repo) {
-            await fetchImpl(`https://api.github.com/repos/${repo}/git/refs/heads/${branchName}`, {
-              method: "DELETE",
-              headers: {
-                "Authorization": `Bearer ${token}`,
-                "User-Agent": "jeo-claw-hive"
-              }
-            }).then(r => console.log(`[Branch Cleanup] Result: ${r.status}`));
-          }
-        }
-      } catch (err) {
-        console.error(`[Branch Cleanup] Failed to delete branch:`, err);
-      }
-    }
-
-    if (!wasMerged && updated.status === "merged" && process.env.CONTINUOUS_EVOLUTION !== "0") {
-      console.log(`[Glue Server] Workflow ${updated.id} merged! Triggering next evolution cycle...`);
-      const nextRequest = "Analyze the codebase for the next highest priority improvement regarding performance, memory leaks, and evolution. Build upon the previous merge and continue evolving.";
-      const wfId = `wf-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      const newWf = createWorkflow(wfId, updated.runtime, nextRequest, updated.repo);
-      newWf.status = "queued";
-      opts.store.set(wfId, newWf);
-      
-      enqueueWorkflow(wfId, newWf.repo);
-
-      if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-        processQueue(opts as WorkflowExecutionOpts).catch(console.error);
-      }
-    }
 
     pruneWorkflowStore(opts.store, opts.storePolicy);
     if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
@@ -704,12 +786,16 @@ export async function handleWebhookRequest(
   req: Request,
   opts: WorkflowExecutionOpts & { secret: string },
 ): Promise<Response> {
+  if (opts.shutdownSignal?.aborted) return json(503, { error: "Server is shutting down" });
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname === "/health") {
     return json(200, { ok: true });
   }
 
   if (req.method === "GET" && url.pathname === "/debug/workflows") {
+    if (!requireControlSecret(opts.controlEventSecret, req.headers.get("x-control-event-secret"))) {
+      return json(401, { error: "Unauthorized" });
+    }
     return json(200, {
       workflows: [...opts.store.values()].map((workflow) => ({
         id: workflow.id,
@@ -732,76 +818,121 @@ export async function handleWebhookRequest(
     return handleControlEventRequest(req, opts);
   }
 
-  if (bodyTooLarge(req, MAX_WEBHOOK_BODY_BYTES)) {
-    return json(413, { error: "Webhook payload too large" });
-  }
-
   const signatureHeader = req.headers.get("x-hub-signature-256") || req.headers.get("x-hub-signature") || "";
-  const rawBody = await req.text();
-  if (new TextEncoder().encode(rawBody).byteLength > MAX_WEBHOOK_BODY_BYTES) {
-    return json(413, { error: "Webhook payload too large" });
+  let rawBody: string | undefined;
+  try {
+    rawBody = await readBoundedBody(req, MAX_WEBHOOK_BODY_BYTES);
+  } catch {
+    return json(400, { error: "Invalid request body" });
   }
+  if (rawBody === undefined) return json(413, { error: "Webhook payload too large" });
 
   if (!verifySignature(rawBody, signatureHeader, opts.secret)) {
     return json(401, { error: "Unauthorized" });
   }
+  if (ordinaryFrozen(opts.controlMode)) return json(409, { error: "Ordinary workflows frozen in probe-only mode", reason: "probe-only" });
 
-  // Idempotency guard: drop retried/redelivered webhooks (same X-GitHub-Delivery id).
-  // Checked only after signature verification so unauthenticated callers cannot poison
-  // the cache, and only when GitHub supplies a delivery id (direct/test posts opt out).
   const deliveryId = req.headers.get("x-github-delivery");
-  if (deliveryId) {
-    const cache = opts.deliveryCache ?? deliveryIdempotency;
-    if (cache.check(deliveryId).duplicate) {
-      return json(200, { success: true, deduplicated: true, deliveryId });
-    }
-  }
+  const processDelivery = async (): Promise<Response> => {
 
   let parsed;
   try {
-    parsed = parseWebhook(rawBody);
+    parsed = parseWebhook(rawBody!);
   } catch {
     return json(400, { error: "Invalid JSON" });
   }
 
-  let workflowState: WorkflowState | undefined;
-  const queryId = url.searchParams.get("workflowId") || url.searchParams.get("id");
-  if (queryId) {
-    workflowState = opts.store.get(queryId);
+  const payload: unknown = JSON.parse(rawBody!);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return json(400, { error: "Invalid webhook payload" });
   }
-
-  if (!workflowState && parsed.workflowId) {
-    workflowState = opts.store.get(parsed.workflowId);
+  const fields = payload as Record<string, unknown>;
+  const repository = fields.repository;
+  const repo = repository && typeof repository === "object" && !Array.isArray(repository)
+    ? (repository as Record<string, unknown>).full_name : undefined;
+  const pull = fields.pull_request;
+  const suite = fields.check_suite;
+  const suitePulls = suite && typeof suite === "object" && !Array.isArray(suite)
+    ? (suite as Record<string, unknown>).pull_requests : undefined;
+  const signedPull = pull && typeof pull === "object" && !Array.isArray(pull)
+    ? pull : Array.isArray(suitePulls) && suitePulls.length === 1 ? suitePulls[0] : undefined;
+  const prNumber = signedPull && typeof signedPull === "object" && !Array.isArray(signedPull)
+    ? (signedPull as Record<string, unknown>).number : undefined;
+  const pullFields = pull && typeof pull === "object" && !Array.isArray(pull) ? pull as Record<string, unknown> : undefined;
+  const pullHead = pullFields?.head;
+  const syncSha = pullHead && typeof pullHead === "object" && !Array.isArray(pullHead)
+    ? (pullHead as Record<string, unknown>).sha : undefined;
+  const isSync = !fields.review && (fields.action === "opened" || fields.action === "reopened" || fields.action === "synchronize");
+  if (isSync && (typeof syncSha !== "string" || !/^[0-9a-f]{40}$/.test(syncSha))) {
+    return json(400, { error: "A valid signed PR head is required" });
   }
-
-  if (!workflowState && parsed.prNumber !== undefined) {
-    for (const state of opts.store.values()) {
-      if (state.prNumber === parsed.prNumber) {
-        workflowState = state;
-        break;
-      }
-    }
+  if (typeof repo !== "string" || !repo.trim() || !Number.isSafeInteger(prNumber) || (prNumber as number) <= 0) {
+    return json(400, { error: "Signed repository and pull request are required" });
   }
+  parsed.prNumber = prNumber as number;
+  const matches = opts.store.values().filter((state) =>
+    normalizeRepo(state.repo || opts.writeDeps.targetRepo) === normalizeRepo(repo) &&
+    state.prNumber === prNumber && (!parsed.workflowId || state.id === parsed.workflowId));
+  if (matches.length > 1) return json(409, { error: "Ambiguous webhook workflow" });
+  const workflowState = matches[0];
 
   if (workflowState) {
     const workflowId = workflowState.id;
+    if (!workflowId) return json(500, { error: "Workflow is missing an id" });
     let nextState;
+    const digest = createHash("sha256").update(rawBody!).digest("hex");
     try {
       nextState = await withWorkflowLock(workflowId, async () => {
+        opts.shutdownSignal?.throwIfAborted();
         // Re-read state inside the lock to prevent race conditions
-        const currentState = opts.store.get(workflowId) || workflowState;
-        let updatedState = applyEvent(currentState!, parsed);
-        if (updatedState !== currentState) {
-          opts.store.set(updatedState.id, updatedState);
+        const currentState = opts.store.get(workflowId);
+        if (!currentState || normalizeRepo(currentState.repo || opts.writeDeps.targetRepo) !== normalizeRepo(repo) || currentState.prNumber !== prNumber) {
+          throw new Error("Webhook workflow identity changed");
         }
+        const digests = currentState.webhookDigests ?? [];
+        if (!Array.isArray(digests) || digests.some((value) => typeof value !== "string")) {
+          throw new Error("Invalid webhook replay ledger");
+        }
+        if (currentState.webhookPendingDigest !== undefined) {
+          throw new Error("A previous webhook requires explicit recovery");
+        }
+        if (digests.includes(digest)) return currentState;
+        if (digests.length >= 10000) throw new Error("Webhook replay ledger is full");
+        let base = currentState;
+        if (isSync && typeof syncSha === "string" && syncSha !== currentState.headSha) {
+          base = { ...currentState, headSha: syncSha, ciPassed: false, reviewPassed: false, approved: false,
+            actionApprovals: { ...currentState.actionApprovals, "pr.merge": { status: "pending" } } };
+        }
+        if (parsed.ciPassed === true || parsed.reviewPassed === true) {
+          throw new Error("Positive evidence cannot yet be verified safely");
+        }
+        let updatedState: WorkflowState = { ...applyEvent(base, parsed), webhookDigests: [...digests, digest], webhookPendingDigest: digest };
+        opts.store.set(workflowId, updatedState);
         updatedState = await progressWorkflowState(updatedState, opts);
-        opts.store.set(updatedState.id, updatedState);
+        opts.shutdownSignal?.throwIfAborted();
+        delete updatedState.webhookPendingDigest;
+        opts.store.set(workflowId, updatedState);
         if (workflowTerminal(updatedState)) {
-          pendingQueue.delete(updatedState.id);
+          pendingQueue.delete(workflowId);
         }
         return updatedState;
       });
     } catch (err) {
+      // Failed deliveries are retryable. Preserve any idempotent write receipt
+      // produced before the failure, but release this payload's replay marker.
+      const failedState = opts.store.get(workflowId);
+      if (failedState?.webhookPendingDigest === digest) {
+        const retryableState: WorkflowState = {
+          ...failedState,
+          webhookDigests: (failedState.webhookDigests ?? []).filter((value) => value !== digest),
+        };
+        delete retryableState.webhookPendingDigest;
+        opts.store.set(workflowId, retryableState);
+      }
+      if (err instanceof SecretAccessCleanupError) opts.cleanupFailures?.push(err);
+      if (err instanceof Error && (err.message.startsWith("Positive evidence") || err.message.startsWith("GitHub evidence") || err.message.startsWith("Pull request head"))) {
+        return json(503, { error: err.message });
+      }
       console.error("Error processing webhook workflow state:", err);
       return json(500, { error: "Internal server error processing workflow" });
     }
@@ -811,9 +942,23 @@ export async function handleWebhookRequest(
   }
 
   return json(202, { success: false, message: "No matching workflow found" });
+  };
+  if (!deliveryId) return processDelivery();
+  return withLock(deliveryLocks, deliveryId, async () => {
+    const cache = opts.deliveryCache ?? deliveryIdempotency;
+    if (cache.has(deliveryId)) {
+      return json(200, { success: true, deduplicated: true, deliveryId });
+    }
+    const response = await processDelivery();
+    if (response.status === 200) cache.check(deliveryId);
+    return response;
+  });
 }
 
-export function start() {
+export function start(options: { controlMode?: ControlMode; store?: WorkflowStore; setInterval?: typeof setInterval; clearInterval?: typeof clearInterval; dispatchFetchImpl?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>; sourceFactory?: () => SecretSource } = {}) {
+  const controlMode = parseControlMode(options.controlMode ?? process.env.JEO_CONTROL_MODE);
+  if (processControlMode === "probe-only" && controlMode !== "probe-only") throw new Error("Cannot override probe-only control mode");
+  const selectedStore = options.store ?? (controlMode === "normal" ? getDefaultStore() : new SQLiteWorkflowStore(":memory:"));
 
   const port = parseInt(process.env.GLUE_PORT || "8787", 10);
   const secret = process.env.GITHUB_WEBHOOK_SECRET?.trim();
@@ -830,195 +975,125 @@ export function start() {
   const targetBranch = process.env.TARGET_BRANCH?.trim();
   const runtimeDispatchSecret = process.env.JEO_RUNTIME_DISPATCH_SECRET?.trim();
   const githubApiBaseUrl = process.env.GITHUB_API_BASE_URL?.trim() || undefined;
-  if (!project || !prefix || !targetRepo || !targetBranch || !runtimeDispatchSecret) {
+  if (controlMode === "normal" && (!project || !prefix || !targetRepo || !targetBranch || !runtimeDispatchSecret)) {
     throw new Error("GCLOUD_PROJECT, GCLOUD_SECRET_PREFIX, TARGET_REPO, TARGET_BRANCH, and JEO_RUNTIME_DISPATCH_SECRET are required");
   }
+  if (process.env.JEO_STATUS_ENDPOINT) {
+    const statusSecret = process.env.JEO_STATUS_RELAY_SECRET?.trim();
+    if (!statusSecret || statusSecret.length < 24 || [secret, controlEventSecret, runtimeDispatchSecret].includes(statusSecret)) {
+      throw new Error("JEO_STATUS_RELAY_SECRET must be at least 24 characters and distinct from other secrets");
+    }
+  }
 
+  const shutdownController = new AbortController();
   const opts: WorkflowExecutionOpts & { secret: string } = {
     secret,
+    controlMode,
     controlEventSecret,
-    prefix,
-    sourceFactory: () => secretSourceFromEnv(process.env, project),
+    prefix: prefix ?? "",
+    sourceFactory: controlMode === "probe-only" ? () => { throw new Error("Ordinary secrets unavailable in probe-only mode"); } : options.sourceFactory ?? (() => secretSourceFromEnv(process.env, project!)),
     writeDeps: {
-      targetRepo,
-      targetBranch,
+      targetRepo: targetRepo ?? "",
+      targetBranch: targetBranch ?? "",
       apiBaseUrl: githubApiBaseUrl,
     },
-    runtimeDispatchSecret,
-    store,
+    runtimeDispatchSecret: runtimeDispatchSecret ?? "",
+    dispatchFetchImpl: options.dispatchFetchImpl,
+    store: selectedStore,
+    shutdownSignal: shutdownController.signal,
+    inFlight: new Set(),
+    cleanupFailures: [],
   };
 
-  // Auto-Merge & Auto-Approve Loop
-  let isAutoMergeRunning = false;
-  const autoMergeInterval = setInterval(async () => {
-    if (isAutoMergeRunning) return;
-    isAutoMergeRunning = true;
-    try {
-      for (const wf of store.getActiveWorkflows()) {
-        // [AUTO-APPROVE INJECTED] If it is awaiting approval for ANY stage, automatically approve it (only if not already approved).
-        if (wf.status === "awaiting-approval" && wf.pendingAction && wf.actionApprovals?.[wf.pendingAction]?.status !== "approved") {
-           console.log(`[Auto-Approve] Workflow ${wf.id} is awaiting ${wf.pendingAction}. Auto-approving per sovereign override.`);
-           try {
-             // Mock an approve event
-             const fakeEvent = {
-                 type: "approve" as const,
-                 workflowId: wf.id,
-                 action: wf.pendingAction,
-                 user: "system-auto-approver",
-                 force: true
-             };
-             let updated = await withWorkflowLock(wf.id, async () => {
-                 const currentState = store.get(wf.id) || wf;
-                 let updatedState = applyEvent(currentState, fakeEvent);
-                 if (updatedState !== currentState) {
-                     store.set(updatedState.id, updatedState);
-                 }
-                 if (opts.prefix && opts.sourceFactory && opts.writeDeps && opts.runtimeDispatchSecret) {
-                     updatedState = await progressWorkflowState(updatedState, opts);
-                     store.set(updatedState.id, updatedState);
-                 }
-                 return updatedState;
-             });
-             store.set(wf.id, updated);
-             pruneWorkflowStore(store, opts.storePolicy);
-           } catch(e) {
-               console.error(`[Auto-Approve] Failed for ${wf.id}:`, e);
-               // Mark as failed to prevent infinite retry loops on API errors
-               wf.status = "failed";
-               store.set(wf.id, wf);
-               await notifyStatus(wf, "Workflow failed during auto-approve: " + String(e));
-               
-               // Auto-Cleanup branch on failure
-               try {
-                 const branchName = wf.headRef;
-                 if (branchName && branchName.startsWith("jeo/")) {
-                   console.log(`[Branch Cleanup] Deleting remote branch ${branchName} for failed workflow ${wf.id}`);
-                   let token = process.env.GITHUB_TOKEN;
-                   if (!token && opts.sourceFactory) {
-                     const secrets = await opts.sourceFactory();
-                     token = secrets[`${opts.prefix}-github-token-rw`];
-                   }
-                   if (token && wf.repo) {
-                     fetch(`https://api.github.com/repos/${wf.repo}/git/refs/heads/${branchName}`, {
-                       method: "DELETE",
-                       headers: { "Authorization": `Bearer ${token}`, "User-Agent": "jeo-claw-hive" }
-                     }).then(r => console.log(`[Branch Cleanup] Fail-safe Result: ${r.status}`));
-                   }
-                 }
-               } catch(cleanupErr) { console.error("[Branch Cleanup] fail-safe error:", cleanupErr); }
-           }
-        }
-
-        if (wf.status === "awaiting-approval" && wf.pendingAction === "pr.merge") {
-          // Fallback legacy merge logic
-          if (wf.ciPassed && wf.reviewPassed && wf.actionApprovals?.["pr.merge"]?.status === "approved") {
-            console.log(`[Auto-Merge Check] Workflow ${wf.id} is ready for merge. Progressing...`);
-            try {
-              const nextState = await progressWorkflowState(wf, opts);
-              store.set(nextState.id, nextState);
-              pruneWorkflowStore(store, opts.storePolicy);
-            } catch (err) {
-              console.error(`[Auto-Merge Check] Failed to progress workflow ${wf.id}:`, err);
-            }
-          }
-        }
+  const server = Bun.serve({
+    port,
+    maxRequestBodySize: MAX_WEBHOOK_BODY_BYTES,
+    async fetch(req) {
+      const url = new URL(req.url);
+      if (req.method === "GET" && url.pathname === "/health") {
+        return json(200, { ok: true });
       }
-    } finally {
-      isAutoMergeRunning = false;
-    }
-  }, 10000); // Check every 10 seconds for ultra-fast autonomous execution
+      const task = handleWebhookRequest(req, opts);
+      opts.inFlight!.add(task);
+      try {
+        return await task;
+      } finally {
+        opts.inFlight!.delete(task);
+      }
+    },
+  });
 
   // [OOO RALPH / PERF PATCH] Self-healing and auto-polling mechanism.
   // Periodically checks the SQLite store for any 'queued' workflows that are NOT in the pendingQueue.
   // This prevents workflows from getting stuck due to memory crashes or direct database injections.
 
   let isAutoHealRunning = false;
-  const autoHealInterval = setInterval(async () => {
-      if (isAutoHealRunning) return;
+  const autoHealInterval = controlMode === "normal" ? (options.setInterval ?? setInterval)(async () => {
+      if (isAutoHealRunning || shutdownController.signal.aborted) return;
       isAutoHealRunning = true;
       try {
-          const activeWfs = store.getActiveWorkflows();
+          const activeWfs = selectedStore.getActiveWorkflows();
 
           // 0. Hard Lock purge: permanently remove banned targets (e.g.
           // akillness/jeo-code) that may have been injected directly into
           // SQLite. Mark terminal and evict from the queue so they are never
           // re-dispatched and never reported as "stranded" again.
-          const bannedWfs = activeWfs.filter((w: any) => isBannedTarget(w.repo) && !workflowTerminal(w));
+          const bannedWfs = activeWfs.filter((w: WorkflowState) => w.id && !workflowLocks.has(w.id) && isBannedTarget(w.repo) && !workflowTerminal(w));
           if (bannedWfs.length > 0) {
               console.warn(`[Hard Block] Auto-Heal purging ${bannedWfs.length} banned-target workflow(s) from SQLite.`);
               for (const wf of bannedWfs) {
                   if (!wf.id) continue;
                   wf.status = "rejected";
-                  store.set(wf.id, wf);
+                  selectedStore.set(wf.id, wf);
                   pendingQueue.delete(wf.id);
               }
           }
 
           // 1. Re-queue stranded 'queued' workflows (banned ones are now 'rejected' above).
-          const queuedWfs = activeWfs.filter((w: any) => w.status === "queued" && !pendingQueue.has(w.id));
+          const queuedWfs = activeWfs.filter((w: WorkflowState) => w.id && w.status === "queued" && !pendingQueue.has(w.id) && !workflowLocks.has(w.id));
           if (queuedWfs.length > 0) {
               console.log(`[Auto-Heal] Found ${queuedWfs.length} stranded workflows in SQLite. Re-queueing...`);
               for (const wf of queuedWfs) {
-                  enqueueWorkflow(wf.id, wf.repo);
+                  enqueueWorkflow(workflowId(wf), wf.repo);
               }
           }
 
 
-          // 2. Detect and reset Zombie workflows (stuck in 'pending'/'running' for > 15 mins)
-          const ZOMBIE_TIMEOUT_MS = 15 * 60 * 1000;
-          let zombiesRescued = false;
-          for (const wf of activeWfs) {
-              if (wf.status === "pending" || wf.status === "running") {
-                  let lastActiveTime = Date.now(); // default to now if no history
-                  if (wf.history && wf.history.length > 0) {
-                      const lastEntry = wf.history[wf.history.length - 1];
-                      if (lastEntry.at) {
-                          lastActiveTime = new Date(lastEntry.at).getTime();
-                      }
-                  }
-                  
-                  if (Date.now() - lastActiveTime > ZOMBIE_TIMEOUT_MS) {
-                      console.warn(`[Auto-Heal] Zombie detected! Workflow ${wf.id} stuck in ${wf.status} for >15 mins. Resetting to queued.`);
-                      wf.status = "queued";
-                      store.set(wf.id, wf);
-                      enqueueWorkflow(wf.id, wf.repo);
-
-                      zombiesRescued = true;
-                  }
-              }
-          }
-
-          if (queuedWfs.length > 0 || zombiesRescued) {
-              await processQueue(opts);
-          }
+          // Elapsed time cannot establish that an external worker is dead.
+          if (pendingQueue.size > 0) await processQueue(opts);
       } catch(e) {
           // Silently ignore to prevent polling crashes
       } finally {
           isAutoHealRunning = false;
       }
-  }, 15000);
+  }, 15000) : undefined;
 
-  const server = Bun.serve({
-    port,
-    async fetch(req) {
-      const url = new URL(req.url);
-      if (req.method === "GET" && url.pathname === "/health") {
-        return json(200, { ok: true });
-      }
-      return handleWebhookRequest(req, opts);
-    },
-  });
-
-  // Attach intervals to server object for cleanup during tests
-  (server as any)._autoMergeInterval = autoMergeInterval;
   (server as any)._autoHealInterval = autoHealInterval;
 
   const origStop = server.stop.bind(server);
+  let stopPromise: Promise<void> | undefined;
+  let forceRequested = false;
   server.stop = (closeActiveConnections?: boolean) => {
-    clearInterval(autoMergeInterval);
-    clearInterval(autoHealInterval);
-    origStop(closeActiveConnections);
+    if (stopPromise) {
+      if (closeActiveConnections && !forceRequested) {
+        forceRequested = true;
+        const forcedStop = origStop(true);
+        stopPromise = Promise.allSettled([stopPromise, forcedStop]).then((results) => {
+          const failures = results.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+          if (failures.length) throw new AggregateError(failures, "Workflow shutdown failed");
+        });
+      }
+      return stopPromise;
+    }
+    shutdownController.abort();
+    if (autoHealInterval !== undefined) (options.clearInterval ?? clearInterval)(autoHealInterval);
+    forceRequested = closeActiveConnections === true;
+    stopPromise = Promise.allSettled([origStop(closeActiveConnections), ...opts.inFlight!]).then((results) => {
+      const failures = results.flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+      failures.push(...opts.cleanupFailures!);
+      if (failures.length) throw new AggregateError(failures, "Workflow shutdown failed");
+    });
+    return stopPromise;
   };
   return server;
 }
-

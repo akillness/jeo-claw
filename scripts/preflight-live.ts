@@ -25,6 +25,7 @@ export const REQUIRED_SECRET_NAMES = [
   "github-webhook-secret",
   "discord-bot-token",
   "control-event-secret",
+  "status-relay-secret",
   "runtime-dispatch-secret",
 ] as const;
 
@@ -35,6 +36,7 @@ const PLAINTEXT_SECRET_ENV = [
   "GITHUB_WEBHOOK_SECRET",
   "DISCORD_BOT_TOKEN",
   "JEO_CONTROL_EVENT_SECRET",
+  "JEO_STATUS_RELAY_SECRET",
   "JEO_RUNTIME_DISPATCH_SECRET",
 ] as const;
 
@@ -99,6 +101,7 @@ export async function runLivePreflight(
   const project = trimmed(env, "GCLOUD_PROJECT");
   const checkedSecrets = prefix ? requiredSecretIds(prefix) : [];
   const missingSecrets: string[] = [];
+  const sharedSecrets = new Map<string, string>();
   const mode = secretSourceMode(env);
 
   if (prefix && (mode === "file" || project)) {
@@ -106,10 +109,16 @@ export async function runLivePreflight(
     for (const secretId of checkedSecrets) {
       try {
         const value = await source.access(secretId);
-        if (value.trim().length === 0) missingSecrets.push(secretId);
+        sharedSecrets.set(secretId, value.trim());
+        if (value.trim().length === 0 || (["status-relay-secret", "control-event-secret", "github-webhook-secret", "runtime-dispatch-secret"].some((name) => secretId === `${prefix}-${name}`) && value.trim().length < 24)) missingSecrets.push(secretId);
       } catch {
         missingSecrets.push(secretId);
       }
+    }
+    const relayId = `${prefix}-status-relay-secret`;
+    const relay = sharedSecrets.get(relayId);
+    if (relay !== undefined && (relay.length < 24 || [...sharedSecrets].some(([id, value]) => id !== relayId && value === relay))) {
+      if (!missingSecrets.includes(relayId)) missingSecrets.push(relayId);
     }
   }
 
@@ -134,9 +143,9 @@ function printResult(result: LivePreflightResult): void {
     console.log(`Checked secret ids: ${result.checkedSecrets.join(", ")}`);
   }
   if (result.missingSecrets.length > 0) {
-    console.log(`MISSING/EMPTY secrets: ${result.missingSecrets.join(", ")}`);
+    console.log(`MISSING/INVALID secrets: ${result.missingSecrets.join(", ")}`);
   } else if (result.checkedSecrets.length > 0) {
-    console.log("PASS required secret entries are readable and non-empty");
+    console.log("PASS required secret entries are readable and validated");
   }
 
   for (const warning of result.warnings) {

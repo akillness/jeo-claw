@@ -1,6 +1,8 @@
 import { test, expect } from "bun:test";
 import { bindTerminationHandlers, commandForService, resolveControlEnvironment } from "./start.ts";
 import type { SecretSource } from "../secrets/loader.ts";
+import { resolveLivePolicy } from "../discord/bot.ts";
+import { ChannelType } from "discord.js";
 
 class MockSource implements SecretSource {
   constructor(private store: Record<string, string>) {}
@@ -51,6 +53,7 @@ test("resolveControlEnvironment loads control secrets from Secret Manager inputs
     new MockSource({
       "jeo-claw-github-webhook-secret": "whsec_generated_secret_value",
       "jeo-claw-control-event-secret": "control-event-secret-value",
+      "jeo-claw-status-relay-secret": "status-relay-secret-value",
       "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
     }),
   );
@@ -104,6 +107,7 @@ test("resolveControlEnvironment drops ambient non-control secrets from child env
     new MockSource({
       "jeo-claw-discord-bot-token": "xoxb-live",
       "jeo-claw-control-event-secret": "control-event-secret-value",
+      "jeo-claw-status-relay-secret": "status-relay-secret-value",
     }),
   );
 
@@ -111,4 +115,23 @@ test("resolveControlEnvironment drops ambient non-control secrets from child env
   expect(env.OPENAI_API_KEY).toBeUndefined();
   expect(env.DISCORD_BOT_TOKEN).toBe("xoxb-live");
   expect(env.JEO_CONTROL_EVENT_SECRET).toBe("control-event-secret-value");
+});
+
+test("control startup preserves channel names for Discord discovery", async () => {
+  const env = await resolveControlEnvironment("discord-bot", {
+    GCLOUD_PROJECT: "project-id", GCLOUD_SECRET_PREFIX: "jeo-claw", DISCORD_GUILD_ID: "guild-1",
+    DISCORD_REQUEST_CHANNEL_NAME: "team-requests", DISCORD_APPROVAL_CHANNEL_NAME: "team-approvals",
+  }, new MockSource({
+    "jeo-claw-discord-bot-token": "synthetic-discord-token-long",
+    "jeo-claw-control-event-secret": "synthetic-control-secret-long",
+    "jeo-claw-status-relay-secret": "synthetic-relay-secret-long",
+  }));
+  const channels = new Map([
+    ["request-id", { id: "request-id", name: "team-requests", type: ChannelType.GuildText }],
+    ["approval-id", { id: "approval-id", name: "team-approvals", type: ChannelType.GuildText }],
+  ]);
+  const client = { guilds: { fetch: async () => ({ channels: { fetch: async () => channels } }) } };
+  const policy = await resolveLivePolicy(client, env);
+  expect(policy.requestChannelId).toBe("request-id");
+  expect(policy.approvalChannelId).toBe("approval-id");
 });

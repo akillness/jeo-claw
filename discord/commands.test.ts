@@ -163,7 +163,7 @@ test("validateConfigValue validations", () => {
   expect(validateConfigValue("scaleout", "1.5").ok).toBe(false);
 
   expect(validateConfigValue("provider", "openai-codex")).toEqual({ ok: true });
-  expect(validateConfigValue("provider", "openai").ok).toBe(false);
+  expect(validateConfigValue("provider", "openai")).toEqual({ ok: true });
   expect(validateConfigValue("provider", "").ok).toBe(false);
   expect(validateConfigValue("model", "gpt-5")).toEqual({ ok: true });
   expect(validateConfigValue("model", "   ")).toEqual({ ok: false, reason: "Value for model cannot be empty." });

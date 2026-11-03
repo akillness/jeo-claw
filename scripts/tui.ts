@@ -24,11 +24,14 @@ function getColor(status: string) {
 }
 
 async function render() {
-  const workflows = await store.values();
+  const workflows = (await store.values()).map((workflow) => {
+    if (workflow.id === undefined) throw new Error("Workflow is missing an id");
+    return { ...workflow, id: workflow.id };
+  });
   const sorted = [...workflows].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 20);
 
   clearScreen();
-  console.log("\x1b[1m=== GJC (Global Jeoclaw Control) TUI Monitor ===\x1b[0m");
+  console.log("\x1b[1m=== Jeopi / Jeo Claw TUI Monitor ===\x1b[0m");
   console.log(`DB: ${dbPath} | Refresh: ${REFRESH_INTERVAL_MS}ms | Time: ${new Date().toLocaleTimeString()}`);
   console.log("-".repeat(80));
   console.log(

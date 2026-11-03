@@ -1,7 +1,5 @@
-# jeo-claw — six-claw hive topology.
-# Security posture: no host Docker socket, no host workspace binds,
-# internal-only runtime/control services, allowlisted proxy egress,
-# and Discord approval for every write action.
+# jeo-claw topology. Only the allowlisted proxy reaches the edge network;
+# control and runtime services remain on the internal network.
 
 networks:
   edge:
@@ -13,10 +11,61 @@ networks:
 volumes:
   hive_state:
 
+  zeroclaw_researcher_coder_state:
+  zeroclaw_researcher_coder_work:
+  zeroclaw_reviewer_state:
+  zeroclaw_reviewer_work:
+  zeroclaw_pr_creator_state:
+  zeroclaw_pr_creator_work:
+  zeroclaw_pr_review_scheduler_state:
+  zeroclaw_pr_review_scheduler_work:
+  zeroclaw_merger_state:
+  zeroclaw_merger_work:
+  nullclaw_researcher_coder_state:
+  nullclaw_researcher_coder_work:
+  nullclaw_reviewer_state:
+  nullclaw_reviewer_work:
+  nullclaw_pr_creator_state:
+  nullclaw_pr_creator_work:
+  nullclaw_pr_review_scheduler_state:
+  nullclaw_pr_review_scheduler_work:
+  nullclaw_merger_state:
+  nullclaw_merger_work:
+x-runtime: &runtime
+  restart: unless-stopped
+  networks: [claw_internal]
+  depends_on:
+    egress-proxy:
+      condition: service_healthy
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /run
+  healthcheck:
+    test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:\" + process.env.JEO_RUNTIME_PORT + \"/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+
+x-runtime-env: &runtime-env
+  HTTP_PROXY: http://egress-proxy:3128
+  HTTPS_PROXY: http://egress-proxy:3128
+  NO_PROXY: localhost,127.0.0.1,claw-hive,egress-proxy
+  GCLOUD_PROJECT: ${GCLOUD_PROJECT}
+  GCLOUD_SECRET_PREFIX: ${GCLOUD_SECRET_PREFIX}
+  TARGET_REPO: ${TARGET_REPO}
+  TARGET_BRANCH: ${TARGET_BRANCH}
+  LLM_MODEL: ${LLM_MODEL:-gpt-6.1-terra}
+  OPENAI_WIRE_API: ${OPENAI_WIRE_API:-responses}
+  JEO_SECRET_SOURCE: ${JEO_SECRET_SOURCE:-gcloud}
+  JEO_SECRETS_FILE: ${JEO_SECRETS_FILE:-}
+  CLOUDSDK_CONFIG: /tmp/gcloud
+
 services:
   egress-proxy:
     image: ubuntu/squid:latest
-    container_name: jeo-egress-proxy
     user: "13:13"
     restart: unless-stopped
     networks:
@@ -45,7 +94,6 @@ services:
     build:
       context: .
       dockerfile: hive/Dockerfile
-    container_name: jeo-claw-hive
     deploy:
       resources:
         limits:
@@ -55,16 +103,16 @@ services:
           cpus: "0.5"
           memory: 256M
     restart: unless-stopped
+    stop_grace_period: 20s
     depends_on:
       egress-proxy:
         condition: service_healthy
     networks:
       - claw_internal
-      - edge
     environment:
-      HTTP_PROXY: ${EGRESS_PROXY_URL}
-      HTTPS_PROXY: ${EGRESS_PROXY_URL}
-      NO_PROXY: localhost,127.0.0.1,egress-proxy,github-api-mock
+      HTTP_PROXY: http://egress-proxy:3128
+      HTTPS_PROXY: http://egress-proxy:3128
+      NO_PROXY: localhost,127.0.0.1,egress-proxy,github-api-mock,zeroclaw-researcher-coder,zeroclaw-reviewer,zeroclaw-pr-creator,zeroclaw-pr-review-scheduler,zeroclaw-merger,nullclaw-researcher-coder,nullclaw-reviewer,nullclaw-pr-creator,nullclaw-pr-review-scheduler,nullclaw-merger
       GLUE_PORT: ${GLUE_PORT:-8787}
       GITHUB_WEBHOOK_PATH: ${GITHUB_WEBHOOK_PATH:-/webhook/github}
       GLUE_EVENT_ENDPOINT: http://127.0.0.1:8787
@@ -73,8 +121,8 @@ services:
       TARGET_REPO: ${TARGET_REPO}
       TARGET_BRANCH: ${TARGET_BRANCH}
       ALLOWED_REPO_OWNERS: ${ALLOWED_REPO_OWNERS:-}
-      LLM_PROVIDER: ${LLM_PROVIDER}
-      LLM_MODEL: ${LLM_MODEL}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${LLM_MODEL:-gpt-6.1-terra}
       OPENAI_WIRE_API: ${OPENAI_WIRE_API}
       DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
       DISCORD_REQUEST_CHANNEL_ID: ${DISCORD_REQUEST_CHANNEL_ID}
@@ -89,6 +137,12 @@ services:
       JEO_STATUS_ENDPOINT: ${JEO_STATUS_ENDPOINT:-http://127.0.0.1:9100/status}
       AUTONOMY: ${AUTONOMY:-}
       SQLITE_DB_PATH: /data/workflows.sqlite
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /root/.config/gcloud
+      - /root/.cache
     ports:
       - "127.0.0.1:${GLUE_HOST_PORT:-8787}:8787"
     cap_drop:
@@ -97,10 +151,6 @@ services:
       - no-new-privileges:true
     volumes:
       - hive_state:/data
-      - ./secrets/live.json:/run/secrets/jeo-claw-secrets.json:ro
-      - ~/.jeo:/root/.jeo:rw
-      - ~/.gjc:/root/.gjc:rw
-      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD-SHELL", "bun -e 'fetch(\"http://127.0.0.1:8787/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
       interval: 30s
@@ -122,9 +172,6 @@ services:
           path: ./hive
           target: /app/hive
         - action: sync
-          path: ./secrets
-          target: /app/secrets
-        - action: sync
           path: ./runtimes
           target: /app/runtimes
         - action: sync
@@ -144,13 +191,63 @@ services:
         - action: rebuild
           path: bun.lock
 
+  zeroclaw-researcher-coder:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/zeroclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: zeroclaw, JEO_ROLE: researcher-coder, JEO_RUNTIME_PORT: "9201"}
+    volumes: ["zeroclaw_researcher_coder_state:/root/.zeroclaw", "zeroclaw_researcher_coder_work:/workspace"]
+  zeroclaw-reviewer:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/zeroclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: zeroclaw, JEO_ROLE: reviewer, JEO_RUNTIME_PORT: "9202"}
+    volumes: ["zeroclaw_reviewer_state:/root/.zeroclaw", "zeroclaw_reviewer_work:/workspace"]
+  zeroclaw-pr-creator:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/zeroclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: zeroclaw, JEO_ROLE: pr-creator, JEO_RUNTIME_PORT: "9203"}
+    volumes: ["zeroclaw_pr_creator_state:/root/.zeroclaw", "zeroclaw_pr_creator_work:/workspace"]
+  zeroclaw-pr-review-scheduler:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/zeroclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: zeroclaw, JEO_ROLE: pr-review-scheduler, JEO_RUNTIME_PORT: "9204"}
+    volumes: ["zeroclaw_pr_review_scheduler_state:/root/.zeroclaw", "zeroclaw_pr_review_scheduler_work:/workspace"]
+  zeroclaw-merger:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/zeroclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: zeroclaw, JEO_ROLE: merger, JEO_RUNTIME_PORT: "9205"}
+    volumes: ["zeroclaw_merger_state:/root/.zeroclaw", "zeroclaw_merger_work:/workspace"]
+  nullclaw-researcher-coder:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/nullclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: nullclaw, JEO_ROLE: researcher-coder, JEO_RUNTIME_PORT: "9201"}
+    volumes: ["nullclaw_researcher_coder_state:/root/.config/nullclaw", "nullclaw_researcher_coder_work:/workspace"]
+  nullclaw-reviewer:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/nullclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: nullclaw, JEO_ROLE: reviewer, JEO_RUNTIME_PORT: "9202"}
+    volumes: ["nullclaw_reviewer_state:/root/.config/nullclaw", "nullclaw_reviewer_work:/workspace"]
+  nullclaw-pr-creator:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/nullclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: nullclaw, JEO_ROLE: pr-creator, JEO_RUNTIME_PORT: "9203"}
+    volumes: ["nullclaw_pr_creator_state:/root/.config/nullclaw", "nullclaw_pr_creator_work:/workspace"]
+  nullclaw-pr-review-scheduler:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/nullclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: nullclaw, JEO_ROLE: pr-review-scheduler, JEO_RUNTIME_PORT: "9204"}
+    volumes: ["nullclaw_pr_review_scheduler_state:/root/.config/nullclaw", "nullclaw_pr_review_scheduler_work:/workspace"]
+  nullclaw-merger:
+    <<: *runtime
+    build: {context: ., dockerfile: runtimes/nullclaw/Dockerfile}
+    environment: {<<: *runtime-env, JEO_RUNTIME: nullclaw, JEO_ROLE: merger, JEO_RUNTIME_PORT: "9205"}
+    volumes: ["nullclaw_merger_state:/root/.config/nullclaw", "nullclaw_merger_work:/workspace"]
+
   github-api-mock:
     profiles:
       - test
     build:
       context: .
       dockerfile: hive/Dockerfile
-    container_name: jeo-github-api-mock
     command: ["bun", "run", "scripts/mock-github.ts"]
     networks:
       - claw_internal

@@ -1,7 +1,9 @@
-import { $ } from "bun";
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { access, open, mkdtemp, rm } from "node:fs/promises";
+import { constants } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 import type { WorkflowArtifact } from "../glue/contract.ts";
 
 export interface RepoAnalysis {
@@ -43,6 +45,55 @@ function sanitizePath(path: string): { ok: boolean; reason?: string } {
     }
   }
   return { ok: true };
+}
+
+const MAX_ARTIFACT_BYTES = 1024 * 1024;
+
+export async function readArtifact(
+  root: string,
+  path: string,
+  openFile: typeof open = open,
+): Promise<{ content: string } | { reason: string }> {
+  if (process.platform !== "linux") throw new Error("Secure artifact collection requires Linux descriptor-relative access");
+  const validation = sanitizePath(path);
+  if (!validation.ok) return { reason: validation.reason ?? "invalid or protected path" };
+  const parts = path.split("/");
+  if (isAbsolute(path) || parts.some((part) => !part || part === "." || part === ".." || part === ".git" || part.includes("\0"))) {
+    return { reason: "invalid or protected path" };
+  }
+  const directories = [];
+  let directory = await openFile(root, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  directories.push(directory);
+  let file;
+  try {
+    for (const part of parts.slice(0, -1)) {
+      directory = await openFile(`/proc/self/fd/${directory.fd}/${part}`, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+      directories.push(directory);
+    }
+    file = await openFile(`/proc/self/fd/${directory.fd}/${parts[parts.length - 1]}`, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const stat = await file.stat();
+    if (!stat.isFile()) return { reason: "not a regular file" };
+    if (stat.nlink > 1) return { reason: "hard-linked file" };
+    if (stat.size > MAX_ARTIFACT_BYTES) return { reason: "exceeds 1MB" };
+    const buffer = Buffer.allocUnsafe(stat.size + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const { bytesRead } = await file.read(buffer, length, buffer.length - length, null);
+      if (bytesRead === 0) break;
+      length += bytesRead;
+    }
+    if (length > stat.size) return { reason: "file grew during read" };
+    return { content: buffer.toString("utf8", 0, length) };
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return { reason: "deleted or missing" };
+    throw error;
+  } finally {
+    try {
+      if (file) await file.close();
+    } finally {
+      for (const handle of directories.reverse()) await handle.close();
+    }
+  }
 }
 
 export async function analyzeRepository(
@@ -210,18 +261,22 @@ ${staleRecommendation}
 // otherwise the workflow falsely auto-approves and merges empty/garbage work.
 export const AGENT_FAILURE_MARKERS: readonly string[] = [
   "Rate limited",
-  "rate limit",
-  "429",
-  "404",
-  "not found",
+  "Provider returned HTTP 429",
+  "Provider returned HTTP 404",
   "No endpoints",
   "resolves to",
   "model not found",
   "Provider error",
-  "authentication",
-  "Unauthorized",
-  "401",
+  "authentication failed",
+  "401 Unauthorized",
 ];
+
+export const CODING_AGENT = {
+  binary: "jeopi",
+  provider: "openai-codex",
+  model: "openai-codex/gpt-6.1-terra",
+  sessionMode: "--no-session",
+} as const;
 
 // Pure decision: did a single coding-agent invocation produce a healthy run?
 // Healthy requires exit code 0 AND no failure marker in combined stdout/stderr.
@@ -231,6 +286,86 @@ export function evaluateAgentRun(
 ): { healthy: boolean; marker: string | null } {
   const marker = AGENT_FAILURE_MARKERS.find((m) => output.includes(m)) ?? null;
   return { healthy: exitCode === 0 && marker === null, marker };
+}
+
+export interface CodingAgentResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  marker: string | null;
+  timedOut: boolean;
+  cancelled: boolean;
+}
+
+export async function runCodingAgent(
+  command: string[],
+  options: { cwd: string; env?: NodeJS.ProcessEnv; timeoutMs: number; signal?: AbortSignal; maxOutputBytes?: number },
+): Promise<CodingAgentResult> {
+  const limit = options.maxOutputBytes ?? 65536;
+  const binary = command[0];
+  if (binary === undefined || !Number.isSafeInteger(limit) || limit < 1 || !Number.isFinite(options.timeoutMs) || options.timeoutMs < 1) throw new Error("Invalid coding agent process options");
+  if (options.signal?.aborted) return { exitCode: -1, stdout: "", stderr: "", marker: null, timedOut: false, cancelled: true };
+  const child = spawn(binary, command.slice(1), { cwd: options.cwd, env: options.env, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+  let marker: string | null = null;
+  let timedOut = false;
+  let cancelled = false;
+  let terminating = false;
+  let killTimer: ReturnType<typeof setTimeout> | undefined;
+  let pipeTimer: ReturnType<typeof setTimeout> | undefined;
+  const tailLength = Math.max(...AGENT_FAILURE_MARKERS.map((item) => item.length)) - 1;
+  const collect = (stream: NodeJS.ReadableStream) => {
+    const decoder = new StringDecoder("utf8");
+    let output = Buffer.alloc(0);
+    let scanTail = "";
+    const scan = (text: string) => {
+      const scanText = scanTail + text;
+      marker ??= AGENT_FAILURE_MARKERS.find((item) => scanText.includes(item)) ?? null;
+      scanTail = scanText.slice(-tailLength);
+    };
+    stream.on("data", (chunk: Buffer) => {
+      scan(decoder.write(chunk));
+      output = chunk.length >= limit ? Buffer.from(chunk.subarray(chunk.length - limit)) : Buffer.concat([output.subarray(Math.max(0, output.length + chunk.length - limit)), chunk]);
+    });
+    stream.on("end", () => scan(decoder.end()));
+    return () => output.toString("utf8");
+  };
+  const stdout = collect(child.stdout);
+  const stderr = collect(child.stderr);
+  const terminate = () => {
+    if (terminating) return;
+    terminating = true;
+    const send = (signal: NodeJS.Signals) => {
+      try {
+        if (process.platform !== "win32" && child.pid) process.kill(-child.pid, signal);
+        else child.kill(signal);
+      } catch { child.kill(signal); }
+    };
+    send("SIGTERM");
+    killTimer = setTimeout(() => {
+      send("SIGKILL");
+      pipeTimer = setTimeout(() => { child.stdout.destroy(); child.stderr.destroy(); }, 1000);
+      pipeTimer.unref();
+    }, 1000);
+    killTimer.unref();
+  };
+  const onAbort = () => { cancelled = true; terminate(); };
+  options.signal?.addEventListener("abort", onAbort, { once: true });
+  if (options.signal?.aborted) onAbort();
+  const timer = setTimeout(() => { timedOut = true; terminate(); }, options.timeoutMs);
+  let spawnError: Error | undefined;
+  child.on("error", (error) => { spawnError = error; });
+  child.once("exit", () => {
+    if (process.platform !== "win32" && child.pid) {
+      try { process.kill(-child.pid, "SIGKILL"); } catch { /* Process group already exited. */ }
+    }
+  });
+  const exitCode = await new Promise<number>((resolve) => child.once("close", (code) => resolve(code ?? -1)));
+  clearTimeout(timer);
+  if (killTimer) clearTimeout(killTimer);
+  if (pipeTimer) clearTimeout(pipeTimer);
+  options.signal?.removeEventListener("abort", onAbort);
+  if (spawnError) throw spawnError;
+  return { exitCode, stdout: stdout(), stderr: stderr(), marker, timedOut, cancelled };
 }
 
 export async function generateImprovement(
@@ -243,12 +378,16 @@ export async function generateImprovement(
     model: string;
     fetchImpl?: typeof fetch;
     timeoutMs?: number;
-  }
+  },
+  signal?: AbortSignal,
 ): Promise<{
   files: WorkflowArtifact[];
   summary: string;
   notes: string[];
 }> {
+  signal?.throwIfAborted();
+  if (process.platform !== "linux") throw new Error("Secure artifact collection requires Linux descriptor-relative access");
+  await access("/proc/self/fd");
   const notes: string[] = [];
   const finalArtifacts: WorkflowArtifact[] = [];
   let summary = "";
@@ -259,40 +398,53 @@ export async function generateImprovement(
   try {
     const cloneUrl = `https://github.com/${analysis.repo}.git`;
     notes.push(`Cloning ${cloneUrl}...`);
-    await $`git clone ${cloneUrl} ${tempDir}`;
+    const clone = await runCodingAgent(["git", "clone", "--", cloneUrl, tempDir], {
+      cwd: process.cwd(), timeoutMs: 5 * 60 * 1000, signal,
+    });
+    signal?.throwIfAborted();
+    if (clone.timedOut || clone.exitCode !== 0) throw new Error("Repository clone failed or timed out");
+    const base = await runCodingAgent(["git", "rev-parse", "--verify", "HEAD"], {
+      cwd: tempDir, timeoutMs: 30_000, signal,
+    });
+    signal?.throwIfAborted();
+    const baseCommit = base.stdout.trim();
+    if (base.timedOut || base.exitCode !== 0 || !/^[0-9a-f]{40,64}$/.test(baseCommit)) throw new Error("Repository clone baseline unavailable");
 
     notes.push(`Running coding agent for request: ${request}`);
-    const agentBinary = runtime === "zeroclaw" ? "jeo-code" : "gajae-code";
-    const strictRule = "\\n\\n[CRITICAL RULE] When using the 'edit' tool, you MUST use the ≔[line]..[line] line-range replacement format exactly as required by the tool. DO NOT use diff or block replacement formats. EXAMPLE:\\n\\nsrc/app.ts\\n≔10..12\\nnew content for line 10\\nnew content for line 11\\nnew content for line 12\\n\\nDO NOT USE MARKDOWN CODE BLOCKS AROUND THE EDIT.\\n\\n[CRITICAL RULE] If 'Edit rejected: changed on disk' occurs, you MUST use the 'read' tool to re-read the file to get the latest hash, and then retry the 'edit'.\\n\\n[CRITICAL RULE] DO NOT use `git commit` or `git stash` to clean up your changes. Leave modified files as unstaged or staged so they can be collected.";
-    // jeo-code routes `--model` by a provider-qualifying prefix. A bare id is
-    // matched heuristically: `gemini-3.1-pro` resolves to the `gemini` provider,
-    // so `--provider antigravity --model gemini-3.1-pro` is rejected with
-    // "selected model ... resolves to gemini, not requested provider antigravity".
-    // Antigravity models must therefore carry the `antigravity/` prefix; anthropic
-    // ids already resolve to anthropic and pass through unprefixed.
+    const agentBinary = CODING_AGENT.binary;
+    const strictRule = "\n\n[CRITICAL RULE] Do not use git commit or git stash to clean up your changes. Leave modified files unstaged or staged so they can be collected.";
+    // The authenticated jeopi catalog identifies the ChatGPT OAuth adapter as
+    // `openai-codex`; use the fully-qualified selector to avoid fuzzy routing.
     const models: { provider: string; model: string }[] = [
-        { provider: "antigravity", model: "antigravity/gemini-2.5-pro" },
-        { provider: "anthropic", model: "claude-opus-4-8" },
+        { provider: CODING_AGENT.provider, model: CODING_AGENT.model },
     ];
-    let agentResult: any;
+    let agentResult: CodingAgentResult | undefined;
     let agentSucceeded = false;
     for (const { provider: prov, model: modelName } of models) {
         notes.push(`Running coding agent with provider: ${prov}, model: ${modelName}`);
-        const ts = Date.now();
-        agentResult = await $`cd ${tempDir} && env ANTHROPIC_TIMEOUT=3600000 XDG_DATA_HOME=/tmp/xdg-data-${ts} XDG_STATE_HOME=/tmp/xdg-state-${ts} bunx --bun ${agentBinary} --provider ${prov} --model ${modelName} -p "$ooo $ralph ${request}${strictRule}"`.nothrow();
+        const xdgDir = await mkdtemp(join(tmpdir(), "jeoclaw-xdg-"));
+        try {
+          agentResult = await runCodingAgent(
+            [agentBinary, CODING_AGENT.sessionMode, "--provider", prov, "--model", modelName, "-p", `$ooo $ralph ${request}${strictRule}`],
+            { cwd: tempDir, env: { ...process.env, XDG_DATA_HOME: join(xdgDir, "data"), XDG_STATE_HOME: join(xdgDir, "state") }, timeoutMs: 30 * 60 * 1000, signal },
+          );
+        } finally {
+          await rm(xdgDir, { recursive: true, force: true });
+        }
+        signal?.throwIfAborted();
         notes.push(`model ${modelName} exit code: ${agentResult.exitCode}`);
 
-        const outStr = agentResult.stdout.toString() + agentResult.stderr.toString();
-        const { healthy, marker } = evaluateAgentRun(agentResult.exitCode, outStr);
+        const { marker } = agentResult;
+        const healthy = agentResult.exitCode === 0 && !marker && !agentResult.timedOut && !agentResult.cancelled;
         if (healthy) {
             agentSucceeded = true;
             notes.push(`[Model Pooling] Healthy run with provider ${prov}, model ${modelName}.`);
             break;
         }
 
-        notes.push(`[Model Pooling] Fallback triggered (exitCode: ${agentResult.exitCode}, failureMarker: ${marker ?? "none"}). Cleaning up repo state before retry...`);
-        await $`cd ${tempDir} && git reset --hard HEAD && git clean -fd`.nothrow();
+        notes.push(`[Model Pooling] Agent failed (exitCode: ${agentResult.exitCode}, failureMarker: ${marker ?? "none"}).`);
     }
+    if (!agentResult) throw new Error("No coding agent was invoked");
 
 
     
@@ -301,7 +453,7 @@ export async function generateImprovement(
         const fs = await import("node:fs/promises");
         const logPath = join(process.cwd(), ".jeo/artifacts/tool-results", `${Date.now()}-agent-execution.log`);
         await fs.mkdir(join(process.cwd(), ".jeo/artifacts/tool-results"), { recursive: true });
-        const logData = `EXIT CODE: ${agentResult.exitCode}
+        const logData = `EXIT CODE: ${agentResult.exitCode} (output limited to last 65536 bytes per stream; timedOut=${agentResult.timedOut})
 
 STDOUT:
 ${agentResult.stdout.toString()}
@@ -327,44 +479,42 @@ ${agentResult.stderr.toString()}`;
 
 
     // Get unstaged/uncommitted and STAGED changes
-    const gitDiffUnstaged = await $`cd ${tempDir} && git diff HEAD --name-only || git diff --name-only`.nothrow().text();
-    
-    // Get committed changes against origin/main (or origin/HEAD)
-    const gitDiffCommitted = await $`cd ${tempDir} && git diff origin/main...HEAD --name-only || git diff origin/master...HEAD --name-only || echo ""`.nothrow().text();
-    
-    const modifiedFiles = [...gitDiffUnstaged.split("\n"), ...gitDiffCommitted.split("\n")].map(f => f.trim()).filter(f => f.length > 0);
-
-    const gitUntracked = await $`cd ${tempDir} && git ls-files --others --exclude-standard`.text();
-    const untrackedFiles = gitUntracked.split("\n").map(f => f.trim()).filter(f => f.length > 0);
+    const gitNames = async (args: string[], allowFailure = false): Promise<string | null> => {
+      const result = await runCodingAgent(["git", ...args], { cwd: tempDir, timeoutMs: 30_000, signal, maxOutputBytes: 1024 * 1024 });
+      signal?.throwIfAborted();
+      if (result.timedOut) throw new Error("Repository status timed out");
+      if (result.exitCode !== 0) {
+        if (allowFailure) return null;
+        throw new Error("Repository status failed");
+      }
+      if (Buffer.byteLength(result.stdout) >= 1024 * 1024) throw new Error("Repository status exceeds output limit");
+      return result.stdout;
+    };
+    const gitDiffUnstaged = await gitNames(["diff", "HEAD", "--name-only"]);
+    const gitDiffCommitted = await gitNames(["diff", `${baseCommit}...HEAD`, "--name-only"]);
+    if (gitDiffCommitted === null) throw new Error("Repository comparison baseline unavailable");
+    const modifiedFiles = [...(gitDiffUnstaged ?? "").split("\n"), ...gitDiffCommitted.split("\n")].map(f => f.trim()).filter(f => f.length > 0);
+    const gitUntracked = await gitNames(["ls-files", "--others", "--exclude-standard"]);
+    const untrackedFiles = (gitUntracked ?? "").split("\n").map(f => f.trim()).filter(f => f.length > 0);
 
     const allChanged = [...new Set([...modifiedFiles, ...untrackedFiles])];
+    if (allChanged.length > 30) throw new Error("Agent changed more than 30 files; refusing partial artifacts");
 
     if (allChanged.length === 0) {
       summary = "코딩 에이전트가 실행되었으나 변경된 파일이 없습니다. (목업 데이터 아님, 실제 실행 결과)";
       notes.push("No files modified by agent.");
     } else {
-      summary = `실제 코딩 에이전트(gjc)가 코드를 수정했습니다. 변경된 파일: ${allChanged.join(', ')}`;
+      summary = `실제 코딩 에이전트(jeopi)가 코드를 수정했습니다. 변경된 파일: ${allChanged.join(', ')}`;
       for (const file of allChanged) {
-        if (finalArtifacts.length >= 30) {
-          notes.push(`dropped-artifact: max 30 files exceeded (${file})`);
-          continue;
-        }
-        const filePath = join(tempDir, file);
-        const fileObj = Bun.file(filePath);
-        if (!(await fileObj.exists())) {
-          notes.push(`artifact deleted by agent: ${file}`);
-          continue;
-        }
-        const fileContent = await fileObj.text();
-        
-        if (Buffer.byteLength(fileContent, "utf8") > 1024 * 1024) {
-          notes.push(`dropped-artifact: ${file} exceeds 1MB`);
-          continue;
+        signal?.throwIfAborted();
+        const artifact = await readArtifact(tempDir, file);
+        if ("reason" in artifact) {
+          throw new Error(`Cannot collect artifact ${file}: ${artifact.reason}`);
         }
 
         finalArtifacts.push({
           path: file,
-          content: fileContent,
+          content: artifact.content,
         });
       }
     }

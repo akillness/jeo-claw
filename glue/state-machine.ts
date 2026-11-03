@@ -11,7 +11,9 @@ function terminal(state: WorkflowState): boolean {
 }
 
 function hasApprovedAction(state: WorkflowState, action: HighRiskAction): boolean {
-  return state.actionApprovals?.[action]?.status === "approved";
+  const approval = state.actionApprovals?.[action];
+  if (approval?.status !== "approved") return false;
+  return action !== "pr.merge" || (typeof state.headSha === "string" && /^[0-9a-f]{40}$/.test(state.headSha) && approval.headSha === state.headSha);
 }
 
 function acceptsActionDecision(state: WorkflowState, action: HighRiskAction): boolean {
@@ -27,6 +29,7 @@ function markAction(state: WorkflowState, action: HighRiskAction, status: Approv
       [action]: {
         requestedAt: previous?.requestedAt ?? now(),
         status,
+        headSha: action === "pr.merge" && status === "approved" ? state.headSha : previous?.headSha,
         user: user ?? previous?.user,
         decidedAt: status === "approved" || status === "rejected" ? now() : previous?.decidedAt,
         consumedAt: status === "consumed" ? now() : previous?.consumedAt,
@@ -90,6 +93,17 @@ export function advanceStage(state: WorkflowState): WorkflowState {
   }
 
   if (state.stage === "merge") {
+    if (!Number.isSafeInteger(state.prNumber) || state.prNumber === undefined || state.prNumber <= 0) {
+      return {
+        ...state,
+        status: "awaiting-approval",
+        pendingAction: "pr.merge",
+        history: state.status === "awaiting-approval" ? state.history : [
+          ...state.history,
+          { stage: "merge", at: now(), action: "pr.merge", status: "awaiting-approval" },
+        ],
+      };
+    }
     const discordApproved = MERGE_ACTIONS.every((action) => hasApprovedAction(state, action));
     const gateInput = {
       ciPassed: state.ciPassed === true,
@@ -140,7 +154,7 @@ export function advanceStage(state: WorkflowState): WorkflowState {
 export function applyEvent(
   state: WorkflowState,
   event: Partial<Pick<WorkflowState, "prNumber" | "ciPassed" | "reviewPassed">> &
-    { type?: string; action?: HighRiskAction; user?: string }
+    { type?: string; action?: HighRiskAction; user?: string; headSha?: string }
 ): WorkflowState {
   if (terminal(state)) {
     return state;
@@ -154,7 +168,8 @@ export function applyEvent(
   let nextState = { ...state };
 
   if (event.type === "approve" && event.action) {
-    if (acceptsActionDecision(nextState, event.action)) {
+    if (acceptsActionDecision(nextState, event.action) &&
+        (event.action !== "pr.merge" || (typeof nextState.headSha === "string" && /^[0-9a-f]{40}$/.test(nextState.headSha) && event.headSha === nextState.headSha))) {
       nextState = markAction(nextState, event.action, "approved", event.user);
       nextState.approved = event.action === "pr.merge" ? true : nextState.approved;
       if (nextState.pendingAction === event.action) nextState.pendingAction = undefined;
@@ -185,5 +200,4 @@ export function applyEvent(
 
   return changed ? nextState : state;
 }
-
 

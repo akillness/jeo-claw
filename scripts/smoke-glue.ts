@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import { handleWebhookRequest } from "../glue/server.ts";
 import type { WorkflowState } from "../glue/contract.ts";
 import type { SecretSource } from "../secrets/loader.ts";
+import { assertStatus } from "./smoke-status.ts";
 
 const webhookSecret = "smoke-webhook-secret";
 const controlSecret = "smoke-control-secret";
@@ -32,15 +33,11 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
-function assertStatus(name: string, res: Response, status: number): void {
-//   assert(res.status === status, `${name}: expected ${status}, got ${res.status}`);
-  console.log(`PASS ${name} -> ${status}`);
-}
 
 async function waitForWorkflowStage(base: string, workflowId: string, stage: string, status: string): Promise<WorkflowState> {
   let lastWf = null;
   for (let i = 0; i < 40; i++) {
-    const res = await fetch(`${base}/debug/workflows`);
+    const res = await fetch(`${base}/debug/workflows`, { headers: { "x-control-event-secret": controlSecret } });
     const data = (await res.json()) as { workflows: WorkflowState[] };
     const wf = data.workflows.find((w) => w.id === workflowId);
     lastWf = wf;
@@ -69,8 +66,11 @@ const dispatchFetchImpl: typeof fetch = (async (url: string | URL | Request, ini
 
   return new Response(
     JSON.stringify({
-      success: true,
-      receiptPath: `/tmp/${body.workflowId}-${body.stage}.json`,
+      ok: true,
+      artifact: `/workspace/.jeo-runtime-work/${body.workflowId}-${body.stage}.md`,
+      output: `synthetic native evidence for ${body.stage}`,
+      nativeCommand: String(body.runtime),
+      model: "gpt-6.1-terra",
       runtime: body.runtime,
       role: body.role,
       stage: body.stage,
@@ -112,7 +112,10 @@ const githubFetchImpl: typeof fetch = (async (url: string | URL | Request, init?
 }) as typeof fetch;
 
 const store = new MemoryWorkflowStore();
-const sourceFactory = () => new MockSource({ "jeo-claw-github-token-rw": "ghp_write_smoke" });
+const sourceFactory = () => new MockSource({
+  "jeo-claw-github-token-ro": "ghp_read_smoke",
+  "jeo-claw-github-token-rw": "ghp_write_smoke",
+});
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -125,6 +128,7 @@ const server = Bun.serve({
       writeDeps: { targetRepo: "acme/repo", targetBranch: "main", fetchImpl: githubFetchImpl },
       runtimeDispatchSecret,
       dispatchFetchImpl,
+      reconcileHeadEvidence: async ({ expectedHeadSha }) => ({ headSha: expectedHeadSha, ciPassed: true, reviewPassed: true }),
       store,
     });
   },
@@ -158,7 +162,10 @@ try {
   });
   assertStatus("webhook rejects forged HMAC", res, 401);
 
-  const noMatchBody = JSON.stringify({ workflowId: "missing", ciPassed: true });
+  const noMatchBody = JSON.stringify({
+    repository: { full_name: "acme/repo" },
+    pull_request: { number: 999 },
+  });
   res = await fetch(`${base}/webhook/github`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-hub-signature-256": sign(noMatchBody) },
@@ -188,13 +195,14 @@ try {
   assertStatus("request starts workflow", res, 201);
   let data = await expectJson<{ workflow: WorkflowState }>(res);
   const workflowId = data.workflow.id;
+  assert(typeof workflowId === "string" && workflowId.length > 0, "request returned a workflow without an id");
   
   const wfPrCreate = await waitForWorkflowStage(base, workflowId, "pr-create", "awaiting-approval");
   assert(wfPrCreate.stage === "pr-create", `expected pr-create, got ${wfPrCreate.stage}`);
   assert(wfPrCreate.status === "awaiting-approval", `expected awaiting-approval, got ${wfPrCreate.status}`);
   assert(wfPrCreate.pendingAction === "pr.create", `expected pr.create pending, got ${wfPrCreate.pendingAction}`);
   assert(runtimeDispatches.map((d) => d.stage).join(",") === "research-code,review", "request must dispatch research-code and review only before PR approval");
-  const expectedDispatches = "POST http://127.0.0.1:9201/dispatch,POST http://127.0.0.1:9202/dispatch";
+  const expectedDispatches = "POST http://zeroclaw-researcher-coder:9201/dispatch,POST http://zeroclaw-reviewer:9202/dispatch";
   const actualDispatches = runtimeDispatches.map((d) => `${d.method} ${d.url}`).join(",");
   assert(actualDispatches === expectedDispatches, `request must dispatch to the exact runtime role services. Expected: ${expectedDispatches}, got: ${actualDispatches}`);
   assert(runtimeDispatches.every((d) => d.secret === runtimeDispatchSecret && d.runtime === "zeroclaw"), "runtime dispatch secret and runtime must be supplied to every role wrapper");
@@ -203,7 +211,7 @@ try {
   res = await fetch(`${base}/control-event`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-control-event-secret": controlSecret },
-    body: JSON.stringify({ type: "approve", workflowId, action: "pr.create", user: "smoke-approver" }),
+    body: JSON.stringify({ type: "approve", source: "discord", workflowId, action: "pr.create", user: "smoke-approver" }),
   });
   assertStatus("approve pr.create executes brokered write", res, 200);
   
@@ -211,33 +219,49 @@ try {
   assert(wfMergeGate.prNumber === 314, `expected PR #314, got ${wfMergeGate.prNumber}`);
   assert(wfMergeGate.stage === "merge", `expected merge stage, got ${wfMergeGate.stage}`);
   assert(wfMergeGate.pendingAction === "pr.merge", `expected pr.merge pending, got ${wfMergeGate.pendingAction}`);
-  assert(runtimeDispatches.some((d) => d.method === "POST" && d.url === "http://127.0.0.1:9204/dispatch" && d.stage === "pr-review-schedule"), "approved PR create must dispatch pr-review-schedule");
+  assert(runtimeDispatches.some((d) => d.method === "POST" && d.url === "http://zeroclaw-pr-review-scheduler:9204/dispatch" && d.stage === "pr-review-schedule"), "approved PR create must dispatch pr-review-schedule");
   assert(githubWrites.some((w) => w.method === "POST" && w.url.endsWith("/pulls") && w.authorization === "Bearer ghp_write_smoke"), "approved PR create must use brokered write token");
   console.log("PASS pr.create approval consumes brokered write credential and advances to merge gate");
 
   res = await fetch(`${base}/control-event`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-control-event-secret": controlSecret },
-    body: JSON.stringify({ type: "approve", workflowId, action: "pr.merge", user: "smoke-approver" }),
+    body: JSON.stringify({ type: "approve", source: "discord", workflowId, action: "pr.merge", user: "smoke-approver" }),
   });
   assertStatus("early approve pr.merge waits for checks", res, 200);
   
   // Wait a little just to ensure nothing changes erroneously
   await new Promise((resolve) => setTimeout(resolve, 50));
-  const resDebugMerge = await fetch(`${base}/debug/workflows`);
+  const resDebugMerge = await fetch(`${base}/debug/workflows`, { headers: { "x-control-event-secret": controlSecret } });
   const dataDebugMerge = (await resDebugMerge.json()) as { workflows: WorkflowState[] };
   const wfMergeAwaiting = dataDebugMerge.workflows.find((w) => w.id === workflowId)!;
   assert(wfMergeAwaiting.status === "awaiting-approval", `expected awaiting-approval, got ${wfMergeAwaiting.status}`);
   assert(!githubWrites.some((w) => w.method === "PUT" && w.url.endsWith("/pulls/314/merge")), "early merge approval must not call GitHub merge before checks");
   console.log("PASS early pr.merge approval does not bypass missing CI/review");
 
-  const checksBody = JSON.stringify({ workflowId, prNumber: 314, ciPassed: true, reviewPassed: true });
+  const headSha = "a".repeat(40);
+  const openedBody = JSON.stringify({ action: "opened", repository: { full_name: "acme/repo" }, pull_request: { number: 314, head: { sha: headSha } } });
+  res = await fetch(`${base}/webhook/github`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-hub-signature-256": sign(openedBody) },
+    body: openedBody,
+  });
+  assertStatus("signed PR head is recorded", res, 200);
+
+  const checksBody = JSON.stringify({ repository: { full_name: "acme/repo" }, pull_request: { number: 314 }, review: { state: "approved", commit_id: headSha } });
   res = await fetch(`${base}/webhook/github`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-hub-signature-256": sign(checksBody) },
     body: checksBody,
   });
-  assertStatus("webhook records CI/review and executes approved merge", res, 200);
+  assertStatus("webhook reconciles authoritative CI/review evidence", res, 200);
+
+  res = await fetch(`${base}/control-event`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-control-event-secret": controlSecret },
+    body: JSON.stringify({ type: "approve", source: "discord", workflowId, action: "pr.merge", user: "smoke-approver", headSha }),
+  });
+  assertStatus("head-bound pr.merge approval executes merge", res, 200);
   
   const wfMerged = await waitForWorkflowStage(base, workflowId, "merge", "merged");
   assert(wfMerged.status === "merged", `expected merged, got ${wfMerged.status}`);

@@ -1,10 +1,12 @@
 import type { HighRiskAction, WorkflowState } from "./contract.ts";
 
+type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+
 export interface GitHubWriteDeps {
   targetRepo: string;
   targetBranch: string;
   apiBaseUrl?: string;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: FetchLike;
 }
 
 export interface GitHubWriteResult {
@@ -30,7 +32,7 @@ async function githubRequest(
   path: string,
   token: string,
   init: RequestInit,
-  fetchImpl: typeof fetch,
+  fetchImpl: FetchLike,
 ): Promise<any> {
   const res = await fetchImpl(`${baseUrl}${path}`, {
     ...init,
@@ -57,7 +59,7 @@ async function findExistingOpenPullRequest(
   head: string,
   base: string,
   token: string,
-  fetchImpl: typeof fetch,
+  fetchImpl: FetchLike,
 ): Promise<{ number: number; html_url?: string } | undefined> {
   const headQuery = encodeURIComponent(`${owner}:${head}`);
   const baseQuery = encodeURIComponent(base);
@@ -74,7 +76,7 @@ async function findExistingOpenPullRequest(
 
 async function createCommitFromArtifacts(
   baseUrl: string, owner: string, repo: string, headBranch: string, baseBranch: string,
-  artifacts: { path: string; content: string }[], token: string, fetchImpl: typeof fetch, commitMessage: string
+  artifacts: { path: string; content: string }[], token: string, fetchImpl: FetchLike, commitMessage: string
 ) {
   // Get base ref
   const baseRef = await githubRequest(baseUrl, `/repos/${owner}/${repo}/git/refs/heads/${baseBranch}`, token, { method: "GET" }, fetchImpl);
@@ -115,23 +117,12 @@ async function createCommitFromArtifacts(
     })
   }, fetchImpl);
 
-  // Create or update ref
+  // Creating an existing ref fails closed rather than overwriting concurrent work.
   const refPath = `refs/heads/${headBranch}`;
-  try {
-    await githubRequest(baseUrl, `/repos/${owner}/${repo}/git/refs`, token, {
-      method: "POST",
-      body: JSON.stringify({ ref: refPath, sha: newCommit.sha })
-    }, fetchImpl);
-  } catch (err: any) {
-    if (err.message.includes("422")) {
-      await githubRequest(baseUrl, `/repos/${owner}/${repo}/git/refs/heads/${headBranch}`, token, {
-        method: "PATCH",
-        body: JSON.stringify({ sha: newCommit.sha, force: true })
-      }, fetchImpl);
-    } else {
-      throw err;
-    }
-  }
+  await githubRequest(baseUrl, `/repos/${owner}/${repo}/git/refs`, token, {
+    method: "POST",
+    body: JSON.stringify({ ref: refPath, sha: newCommit.sha })
+  }, fetchImpl);
 }
 
 export async function executeApprovedWriteAction(
@@ -157,7 +148,7 @@ export async function executeApprovedWriteAction(
     let data = existing;
     if (!data) {
       try {
-        let safeTitle = workflow.request.split("\n")[0].substring(0, 100);
+        let safeTitle = (workflow.request.split("\n")[0] ?? "").substring(0, 100);
         if (safeTitle.length < 5) safeTitle = `Automated Evolution PR (${workflow.id})`;
 
         data = await githubRequest(apiBaseUrl, `/repos/${owner}/${repo}/pulls`, token, {
@@ -178,6 +169,10 @@ export async function executeApprovedWriteAction(
         throw err;
       }
     }
+    if (!data || !Number.isSafeInteger(data.number) || data.number <= 0 ||
+        (data.html_url !== undefined && typeof data.html_url !== "string")) {
+      throw new Error("GitHub returned an invalid pull request response.");
+    }
     return {
       workflow: {
         ...workflow,
@@ -193,8 +188,13 @@ export async function executeApprovedWriteAction(
     };
   }
 
-  const prNumber = workflow.prNumber;
-  if (!prNumber) {
+  const { headSha, prNumber } = workflow;
+  const approval = workflow.actionApprovals?.["pr.merge"];
+  if (!headSha || !/^[a-f0-9]{40}$/.test(headSha) || approval?.status !== "approved" ||
+      approval.headSha !== headSha || workflow.ciPassed !== true || workflow.reviewPassed !== true) {
+    throw new Error("Cannot merge without approval and evidence bound to the pull request head SHA.");
+  }
+  if (!Number.isSafeInteger(prNumber) || prNumber === undefined || prNumber <= 0) {
     throw new Error(`Workflow ${workflow.id} cannot merge without a valid prNumber. Halting to prevent empty merge loop.`);
   }
   const data = await githubRequest(
@@ -206,15 +206,13 @@ export async function executeApprovedWriteAction(
       body: JSON.stringify({
         commit_title: `Merge workflow ${workflow.id}`,
         merge_method: "squash",
+        sha: headSha,
       }),
     },
     fetchImpl,
   );
   return {
-    workflow: {
-      ...workflow,
-      mergedAt: new Date().toISOString(),
-    },
+    workflow: { ...workflow, mergedAt: new Date().toISOString() },
     result: {
       action,
       prNumber,

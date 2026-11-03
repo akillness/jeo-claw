@@ -12,12 +12,12 @@ async function run() {
     // The target repo based on the URL in the goal
     const repo = "jeo-claw";
     
-    const wf = createWorkflow(wfId, "sc_jeo", goal);
+    const wf = createWorkflow(wfId, "zeroclaw", goal);
     wf.repo = repo;
     wf.status = "queued"; // THIS IS THE KEY! It will be picked up by the orchestrator.
-    wf.stage = "intake";
+    wf.stage = "research-code";
     
-    await store.set(wf.id, wf);
+    await store.set(wf.id!, wf);
     console.log(`Successfully queued workflow ${wfId}. Restarting process queue might be needed or it will run automatically.`);
 }
 

@@ -11,7 +11,7 @@
     "smoke:glue": "bun --smol run scripts/smoke-glue.ts",
     "preflight:live": "bun --smol run scripts/preflight-live.ts",
     "glue": "bun --smol run glue/server.ts",
-    "discord": "bun --smol run discord/bot.ts",
+    "discord": "bun --smol run discord/proxy-main.ts",
     "compare": "bun --smol run compare/runner.ts",
     "mock:github": "bun --smol run scripts/mock-github.ts",
     "browser:status": "bun --smol run scripts/browser-status.ts",

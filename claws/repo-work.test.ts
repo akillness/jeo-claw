@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test";
-import { evaluateAgentRun, AGENT_FAILURE_MARKERS, reviewArtifacts } from "./repo-work.ts";
+import { evaluateAgentRun, reviewArtifacts } from "./repo-work.ts";
+
 
 // 1. FALSE-SUCCESS GUARD: agent-run health evaluation
 test("healthy run requires exit code 0 and no failure marker", () => {
@@ -41,9 +42,12 @@ test("non-zero exit code is never healthy even without markers", () => {
   expect(r.marker).toBeNull();
 });
 
-test("failure markers cover the documented 429 and 404 cases", () => {
-  expect(AGENT_FAILURE_MARKERS).toContain("429");
-  expect(AGENT_FAILURE_MARKERS).toContain("404");
+test.each([
+  "Updated the 404 page and route-not-found handler",
+  "Added tests for HTTP 429 retry pages",
+  "Improved authentication documentation",
+])("ordinary work mentioning errors remains healthy: %s", (output) => {
+  expect(evaluateAgentRun(0, output)).toEqual({ healthy: true, marker: null });
 });
 
 // 2. ARTIFACT REVIEW still rejects empty result sets

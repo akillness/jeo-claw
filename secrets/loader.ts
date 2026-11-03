@@ -25,7 +25,7 @@ const RUNTIME_DISPATCH_SECRET: SecretSpec = { name: "runtime-dispatch-secret", s
 const OPENAI_OAUTH_SECRET: SecretSpec = { name: "openai-codex-oauth", scope: "read" };
 const WRITE_ELIGIBLE_ROLES = new Set<Role>(["pr-creator", "merger"]);
 
-const GENERATED_SHARED_SECRETS = new Set(["github-webhook-secret", "control-event-secret", "runtime-dispatch-secret"]);
+const GENERATED_SHARED_SECRETS = new Set(["github-webhook-secret", "control-event-secret", "runtime-dispatch-secret", "status-relay-secret"]);
 const MIN_SHARED_SECRET_LENGTH = 24;
 
 export const ROLE_SECRETS: Record<Role, SecretSpec[]> = {
@@ -60,11 +60,13 @@ export const CONTROL_SECRETS: Record<ControlService, SecretSpec[]> = {
   "glue-webhook": [
     { name: "github-webhook-secret", scope: "read" },
     { name: "control-event-secret", scope: "read" },
+    { name: "status-relay-secret", scope: "read" },
     RUNTIME_DISPATCH_SECRET,
   ],
   "discord-bot": [
     { name: "discord-bot-token", scope: "read" },
     { name: "control-event-secret", scope: "read" },
+    { name: "status-relay-secret", scope: "read" },
   ],
 };
 
@@ -75,33 +77,68 @@ export const ENV_FOR: Record<string, string> = {
   "github-webhook-secret": "GITHUB_WEBHOOK_SECRET",
   "discord-bot-token": "DISCORD_BOT_TOKEN",
   "control-event-secret": "JEO_CONTROL_EVENT_SECRET",
+  "status-relay-secret": "JEO_STATUS_RELAY_SECRET",
   "runtime-dispatch-secret": "JEO_RUNTIME_DISPATCH_SECRET",
 };
 
 export interface SecretSource {
-  access(secretId: string): Promise<string>;
+  access(secretId: string, signal?: AbortSignal): Promise<string>;
+}
+
+export class SecretAccessAbortedError extends Error {
+  constructor() { super("Secret access aborted"); }
+}
+
+export class SecretAccessCleanupError extends Error {
+  constructor() { super("Secret subprocess cleanup failed"); }
 }
 
 export class GcloudSecretSource implements SecretSource {
-  constructor(private project: string) {}
-  access(secretId: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const p = spawn("gcloud", [
-        "secrets",
-        "versions",
-        "access",
-        "latest",
-        `--secret=${secretId}`,
-        `--project=${this.project}`,
-      ]);
-      let out = "";
-      p.stdout.on("data", (d) => (out += d));
-      p.stderr.on("data", () => undefined);
-      p.on("close", (code) =>
-        code === 0 ? resolve(out.trim()) : reject(new Error(`gcloud access failed for ${secretId} (exit ${code})`)),
-      );
-      p.on("error", () => reject(new Error(`gcloud spawn failed for ${secretId}`)));
+  constructor(private project: string, private timeoutMs = 30_000) {}
+  access(secretId: string, signal?: AbortSignal): Promise<string> {
+    if (signal?.aborted) return Promise.reject(new SecretAccessAbortedError());
+    const { promise, resolve, reject } = Promise.withResolvers<string>();
+    const p = spawn("gcloud", [
+      "secrets", "versions", "access", "latest",
+      `--secret=${secretId}`, `--project=${this.project}`,
+    ], { detached: process.platform !== "win32" });
+    const chunks: Buffer[] = [];
+    let outputBytes = 0;
+    let failure: Error | undefined;
+    let cleanupTimer: NodeJS.Timeout | undefined;
+    const stop = (error: Error) => {
+      if (failure) return;
+      failure = error;
+      cleanupTimer = setTimeout(() => reject(new SecretAccessCleanupError()), 5_000);
+      if (p.exitCode !== null || p.signalCode !== null) return;
+      try {
+        if (process.platform !== "win32" && p.pid !== undefined) process.kill(-p.pid, "SIGKILL");
+        else p.kill("SIGKILL");
+      } catch {
+        // The child may have already exited; close remains the authority for reaping.
+      }
+    };
+    const abort = () => stop(new SecretAccessAbortedError());
+    const timer = setTimeout(() => stop(new Error(`gcloud access timed out for ${secretId}`)), this.timeoutMs);
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+    p.stdout.on("data", (chunk: Buffer) => {
+      if (failure) return;
+      outputBytes += chunk.length;
+      if (outputBytes > 1_048_576) stop(new Error(`gcloud access output too large for ${secretId}`));
+      else chunks.push(chunk);
     });
+    p.stderr.on("data", () => undefined);
+    p.on("error", () => stop(new Error(`gcloud spawn failed for ${secretId}`)));
+    p.on("close", (code) => {
+      clearTimeout(timer);
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      signal?.removeEventListener("abort", abort);
+      if (failure) reject(failure);
+      else if (code === 0) resolve(Buffer.concat(chunks).toString("utf8").trim());
+      else reject(new Error(`gcloud access failed for ${secretId} (exit ${code})`));
+    });
+    return promise;
   }
 }
 
@@ -109,8 +146,13 @@ export class FileSecretSource implements SecretSource {
   private readonly secrets: Record<string, string>;
 
   constructor(path: string) {
-    const raw = readFileSync(path, "utf8");
-    this.secrets = JSON.parse(raw) as Record<string, string>;
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || Object.values(parsed).some((value) => typeof value !== "string")) throw new Error();
+      this.secrets = parsed as Record<string, string>;
+    } catch {
+      throw new Error("Unable to load secret file");
+    }
   }
 
   async access(secretId: string): Promise<string> {
@@ -154,15 +196,19 @@ async function loadSpecs(
   label: string,
   specs: SecretSpec[],
   source: SecretSource,
-  opts: { prefix: string },
+  opts: { prefix: string; signal?: AbortSignal },
 ): Promise<Record<string, string>> {
   const env: Record<string, string> = {};
   for (const spec of specs) {
     const secretId = `${opts.prefix}-${spec.name}`;
     let value: string;
     try {
-      value = await source.access(secretId);
-    } catch {
+      if (opts.signal?.aborted) throw new SecretAccessAbortedError();
+      value = await source.access(secretId, opts.signal);
+      if (opts.signal?.aborted) throw new SecretAccessAbortedError();
+    } catch (error) {
+      if (error instanceof SecretAccessCleanupError) throw error;
+      if (opts.signal?.aborted || error instanceof SecretAccessAbortedError) throw new SecretAccessAbortedError();
       throw new MissingSecretError(`${label}: cannot load ${secretId}`);
     }
     const envVarName = ENV_FOR[spec.name];
@@ -177,7 +223,7 @@ async function loadSpecs(
 export async function loadSecretsForRole(
   role: Role,
   source: SecretSource,
-  opts: { prefix: string },
+  opts: { prefix: string; signal?: AbortSignal },
 ): Promise<Record<string, string>> {
   const specs = ROLE_SECRETS[role];
   if (!specs) throw new Error(`unknown role: ${role}`);
@@ -187,7 +233,7 @@ export async function loadSecretsForRole(
 export async function loadWriteSecretsForRole(
   role: Role,
   source: SecretSource,
-  opts: { prefix: string },
+  opts: { prefix: string; signal?: AbortSignal },
 ): Promise<Record<string, string>> {
   if (!WRITE_ELIGIBLE_ROLES.has(role)) {
     throw new MissingSecretError(`role ${role}: no write secret scope`);
@@ -198,11 +244,15 @@ export async function loadWriteSecretsForRole(
 export async function loadSecretsForControl(
   service: ControlService,
   source: SecretSource,
-  opts: { prefix: string },
+  opts: { prefix: string; signal?: AbortSignal },
 ): Promise<Record<string, string>> {
   const specs = CONTROL_SECRETS[service];
   if (!specs) throw new Error(`unknown control service: ${service}`);
-  return loadSpecs(`control ${service}`, specs, source, opts);
+  const env = await loadSpecs(`control ${service}`, specs, source, opts);
+  if ([env.JEO_CONTROL_EVENT_SECRET, env.GITHUB_WEBHOOK_SECRET, env.JEO_RUNTIME_DISPATCH_SECRET, env.DISCORD_BOT_TOKEN].some((value) => value !== undefined && value === env.JEO_STATUS_RELAY_SECRET)) {
+    throw new MissingSecretError(`control ${service}: status relay secret must differ from other control secrets`);
+  }
+  return env;
 }
 
 export function hasWriteScope(role: Role): boolean {

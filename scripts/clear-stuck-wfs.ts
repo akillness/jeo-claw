@@ -6,6 +6,7 @@ async function run() {
     let cleared = 0;
     for (const w of all) {
         if (w.status === "running" || w.status === "pending") {
+            if (w.id === undefined) throw new Error("Cannot clear a workflow without an id");
             w.status = "failed";
             await store.set(w.id, w);
             cleared++;

@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 // Safe wrapper for running `bun test` in CI/cron to prevent runaway watch loops
 // and enforce a single-shot, timeout-limited execution with a small retry budget.
-// Generated/installed by gjc (coding-agent) as a non-invasive safety shim.
+// Generated/installed by jeopi (coding-agent) as a non-invasive safety shim.
 
-import { spawnSync, execSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'fs';
 
 const MAX_RETRIES = 2;
@@ -19,7 +19,7 @@ const FORBIDDEN_ENV_VARS = ['BUN_WATCH', 'JEO_WATCH', 'WATCH', 'JEST_WATCH', 'BU
 // permitted. This prevents unexpected flags from being injected via the environment.
 const ALLOWED_JEO_TEST_FLAGS = [/^--filter$/, /^--parallel$/, /^--timeout$/, /^--reporter$/];
 
-function runOnce(): { code: number; stdout: string; stderr: string; timedOut: boolean } {
+async function runOnce(): Promise<{ code: number; stdout: string; stderr: string; timedOut: boolean }> {
   // Disallow watch-style flags in argv/env to avoid accidental watchers or fork-bombs.
   const joinedEnvFlags = (process.env['JEO_TEST_FLAGS'] || '');
   // Refuse to run if known watch env vars are present to avoid accidental watchers
@@ -42,7 +42,7 @@ function runOnce(): { code: number; stdout: string; stderr: string; timedOut: bo
   if (joinedEnvFlags) {
     const parts = joinedEnvFlags.trim().split(/\s+/).filter(Boolean);
     for (let i = 0; i < parts.length; i++) {
-      const p = parts[i];
+      const p = parts[i]!;
       // Defensive block: any flag containing 'watch' is rejected.
       if (p.toLowerCase().includes('watch')) {
         console.error(`Refusing to pass unsafe JEO_TEST_FLAGS entry (contains watch): ${p}`);
@@ -60,124 +60,85 @@ function runOnce(): { code: number; stdout: string; stderr: string; timedOut: bo
     }
   }
 
-  let res;
-  try {
-    res = spawnSync('bun', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: TIMEOUT_MS + 2000 });
-  } catch (err: any) {
-    return { code: 3, stdout: '', stderr: `spawn failed: ${String(err)}`, timedOut: false };
-  }
-  const timedOut = (res && (res.signal === 'SIGTERM' || res.signal === 'SIGKILL')) || false;
+  const res = await runTestProcess('bun', args, TIMEOUT_MS + 2000);
 
   // Persist the raw output for artifact inspection.
   try {
-    fs.writeFileSync('./bun-output.log', `${res?.stdout ?? ''}\n---STDERR---\n${res?.stderr ?? ''}`, { encoding: 'utf8' });
+    fs.writeFileSync('./bun-output.log', `${res.stdout}\n---STDERR---\n${res.stderr}`, { encoding: 'utf8' });
   } catch (_e) {
     // best-effort only; do not fail the run for logging errors
   }
 
-  return { code: res?.status ?? 1, stdout: res?.stdout ?? '', stderr: res?.stderr ?? '', timedOut };
+  return res;
 }
 
-function detectBunProcesses(): string {
-  try {
-    if (process.platform === 'win32') {
-      // On Windows, list all processes in CSV and return raw output for parsing by
-      // killBunProcesses. This avoids missing bunx.exe or alternate image names.
-      const out = execSync('tasklist /FO CSV', { encoding: 'utf8' });
-      return out;
-    } else {
-      // POSIX: look specifically for bun and bunx command endings to reduce false
-      // positives. Use grep -E to match both binaries.
-      const out = execSync('ps -eo pid,comm | grep -E "bun$|bunx$|/bun$|/bunx$" || true', { encoding: 'utf8' });
-      return out;
+export function runTestProcess(command: string, args: string[], timeoutMs: number): Promise<{ code: number; stdout: string; stderr: string; timedOut: boolean }> {
+  const { promise, resolve } = Promise.withResolvers<{ code: number; stdout: string; stderr: string; timedOut: boolean }>();
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+  let stdoutBytes = 0;
+  let stderrBytes = 0;
+  let outputExceeded = false;
+  let timedOut = false;
+  let spawnError: string | undefined;
+  let interruptedCode: number | undefined;
+  let cleaned = false;
+  const child = spawn(command, args, { detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
+  const maxOutputBytes = 1024 * 1024;
+  const collect = (stream: 'stdout' | 'stderr', chunk: Buffer) => {
+    const size = stream === 'stdout' ? stdoutBytes : stderrBytes;
+    const accepted = chunk.subarray(0, Math.max(0, maxOutputBytes - size));
+    (stream === 'stdout' ? stdout : stderr).push(accepted);
+    if (stream === 'stdout') stdoutBytes += accepted.length;
+    else stderrBytes += accepted.length;
+    if (accepted.length < chunk.length && !outputExceeded) {
+      outputExceeded = true;
+      cleanup();
+      child.stdout.destroy();
+      child.stderr.destroy();
     }
-  } catch (e: any) {
-    return (e && e.stdout) ? String(e.stdout) : '';
-  }
-}
+  };
+  child.stdout.on('data', (chunk: Buffer) => collect('stdout', chunk));
+  child.stderr.on('data', (chunk: Buffer) => collect('stderr', chunk));
 
-function killBunProcesses(): { killed: number; failures: number; details: string[] } {
-  const details: string[] = [];
-  let killed = 0;
-  let failures = 0;
-  const list = detectBunProcesses();
-  if (!list || !list.trim()) return { killed, failures, details };
-
-  try {
-    if (process.platform === 'win32') {
-      // parse CSV lines like "Image Name","PID","Session Name","Session#","Mem Usage"
-      const lines = list.split('\n').map(l => l.trim()).filter(Boolean);
-      for (const l of lines) {
-        // match either bun.exe or bunx.exe rows
-        const ll = l.toLowerCase();
-        if (!ll.includes('bun.exe') && !ll.includes('bunx.exe')) continue;
-        // simple CSV split
-        const cols = l.split(',').map(c => c.replace(/^"|"$/g, ''));
-        const pid = cols[1];
-        try {
-          // Try taskkill first (preferred on Windows)
-          const tk = spawnSync('taskkill', ['/PID', pid, '/F', '/T'], { encoding: 'utf8' });
-          details.push(`taskkill(${pid}) => code=${tk.status} stdout=${tk.stdout?.trim()} stderr=${tk.stderr?.trim()}`);
-          if (tk.status === 0) {
-            killed++;
-            continue;
-          }
-          // fallback to process.kill via node
-          try {
-            process.kill(Number(pid), 'SIGKILL');
-            details.push(`process.kill(${pid}) succeeded`);
-            killed++;
-            continue;
-          } catch (e2) {
-            details.push(`process.kill(${pid}) failed: ${String(e2)}`);
-            failures++;
-          }
-        } catch (e) {
-          details.push(`taskkill exception for ${pid}: ${String(e)}`);
-          failures++;
-        }
+  const cleanup = () => {
+    if (cleaned || !child.pid) return;
+    cleaned = true;
+    try {
+      if (process.platform === 'win32') {
+        if (child.exitCode === null && child.signalCode === null) spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      } else {
+        process.kill(-child.pid, 'SIGKILL');
       }
-    } else {
-      // POSIX: parse lines like " 12345 bun" and match bun or bunx
-      const lines = list.split('\n').map(l => l.trim()).filter(Boolean);
-      for (const l of lines) {
-        const parts = l.split(/\s+/);
-        const pid = parts[0];
-        const cmd = parts.slice(1).join(' ');
-        if (!pid) continue;
-        if (!/\b(bun|bunx)\b/.test(cmd)) continue;
-        try {
-          const tk = spawnSync('kill', ['-9', pid], { encoding: 'utf8' });
-          details.push(`kill(${pid}) => code=${tk.status} stderr=${tk.stderr?.trim()}`);
-          if (tk.status === 0) {
-            killed++;
-            continue;
-          }
-          try { process.kill(Number(pid), 'SIGKILL'); killed++; details.push(`process.kill(${pid}) succeeded`); } catch (e2) { details.push(`process.kill(${pid}) failed: ${String(e2)}`); failures++; }
-        } catch (e) { details.push(`kill exception ${pid}: ${String(e)}`); failures++; }
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
+        console.error(`safe-bun-test: child cleanup failed: ${String(error)}`);
       }
     }
-  } catch (e:any) {
-    details.push(`killBunProcesses outer failure: ${String(e)}`);
-  }
-
-  // Append details to bun-output.log for diagnostics
-  try { fs.appendFileSync('./bun-output.log', '\n\n[PROCESS-CLEANUP]\n' + details.join('\n'), { encoding: 'utf8' }); } catch (_) {}
-  return { killed, failures, details };
-}
-
-function postRunProcessCheck() {
-  try {
-    const ps = detectBunProcesses();
-    if (ps && ps.trim()) {
-      console.warn('safe-bun-test: WARNING - bun processes detected after run:\n' + ps);
-      try { fs.appendFileSync('./bun-output.log', '\n\n[POST-RUN PROCESS CHECK]\n' + ps, { encoding: 'utf8' }); } catch (_) {}
-      const cleanup = killBunProcesses();
-      console.log(`safe-bun-test: cleanup attempted: killed=${cleanup.killed} failures=${cleanup.failures}`);
-    }
-  } catch (_e) {
-    // ignore on systems without ps/tasklist
-  }
+  };
+  const interrupt = (code: number) => { if (interruptedCode === undefined) { interruptedCode = code; cleanup(); } };
+  const onSigint = () => interrupt(130);
+  const onSigterm = () => interrupt(143);
+  process.on('SIGINT', onSigint);
+  process.on('SIGTERM', onSigterm);
+  const removeSignalHandlers = () => {
+    process.removeListener('SIGINT', onSigint);
+    process.removeListener('SIGTERM', onSigterm);
+  };
+  const timer = setTimeout(() => { timedOut = true; cleanup(); child.stdout.destroy(); child.stderr.destroy(); }, timeoutMs);
+  child.once('error', error => { spawnError = String(error); });
+  child.once('exit', cleanup);
+  child.once('close', (code, signal) => {
+    clearTimeout(timer);
+    removeSignalHandlers();
+    if (interruptedCode !== undefined) process.exit(interruptedCode);
+    const stdoutText = Buffer.concat(stdout, stdoutBytes).toString('utf8');
+    let stderrText = Buffer.concat(stderr, stderrBytes).toString('utf8');
+    if (spawnError) stderrText += `spawn failed: ${spawnError}`;
+    if (outputExceeded) stderrText += '\nsafe-bun-test: output exceeded buffer limit';
+    resolve({ code: spawnError ? 3 : outputExceeded || timedOut ? 1 : code ?? 1, stdout: stdoutText, stderr: stderrText, timedOut: timedOut || (!outputExceeded && (signal === 'SIGTERM' || signal === 'SIGKILL')) });
+  });
+  return promise;
 }
 
 function summarizeCounts(output: string) {
@@ -208,12 +169,12 @@ function recordEvolutionLog(entry: any) {
   }
 }
 
-function main() {
+async function main() {
   let attempt = 0;
   while (attempt < MAX_RETRIES) {
     attempt++;
     console.log(`safe-bun-test: attempt ${attempt}/${MAX_RETRIES}`);
-    const r = runOnce();
+    const r = await runOnce();
     // Echo bun output for visibility in CI logs
     if (r.stdout) console.log(r.stdout);
     if (r.stderr) console.error(r.stderr);
@@ -226,7 +187,6 @@ function main() {
     }
     if (r.code === 0) {
       console.log('safe-bun-test: tests passed');
-      postRunProcessCheck();
       // Record successful evolution state for the Sovereign loop
       recordEvolutionLog({
         timestamp: new Date().toISOString(),
@@ -240,7 +200,6 @@ function main() {
       process.exit(0);
     }
     console.error(`safe-bun-test: run failed (code=${r.code}); stderr:\n${r.stderr}`);
-    postRunProcessCheck();
     // Record failed attempt
     recordEvolutionLog({
       timestamp: new Date().toISOString(),

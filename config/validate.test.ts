@@ -1,5 +1,11 @@
 import { test, expect } from "bun:test";
 import { validateConfigs, loadZeroclaw, loadNullclaw, rolesOf } from "./validate.ts";
+import { DEFAULT_LLM_PROVIDER } from "../glue/contract.ts";
+
+test("logical default is OpenAI while native configs use the OAuth adapter", () => {
+  expect(DEFAULT_LLM_PROVIDER).toBe("openai");
+  expect(loadNullclaw().provider.type).toBe("openai-codex");
+});
 
 test("both runtime configs pass every validation check", () => {
   const checks = validateConfigs();

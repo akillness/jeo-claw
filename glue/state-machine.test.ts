@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test";
 import { createWorkflow, advanceStage, applyEvent } from "./state-machine";
+import type { WorkflowState } from "./contract.ts";
 
 function moveToPendingPrCreate(state: ReturnType<typeof createWorkflow>) {
   state = advanceStage(state); // review
@@ -13,9 +14,9 @@ function approveAndAdvancePrCreate(state: ReturnType<typeof createWorkflow>) {
   return advanceStage(state); // pr-review-schedule
 }
 
-function moveToMerge(state: ReturnType<typeof createWorkflow>) {
+function moveToMerge(state: ReturnType<typeof createWorkflow>): WorkflowState {
   state = approveAndAdvancePrCreate(state);
-  return advanceStage(state); // merge
+  return { ...advanceStage(state), prNumber: 1, headSha: "a".repeat(40) }; // merge
 }
 
 test("createWorkflow sets up initial state", () => {
@@ -83,7 +84,7 @@ test("merge stage merges when CI, review, and pr.merge approval are true", () =>
 
   state = applyEvent(state, { ciPassed: true, reviewPassed: true });
   state = advanceStage(state); // awaiting pr.merge approval
-  state = applyEvent(state, { type: "approve", action: "pr.merge", user: "alice" });
+  state = applyEvent(state, { type: "approve", action: "pr.merge", user: "alice", headSha: state.headSha });
 
   state = advanceStage(state);
   expect(state.stage).toBe("merge");
@@ -123,7 +124,7 @@ test("advanceStage does not resurrect rejected or merged states", () => {
   let state2 = moveToMerge(createWorkflow("wf-2", "zeroclaw", "fix bug"));
   state2 = applyEvent(state2, { ciPassed: true, reviewPassed: true });
   state2 = advanceStage(state2);
-  state2 = applyEvent(state2, { type: "approve", action: "pr.merge", user: "alice" });
+  state2 = applyEvent(state2, { type: "approve", action: "pr.merge", user: "alice", headSha: state2.headSha });
   state2 = advanceStage(state2);
   expect(state2.status).toBe("merged");
 
@@ -157,7 +158,7 @@ test("applyEvent does not mutate terminal workflows", () => {
   let state = moveToMerge(createWorkflow("wf-terminal", "zeroclaw", "fix bug"));
   state = applyEvent(state, { ciPassed: true, reviewPassed: true });
   state = advanceStage(state);
-  state = applyEvent(state, { type: "approve", action: "pr.merge", user: "alice" });
+  state = applyEvent(state, { type: "approve", action: "pr.merge", user: "alice", headSha: state.headSha });
   state = advanceStage(state);
   expect(state.status).toBe("merged");
 

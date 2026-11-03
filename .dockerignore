@@ -1,0 +1,14 @@
+.env
+.env.*
+.local-secrets/
+secrets/**
+!secrets/loader.ts
+.git/
+**/.ssh/
+**/.codex/
+**/.config/gcloud/
+**/.npmrc
+**/*.pem
+**/*.key
+data/
+node_modules/

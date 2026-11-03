@@ -1,15 +1,106 @@
 [
   {
-    "timestamp": "$(date -Iseconds)",
-    "action": "orchestration-evolution",
-    "test_results": "1462/1462 tests passed (100%)",
-    "smoke_test": "bun run smoke:glue passed (3 runtime dispatches, 3 GitHub write calls)",
-    "discord_ping": "Mock tested via smoke:glue control events and test suites. Ping returns pong correctly.",
-    "status": "PASS",
-    "notes": "No immediate patch needed; system is fully stable. Watch/fork-bomb safety rules strictly observed with timeout limitation via safe-bun-test.ts."
+    "timestamp": "2026-11-03T01:11:52.412Z",
+    "attempt": 1,
+    "result": "pass",
+    "code": 0,
+    "timedOut": false,
+    "counts": {
+      "pass": 379,
+      "fail": 0,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
+  },
+  {
+    "timestamp": "2026-11-03T01:12:55.204Z",
+    "attempt": 1,
+    "result": "pass",
+    "code": 0,
+    "timedOut": false,
+    "counts": {
+      "pass": 379,
+      "fail": 0,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
+  },
+  {
+    "timestamp": "2026-11-03T02:32:32.481Z",
+    "attempt": 1,
+    "result": "fail",
+    "code": 1,
+    "timedOut": false,
+    "counts": {
+      "pass": 385,
+      "fail": 3,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
+  },
+  {
+    "timestamp": "2026-11-03T02:33:48.937Z",
+    "attempt": 1,
+    "result": "pass",
+    "code": 0,
+    "timedOut": false,
+    "counts": {
+      "pass": 388,
+      "fail": 0,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
+  },
+  {
+    "timestamp": "2026-11-03T02:36:18.333Z",
+    "attempt": 1,
+    "result": "fail",
+    "code": 1,
+    "timedOut": false,
+    "counts": {
+      "pass": 387,
+      "fail": 1,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
+  },
+  {
+    "timestamp": "2026-11-03T02:36:53.240Z",
+    "attempt": 2,
+    "result": "pass",
+    "code": 0,
+    "timedOut": false,
+    "counts": {
+      "pass": 388,
+      "fail": 0,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
+  },
+  {
+    "timestamp": "2026-11-03T02:39:30.765Z",
+    "attempt": 1,
+    "result": "pass",
+    "code": 0,
+    "timedOut": false,
+    "counts": {
+      "pass": 388,
+      "fail": 0,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
+  },
+  {
+    "timestamp": "2026-11-03T02:40:25.999Z",
+    "attempt": 1,
+    "result": "pass",
+    "code": 0,
+    "timedOut": false,
+    "counts": {
+      "pass": 388,
+      "fail": 0,
+      "skip": 8
+    },
+    "artifact": "./bun-output.log"
   }
 ]
-{"timestamp": "2026년 06월 19일 금 오전 9:12:03", "status": "passed", "message": "Evolved orchestration safely. No loop testing."}
-{"timestamp": "2026-06-19T18:24:35+09:00", "status": "passed", "message": "1462 tests passed successfully. Orchestrator loop stable. No loop testing."}
-{"timestamp": "2026-06-19T09:36:31Z", "status": "stable", "tests": "1462 passed", "notes": "Orchestrator self-check run. No immediate orchestrator patches required as all systems are operational and tests pass."}
-{"timestamp": "2026-06-19T09:42:33Z", "status": "stable", "tests": "1462 passed", "notes": "Verified 100% test pass with timeout. No code patch required at this time. Cron job executed successfully without hanging processes."}

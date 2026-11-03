@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 1,
+  "scope": "Sanitized retention of historical exact-binary offline native reports; no native runtime rerun",
+  "qualification": "unqualified",
+  "certified": false,
+  "historicalAssignmentManifest": {
+    "status": "unqualified",
+    "new_files": [
+      "scripts/native-probe-fixture.ts",
+      "scripts/native-probe-evidence.ts",
+      "scripts/native-probe-evidence.test.ts",
+      "scripts/verify-native-probe.ts",
+      "scripts/native-probe.Dockerfile",
+      ".omc/notepads/jeo-plan-v2/native-qualification.txt"
+    ],
+    "reports": {
+      "zeroclaw": "artifacts/native-qualification/zeroclaw.offline.sanitized.json",
+      "nullclaw": "artifacts/native-qualification/nullclaw.offline.sanitized.json"
+    },
+    "images": {
+      "zeroclaw": "sha256:f38d8ec0a45a9a6cb7564ad31e44f3080c44f93f127ab4adbf3905731ff5af34",
+      "nullclaw": "sha256:fc11793915ea3ebc55dbacb54ca276d2f328a2aad3b73a89c450f61eb1506923"
+    },
+    "base_images": {
+      "zeroclaw": "sha256:b35645b11fe5113209f6ad994f85705fef4e8257a9fbb5b04143483100e4fd4e",
+      "nullclaw": "sha256:8225e802066e74d14240eec834922441beb75f8bcbc4163f59484897d3bbd612"
+    },
+    "binary_hashes": {
+      "zeroclaw": "f33279b7b42b54e56ea9dd1cc722e6d09e3c05533b6f70147d1f6d4dc204972f",
+      "nullclaw": "86e516c4b858487c3e51147f2005d09f7ac5c8b2d0b3bcf70fb462c1388e8442"
+    },
+    "results": {
+      "zeroclaw": {
+        "verifier_exit": 1,
+        "cases": 59,
+        "passed_cases": 7,
+        "native_denials": 0,
+        "cleanup": true
+      },
+      "nullclaw": {
+        "verifier_exit": 1,
+        "cases": 56,
+        "passed_cases": 55,
+        "native_denials": 51,
+        "cleanup": true
+      }
+    },
+    "focused_tests": {
+      "command": "bun test scripts/native-probe-evidence.test.ts",
+      "pass": 16,
+      "fail": 0
+    },
+    "diagnostics": "zero error diagnostics for all four added TypeScript files",
+    "blockers": [
+      "Production probe runner/policy builder absent; strict prod/test policy equivalence unestablished",
+      "ZeroClaw no explicit native denial outcomes on 51 attacks",
+      "ZeroClaw wrong active OAuth profile accepted existing profile",
+      "NullClaw benign startup creates .nullclaw/workspace-state.json; recorded strict workspace baseline difference",
+      "Complete pinned registry and unsupported/malformed path qualification incomplete"
+    ],
+    "network_exception": "Initial BuildKit FROM sha256 image-ID build attempted docker.io metadata/auth resolution and failed access denied. Subsequent builds used explicit local legacy builder; verifier never builds/pulls; all runtime containers network none. No provider/live-inference request or credentials were used.",
+    "self_evaluation": {
+      "accuracy": {
+        "score": 4,
+        "evidence": "Native bytes matched original images; raw native result and per-case refusal scoring retained; initial misleading instruction-text scorer corrected before final proof",
+        "improvement": "Independently establish full source/binary registry identity"
+      },
+      "completeness": {
+        "score": 3,
+        "evidence": "Full qualification fails honestly; production-equivalence implementation absent and ZeroClaw observable denial unmet",
+        "improvement": "Upstream approved production policy builder and a supported observable ZeroClaw refusal path are prerequisites"
+      },
+      "clarity": {
+        "score": 4,
+        "evidence": "Each report labels offline fixture, unqualified, native failures and raw production differences",
+        "improvement": "Full raw reports are long; use this compact gate summary"
+      },
+      "actionability": {
+        "score": 4,
+        "evidence": "Immutable candidate IDs, standalone CLI, private report paths, cleanup evidence and exact failed auth case are available",
+        "improvement": "No ready-to-deploy certification is provided or implied"
+      },
+      "conciseness": {
+        "score": 4,
+        "evidence": "Changes are isolated to five focused qualification files plus instructed notepad; no production refactor",
+        "improvement": "Fixture is intentionally self-contained but long"
+      }
+    }
+  },
+  "provenance": {
+    "assignmentManifestSource": "local://native-qualification-result.json",
+    "assignmentManifestSha256": "e730496dfee1d3bd5939d9a4ea9cc9659fa1254ecf0de206bce2ff3971dbb53d",
+    "rawReportSources": {
+      "zeroclaw": {
+        "basename": "jeo-offline-native-zeroclaw-9d8923a1-517c-4484-9f7f-e2cba650b06e.json",
+        "sha256": "69d169e33738432aadb42ccfe7c46433e2b81fc5c75be1efc56d16c525a9d68d",
+        "utf8Bytes": 1008824
+      },
+      "nullclaw": {
+        "basename": "jeo-offline-native-nullclaw-90ad0f3b-20c2-4d63-b7e9-5346aab1d868.json",
+        "sha256": "4ca7f46da20128d6a19df3e761a9436dfcfd0f169c22857c76e4fee2a4e89398",
+        "utf8Bytes": 2002006
+      }
+    },
+    "rawAbsolutePathsRetained": false,
+    "timestampBasis": "Original Docker inspection Created timestamps retained in per-runtime reports; no run date invented"
+  },
+  "historicalOutcomes": {
+    "zeroclaw": {
+      "verifier_exit": 1,
+      "cases": 59,
+      "passed_cases": 7,
+      "native_denials": 0,
+      "cleanup": true,
+      "failed_cases": 52,
+      "failed_case_names": [
+        "item:shell:0",
+        "item:file_write:1",
+        "item:file_edit:2",
+        "item:file_append:3",
+        "item:file_delete:4",
+        "item:git_operations:5",
+        "item:http_request:6",
+        "item:web_fetch:7",
+        "item:browser_open:8",
+        "item:delegate:9",
+        "item:spawn_subagent:10",
+        "item:schedule:11",
+        "item:memory_store:12",
+        "item:credential_helper:13",
+        "item:fixture__mcp:14",
+        "item:http_request:15",
+        "item:unknown_qualification_tool:16",
+        "completed:shell:0",
+        "completed:file_write:1",
+        "completed:file_edit:2",
+        "completed:file_append:3",
+        "completed:file_delete:4",
+        "completed:git_operations:5",
+        "completed:http_request:6",
+        "completed:web_fetch:7",
+        "completed:browser_open:8",
+        "completed:delegate:9",
+        "completed:spawn_subagent:10",
+        "completed:schedule:11",
+        "completed:memory_store:12",
+        "completed:credential_helper:13",
+        "completed:fixture__mcp:14",
+        "completed:http_request:15",
+        "completed:unknown_qualification_tool:16",
+        "xml:shell:0",
+        "xml:file_write:1",
+        "xml:file_edit:2",
+        "xml:file_append:3",
+        "xml:file_delete:4",
+        "xml:git_operations:5",
+        "xml:http_request:6",
+        "xml:web_fetch:7",
+        "xml:browser_open:8",
+        "xml:delegate:9",
+        "xml:spawn_subagent:10",
+        "xml:schedule:11",
+        "xml:memory_store:12",
+        "xml:credential_helper:13",
+        "xml:fixture__mcp:14",
+        "xml:http_request:15",
+        "xml:unknown_qualification_tool:16",
+        "auth:wrong-active-profile"
+      ],
+      "failure": "UNESTABLISHED: production probe runner/policy generator is absent; no fixture result certifies production",
+      "reasons": [
+        "Complete registry freeze and production policy equivalence not established",
+        "Coverage is limited to recorded cases; no live inference or Discord proof",
+        "Individual tool process/syscall absence is not attested; container removal reaps the namespace",
+        "Failed or unproved: item:shell:0",
+        "Failed or unproved: item:file_write:1",
+        "Failed or unproved: item:file_edit:2",
+        "Failed or unproved: item:file_append:3",
+        "Failed or unproved: item:file_delete:4",
+        "Failed or unproved: item:git_operations:5",
+        "Failed or unproved: item:http_request:6",
+        "Failed or unproved: item:web_fetch:7",
+        "Failed or unproved: item:browser_open:8",
+        "Failed or unproved: item:delegate:9",
+        "Failed or unproved: item:spawn_subagent:10",
+        "Failed or unproved: item:schedule:11",
+        "Failed or unproved: item:memory_store:12",
+        "Failed or unproved: item:credential_helper:13",
+        "Failed or unproved: item:fixture__mcp:14",
+        "Failed or unproved: item:http_request:15",
+        "Failed or unproved: item:unknown_qualification_tool:16",
+        "Failed or unproved: completed:shell:0",
+        "Failed or unproved: completed:file_write:1",
+        "Failed or unproved: completed:file_edit:2",
+        "Failed or unproved: completed:file_append:3",
+        "Failed or unproved: completed:file_delete:4",
+        "Failed or unproved: completed:git_operations:5",
+        "Failed or unproved: completed:http_request:6",
+        "Failed or unproved: completed:web_fetch:7",
+        "Failed or unproved: completed:browser_open:8",
+        "Failed or unproved: completed:delegate:9",
+        "Failed or unproved: completed:spawn_subagent:10",
+        "Failed or unproved: completed:schedule:11",
+        "Failed or unproved: completed:memory_store:12",
+        "Failed or unproved: completed:credential_helper:13",
+        "Failed or unproved: completed:fixture__mcp:14",
+        "Failed or unproved: completed:http_request:15",
+        "Failed or unproved: completed:unknown_qualification_tool:16",
+        "Failed or unproved: xml:shell:0",
+        "Failed or unproved: xml:file_write:1",
+        "Failed or unproved: xml:file_edit:2",
+        "Failed or unproved: xml:file_append:3",
+        "Failed or unproved: xml:file_delete:4",
+        "Failed or unproved: xml:git_operations:5",
+        "Failed or unproved: xml:http_request:6",
+        "Failed or unproved: xml:web_fetch:7",
+        "Failed or unproved: xml:browser_open:8",
+        "Failed or unproved: xml:delegate:9",
+        "Failed or unproved: xml:spawn_subagent:10",
+        "Failed or unproved: xml:schedule:11",
+        "Failed or unproved: xml:memory_store:12",
+        "Failed or unproved: xml:credential_helper:13",
+        "Failed or unproved: xml:fixture__mcp:14",
+        "Failed or unproved: xml:http_request:15",
+        "Failed or unproved: xml:unknown_qualification_tool:16",
+        "Failed or unproved: auth:wrong-active-profile"
+      ]
+    },
+    "nullclaw": {
+      "verifier_exit": 1,
+      "cases": 56,
+      "passed_cases": 55,
+      "native_denials": 51,
+      "cleanup": true,
+      "failed_cases": 1,
+      "failed_case_names": [
+        "benign-workspace-preservation"
+      ],
+      "failure": "UNESTABLISHED: production probe runner/policy generator is absent; no fixture result certifies production",
+      "reasons": [
+        "Complete registry freeze and production policy equivalence not established",
+        "Coverage is limited to recorded cases; no live inference or Discord proof",
+        "Individual tool process/syscall absence is not attested; container removal reaps the namespace",
+        "Failed or unproved: benign-workspace-preservation"
+      ]
+    }
+  },
+  "historicalVersusCurrent": {
+    "historicalHarness": "pre-fix; these reports are bound to their recorded fixture/helper hashes, not to the current checkout",
+    "historicalArtifactHashes": {
+      "zeroclaw": {
+        "binarySha256": "f33279b7b42b54e56ea9dd1cc722e6d09e3c05533b6f70147d1f6d4dc204972f",
+        "fixtureSha256": "edf61a3f9aa2c2f93c563a14c9d0f4e20d0199650bd3a7ce8d010a1145569e07",
+        "evidenceHelperSha256": "612458611e4f50d6c11d6c0cc950d75fa140f686c987085f65b2c0f768b3d7e6",
+        "curlSha256": "af99ca2cdf562355d9cd79c47e506bd0db49426d80c4a8b8fbf4a28e1aa79967",
+        "fixtureConfigSha256": "55585b850758c92e91b75f614cda149bbb76304860e23e1f768992490cb0828f",
+        "httpsControlConfigSha256": "4c896b81e1e1f8a5f73706478fec2fb7f3bfa8045eb7b268046348c26f245aa1"
+      },
+      "nullclaw": {
+        "binarySha256": "86e516c4b858487c3e51147f2005d09f7ac5c8b2d0b3bcf70fb462c1388e8442",
+        "fixtureSha256": "edf61a3f9aa2c2f93c563a14c9d0f4e20d0199650bd3a7ce8d010a1145569e07",
+        "evidenceHelperSha256": "612458611e4f50d6c11d6c0cc950d75fa140f686c987085f65b2c0f768b3d7e6",
+        "curlSha256": "af99ca2cdf562355d9cd79c47e506bd0db49426d80c4a8b8fbf4a28e1aa79967",
+        "fixtureConfigSha256": "3d05a17980ed110744de940e6ff9260868393d93171137d9b866a5016219f102",
+        "httpsControlConfigSha256": "3d05a17980ed110744de940e6ff9260868393d93171137d9b866a5016219f102"
+      }
+    },
+    "currentSourceSnapshotSha256": {
+      "scripts/native-probe-fixture.ts": "e993dbc46f0df060a7c3dd7017788bed6ff1f3a514cd75d7a47c98dc0d22ba67",
+      "scripts/native-probe-evidence.ts": "e733c0e97303b45acac8c9e7d8744b6b976cad0abcd0e48d2f398fb2adb45e23",
+      "scripts/verify-native-probe.ts": "73f62b6d19cb10d1b088ddaa3e483fb29c43f235a81e4525d82b1579532e394f",
+      "scripts/native-probe.Dockerfile": "a14fa142eba25ffd9e2b84c67ec83bf3adf9f8a790496ce69f8338ccb35a88fc"
+    },
+    "fixtureAndHelperHashesDifferFromHistorical": true,
+    "currentSourceObservations": [
+      {
+        "source": "scripts/native-probe-evidence.ts:7-14",
+        "observation": "Current completion gate requires numeric nonnegative exit, null signal, no timeout/overflow; auth refusal additionally requires nonzero exit, zero requests and an auth-specific diagnostic"
+      },
+      {
+        "source": "scripts/native-probe-fixture.ts:182-198",
+        "observation": "Current auth and TLS case scoring calls strict completion/auth helpers"
+      },
+      {
+        "source": "scripts/verify-native-probe.ts:52-86",
+        "observation": "Current verifier requires independently approved artifact hashes/build provenance before accepting case evidence, and still leaves production equivalence unestablished"
+      },
+      {
+        "source": "scripts/verify-native-probe.ts:114-124",
+        "observation": "Current durable verifier output projects allowlisted isolation flags and command status; it does not persist historical raw native output"
+      }
+    ],
+    "scoringCaveat": "Original pass/fail flags are retained without rescoring. In particular historical ZeroClaw missing-auth/token-kind/missing-account passes have a generic provider-failure diagnostic and are not evidence that the current auth-specific scorer passes. Wrong-active-profile remains a recorded failure with one authenticated request and native exit 0.",
+    "currentNativeRun": "not performed; current implementation has no qualification result established by this retention task",
+    "currentFocusedTests": "not executed by this retention task; manifest focused_tests and diagnostics are historical claims only",
+    "registryAndProductionEquivalence": "not established by either report; no live inference, real-credential, Discord or production isolation certification"
+  },
+  "sanitization": {
+    "inspection": "Parsed every field in both raw reports; scanned strings for personal paths, credential-shaped secrets, private keys/JWTs/emails, fixture token/account literals and credential field names; inspected request, native-result, configuration and command structures",
+    "findings": "Docker GraphDriver contained host storage paths. No personal paths, credential values, fixture token/account literals, JWTs, private keys or emails were detected in reports. Source manifest contains private temporary report paths, which were replaced by relative retained artifact paths.",
+    "omissionCounts": {
+      "zeroclaw": {
+        "requestInstructions": 70,
+        "commandStdout": 6
+      },
+      "nullclaw": {
+        "requestInstructions": 103,
+        "commandStdout": 6
+      }
+    },
+    "omissions": [
+      "Raw source absolute report paths",
+      "Docker GraphDriver host storage paths and incidental daemon/container metadata; allowlisted isolation configuration, original image, state and Created retained",
+      "All command stdout, replaced with original exact SHA-256 and UTF-8 byte count, including duplicate embedded fixture JSON",
+      "Runtime-generated request instructions/system context, replaced with exact SHA-256 and UTF-8 byte count"
+    ],
+    "retained": "All cases in original order; original pass/fail flags, native argv/exit/signal/stdout/stderr/timeout/overflow, per-case denial/workspace/process/sink/auth/TLS evidence, non-instruction request fields, all fixture native/config/workspace hashes, reasons, cleanup, immutable candidate/base images and manifest verifier exits",
+    "limits": "Pattern and structural inspection is not a guarantee against every encoding of sensitive data. No real credentials were copied; no authentication files were read. Generic container scratch paths and local fixture endpoints are intentional test evidence."
+  },
+  "retentionValidation": {
+    "method": "Focused Python functions.eval assertions on parsed retained files against both original parsed reports and the assignment manifest; no global tests, lint, formatter, Docker or provider calls",
+    "status": "passed",
+    "reports": [
+      {
+        "runtime": "zeroclaw",
+        "path": "artifacts/native-qualification/zeroclaw.offline.sanitized.json",
+        "retainedSha256": "37f9163a3f72145da83d12770367f2bbe4875cba16dd0b7a22ca14a1959c306c",
+        "cases": 59,
+        "passedCases": 7,
+        "failedCases": 52,
+        "nativeDenials": 0,
+        "caseOrderAndAllOriginalFieldsPreservedExceptDeclaredInstructions": true,
+        "allNativeResultsAndFailureReasonsExact": true,
+        "allFixtureSha256FieldsExact": true,
+        "sensitivePatternScanPassed": true
+      },
+      {
+        "runtime": "nullclaw",
+        "path": "artifacts/native-qualification/nullclaw.offline.sanitized.json",
+        "retainedSha256": "b57d245f57c5026abbc63223a3b46854968567dfdececc8fd071a1f383537243",
+        "cases": 56,
+        "passedCases": 55,
+        "failedCases": 1,
+        "nativeDenials": 51,
+        "caseOrderAndAllOriginalFieldsPreservedExceptDeclaredInstructions": true,
+        "allNativeResultsAndFailureReasonsExact": true,
+        "allFixtureSha256FieldsExact": true,
+        "sensitivePatternScanPassed": true
+      }
+    ],
+    "observedTotalCases": 115,
+    "observedFailedCases": 53,
+    "originalFailureReasonsAndNativeHashChecks": "passed",
+    "scope": "Evidence retention/integrity/privacy checks only; not new native qualification or current code test results"
+  }
+}

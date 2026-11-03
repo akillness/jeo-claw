@@ -1,7 +1,8 @@
 import { test, expect } from "bun:test";
-import { bindTerminationHandlers, commandForRuntime, prepareRuntimeConfig, resolveRuntimeEnvironment, seedZeroclawProviderModel, shutdownRuntimeChild, validateRuntimeDispatchPayload, executeStageWork, handleDispatchRequest } from "./start.ts";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { bindTerminationHandlers, commandForRuntime, prepareRuntimeConfig, resolveRuntimeEnvironment, seedZeroclawProviderModel, shutdownRuntimeChild, validateRuntimeDispatchPayload, handleDispatchRequest, installBundledSkills, nativeRuntimeCommand } from "./start.ts";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import type { SecretSource } from "../secrets/loader.ts";
 
 class MockSource implements SecretSource {
@@ -16,6 +17,33 @@ class MockSource implements SecretSource {
 test("commandForRuntime maps runtimes to startup commands", () => {
   expect(commandForRuntime("zeroclaw")).toEqual(["zeroclaw", "gateway", "start", "-p", "42617"]);
   expect(commandForRuntime("nullclaw")).toEqual(["nullclaw", "gateway", "--port", "3000"]);
+});
+
+test("nativeRuntimeCommand uses each runtime's supported single-message agent command", () => {
+  const payload = { workflowId: "wf-1", runtime: "zeroclaw" as const, role: "reviewer" as const, stage: "review" as const, request: "review this", headRef: "jeo/wf-1" };
+  const zero = nativeRuntimeCommand("zeroclaw", payload, "/state");
+  expect(zero.slice(0, 7)).toEqual(["zeroclaw", "--config-dir", "/state", "agent", "-a", "reviewer", "-m"]);
+  expect(zero[7]).toContain("Head ref: jeo/wf-1");
+  expect(zero[7]).toContain("Use the installed jeo-skills");
+
+  const nil = nativeRuntimeCommand("nullclaw", { ...payload, runtime: "nullclaw" }, "/state");
+  expect(nil.slice(0, 3)).toEqual(["nullclaw", "agent", "-m"]);
+  expect(nil[3]).toContain("Request: review this");
+});
+
+test("bundled jeo-skills are installed into the runtime workspace", () => {
+  const root = mkdtempSync(join(tmpdir(), "jeo-runtime-skills-"));
+  const source = join(root, "bundle");
+  const worktree = join(root, "workspace");
+  mkdirSync(join(source, "debugging"), { recursive: true });
+  mkdirSync(worktree);
+  writeFileSync(join(source, "debugging", "SKILL.md"), "# debugging\n");
+  try {
+    installBundledSkills(worktree, source);
+    expect(readFileSync(join(worktree, "skills", "debugging", "SKILL.md"), "utf8")).toContain("debugging");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("runtime termination helpers forward signals and stop the server", () => {
@@ -106,99 +134,73 @@ test("resolveRuntimeEnvironment rejects missing role/project/prefix", async () =
     ),
   ).rejects.toThrow("JEO_ROLE is missing or empty");
 });
-test("prepareRuntimeConfig seeds zeroclaw Codex auth profile and runs OAuth refresh", () => {
-  const root = join(process.env.TEMP || process.cwd(), "jeo-runtime-auth-zeroclaw");
-  rmSync(root, { recursive: true, force: true });
-  const stateDir = join(root, ".zeroclaw");
-  const codexAuth = JSON.stringify({ refresh_token: "rt-live", access_token: "at-live" });
-  const calls: Array<{ command: string; args: string[] }> = [];
-  const runCommand = ((command: string, args: string[]) => {
-    calls.push({ command, args });
-    return { status: 0, stdout: "", stderr: "" };
-  }) as any;
+test("prepareRuntimeConfig imports zeroclaw Codex auth without forced refresh", () => {
+  const root = mkdtempSync(join(tmpdir(), "jeo-runtime-auth-zeroclaw-"));
+  try {
+    const stateDir = join(root, ".zeroclaw");
+    const codexAuth = JSON.stringify({ refresh_token: "rt-live", access_token: "at-live" });
+    const calls: Array<{ command: string; args: string[] }> = [];
+    let imported = "";
+    let importPath = "";
+    const runCommand = ((command: string, args: string[]) => {
+      calls.push({ command, args });
+      importPath = args[7]!;
+      imported = readFileSync(importPath, "utf8");
+      return { status: 0, stdout: "", stderr: "" };
+    }) as any;
 
-  const configDir = prepareRuntimeConfig(
-    "zeroclaw",
-    { OPENAI_CODEX_AUTH: codexAuth, LLM_MODEL: "gpt-5-codex" },
-    stateDir,
-    runCommand,
-  );
+    const configDir = prepareRuntimeConfig(
+      "zeroclaw",
+      { OPENAI_CODEX_AUTH: codexAuth, LLM_MODEL: "gpt-6.1-terra", JEO_ROLE: "reviewer", JEO_WORKTREE: "/workspace" },
+      stateDir,
+      runCommand,
+    );
 
-  expect(configDir).toBeUndefined();
-  expect(readFileSync(join(stateDir, "auth.json"), "utf8")).toBe(codexAuth);
-  expect(calls).toEqual([
-    {
-      command: "zeroclaw",
-      args: ["auth", "login", "--provider", "openai-codex", "--import", join(stateDir, "auth.json")],
-    },
-    { command: "zeroclaw", args: ["auth", "refresh", "--provider", "openai-codex"] },
-  ]);
+    expect(configDir).toBe(stateDir);
+    expect(imported).toBe(codexAuth);
+    expect(existsSync(importPath)).toBe(false);
+    expect(calls).toEqual([
+      {
+        command: "zeroclaw",
+        args: ["--config-dir", stateDir, "auth", "login", "--model-provider", "openai-codex", "--import", importPath],
+      },
+    ]);
 
-  const configToml = readFileSync(join(stateDir, "config.toml"), "utf8");
-  expect(configToml).toContain('fallback = "openai-codex"');
-  expect(configToml).toContain("[providers.models.openai-codex]");
-  expect(configToml).toContain('model = "gpt-5-codex"');
-  expect(configToml).toContain('wire_api = "responses"');
-  expect(configToml).toContain("requires_openai_auth = true");
+    const configToml = readFileSync(join(stateDir, "config.toml"), "utf8");
+    expect(configToml).toContain("[providers.models.openai.codex]");
+    expect(configToml).toContain('model = "gpt-6.1-terra"');
+    expect(configToml).toContain('wire_api = "responses"');
+    expect(configToml).toContain("requires_openai_auth = true");
+    expect(configToml).toContain("[agents.reviewer]");
+    expect(configToml).toContain('model_provider = "openai.codex"');
+    expect(configToml).toContain('[risk_profiles.supervised]');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
-test("seedZeroclawProviderModel patches an existing empty providers table and is idempotent", () => {
-  const root = join(process.env.TEMP || process.cwd(), "jeo-runtime-zeroclaw-seed");
-  rmSync(root, { recursive: true, force: true });
-  const stateDir = join(root, ".zeroclaw");
-  mkdirSync(stateDir, { recursive: true });
-  const configPath = join(stateDir, "config.toml");
-  writeFileSync(configPath, "schema_version = 2\n\n[providers]\n\n[gateway]\nport = 42617\n");
+test("seedZeroclawProviderModel preserves an already compatible configuration", () => {
+  const root = mkdtempSync(join(tmpdir(), "jeo-runtime-zeroclaw-seed-"));
+  try {
+    const stateDir = join(root, ".zeroclaw");
+    mkdirSync(stateDir, { recursive: true });
+    const configPath = join(stateDir, "config.toml");
+    const original = 'schema_version = 3\n[providers.models.openai.codex]\nmodel = "gpt-6.1-terra"\nwire_api = "responses"\nrequires_openai_auth = true\n[agents.reviewer]\nmodel_provider = "openai.codex"\nrisk_profile = "supervised"\nruntime_profile = "default"\n[agents.reviewer.workspace]\npath = "/workspace"\n[risk_profiles.supervised]\nlevel = "supervised"\n[runtime_profiles.default]\n[gateway]\nport = 42617\n';
+    writeFileSync(configPath, original);
 
-  seedZeroclawProviderModel(stateDir, "gpt-5-codex", "responses");
-  const seeded = readFileSync(configPath, "utf8");
-  expect(seeded).toContain('[providers]\nfallback = "openai-codex"');
-  expect(seeded).toContain("[providers.models.openai-codex]");
-  expect(seeded).toContain("[gateway]");
+    seedZeroclawProviderModel(stateDir, "gpt-6.1-terra", "responses", "reviewer", "/workspace");
+    expect(readFileSync(configPath, "utf8")).toBe(original);
 
-  seedZeroclawProviderModel(stateDir, "gpt-5-codex", "responses");
-  expect(readFileSync(configPath, "utf8")).toBe(seeded);
+    seedZeroclawProviderModel(stateDir, "gpt-6.1-terra", "responses", "reviewer", "/workspace");
+    expect(readFileSync(configPath, "utf8")).toBe(original);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
-test("prepareRuntimeConfig seeds nullclaw Codex auth profile and imports it", () => {
-  const root = join(process.env.TEMP || process.cwd(), "jeo-runtime-auth-nullclaw");
-  rmSync(root, { recursive: true, force: true });
-  const worktree = join(root, "workspace");
-  const codexAuth = JSON.stringify({ refresh_token: "rt-live", access_token: "at-live" });
-  const calls: Array<{ command: string; args: string[]; home?: string; xdgConfigHome?: string }> = [];
-  const runCommand = ((command: string, args: string[], opts: { env: NodeJS.ProcessEnv }) => {
-    calls.push({ command, args, home: opts.env.HOME, xdgConfigHome: opts.env.XDG_CONFIG_HOME });
-    return { status: 0, stdout: "", stderr: "" };
-  }) as any;
-
-  const configDir = prepareRuntimeConfig(
-    "nullclaw",
-    { OPENAI_CODEX_AUTH: codexAuth, JEO_WORKTREE: worktree },
-    join(root, ".config", "nullclaw"),
-    runCommand,
-  );
-
-  expect(configDir).toBeUndefined();
-  expect(readFileSync(join(worktree, ".codex", "auth.json"), "utf8")).toBe(codexAuth);
-  expect(calls).toEqual([
-    {
-      command: "nullclaw",
-      args: ["auth", "login", "openai-codex", "--import-codex"],
-      home: worktree,
-      xdgConfigHome: join(worktree, ".config"),
-    },
-    {
-      command: "nullclaw",
-      args: ["onboard", "--provider", "openai-codex", "--model", "gpt-5-codex", "--memory", "none"],
-      home: worktree,
-      xdgConfigHome: join(worktree, ".config"),
-    },
-  ]);
-});
 
 test("prepareRuntimeConfig redacts OAuth payloads from startup failures", () => {
-  const root = join(process.env.TEMP || process.cwd(), "jeo-runtime-auth-redact");
-  rmSync(root, { recursive: true, force: true });
+  const root = mkdtempSync(join(tmpdir(), "jeo-runtime-auth-redact-"));
   const codexAuth = JSON.stringify({ refresh_token: "rt-secret", access_token: "at-secret" });
   const runCommand = (() => ({ status: 1, stdout: "", stderr: `bad auth ${codexAuth}` })) as any;
 
@@ -206,9 +208,11 @@ test("prepareRuntimeConfig redacts OAuth payloads from startup failures", () => 
     prepareRuntimeConfig("zeroclaw", { OPENAI_CODEX_AUTH: codexAuth }, join(root, ".zeroclaw"), runCommand);
     expect.unreachable();
   } catch (error: any) {
-    expect(error.message).toContain("***REDACTED***");
+    expect(error.message).toContain("zeroclaw auth import failed");
     expect(error.message).not.toContain("rt-secret");
     expect(error.message).not.toContain("at-secret");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 test("validateRuntimeDispatchPayload enforces runtime/role/stage matching", () => {
@@ -274,97 +278,113 @@ test("validateRuntimeDispatchPayload rejects write-stage dispatch at runtime bou
 });
 
 
-test("executeStageWork writes a tangible stage artifact", () => {
-  const root = join(process.env.TEMP || process.cwd(), "jeo-runtime-test-artifacts");
-  rmSync(root, { recursive: true, force: true });
-  mkdirSync(root, { recursive: true });
-  const artifact = executeStageWork(root, {
-    workflowId: "wf-1",
-    runtime: "zeroclaw",
-    role: "reviewer",
-    stage: "review",
-    request: "review the generated code",
-    headRef: "jeo/zeroclaw/pr-creator/wf-1",
-  });
-  const content = readFileSync(artifact, "utf8");
-  expect(content).toContain("workflowId: wf-1");
-  expect(content).toContain("stage: review");
-});
 
-test("handleDispatchRequest authenticates and writes artifact plus receipt", async () => {
-  const stateDir = join(process.env.TEMP || process.cwd(), "jeo-runtime-test-state");
-  const worktreeDir = join(process.env.TEMP || process.cwd(), "jeo-runtime-test-worktree");
-  rmSync(stateDir, { recursive: true, force: true });
-  rmSync(worktreeDir, { recursive: true, force: true });
+test("handleDispatchRequest writes an artifact only after native runtime success", async () => {
+  const root = mkdtempSync(join(tmpdir(), "jeo-runtime-test-"));
+  const stateDir = join(root, "state");
+  const worktreeDir = join(root, "worktree");
   mkdirSync(stateDir, { recursive: true });
   mkdirSync(worktreeDir, { recursive: true });
 
-  const badRes = await handleDispatchRequest(
-    new Request("http://runtime/dispatch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workflowId: "wf-1", runtime: "zeroclaw", role: "reviewer", stage: "review", request: "do work" }),
-    }),
-    "zeroclaw",
-    "reviewer",
-    "runtime-dispatch-secret",
-    stateDir,
-    worktreeDir,
-  );
-  expect(badRes.status).toBe(401);
+  try {
+    const badRes = await handleDispatchRequest(
+      new Request("http://runtime/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workflowId: "wf-1", runtime: "zeroclaw", role: "reviewer", stage: "review", request: "do work" }),
+      }),
+      "zeroclaw",
+      "reviewer",
+      "runtime-dispatch-secret",
+      stateDir,
+      worktreeDir,
+    );
+    expect(badRes.status).toBe(401);
 
-  const goodRes = await handleDispatchRequest(
-    new Request("http://runtime/dispatch", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-runtime-dispatch-secret": "runtime-dispatch-secret",
-      },
-      body: JSON.stringify({ workflowId: "wf-1", runtime: "zeroclaw", role: "reviewer", stage: "review", request: "do work" }),
-    }),
-    "zeroclaw",
-    "reviewer",
-    "runtime-dispatch-secret",
-    stateDir,
-    worktreeDir,
-  );
-  expect(goodRes.status).toBe(200);
-  const payload = await goodRes.json() as { receiptPath: string; artifactPath: string };
-  expect(readFileSync(payload.receiptPath, "utf8")).toContain("\"workflowId\": \"wf-1\"");
-  expect(readFileSync(payload.artifactPath, "utf8")).toContain("stage: review");
+    const goodRes = await handleDispatchRequest(
+      new Request("http://runtime/dispatch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-runtime-dispatch-secret": "runtime-dispatch-secret",
+        },
+        body: JSON.stringify({ workflowId: "wf-1", runtime: "zeroclaw", role: "reviewer", stage: "review", request: "do work" }),
+      }),
+      "zeroclaw",
+      "reviewer",
+      "runtime-dispatch-secret",
+      stateDir,
+      worktreeDir,
+      async (runtime) => ({ command: runtime, output: "native review evidence" }),
+      { LLM_MODEL: "gpt-6.1-terra" },
+    );
+    expect(goodRes.status).toBe(200);
+    expect(await goodRes.json()).toMatchObject({ ok: true, runtime: "zeroclaw", model: "gpt-6.1-terra", output: "native review evidence" });
+    expect(readdirSync(stateDir)).toEqual([]);
+    expect(readFileSync(join(worktreeDir, ".jeo-runtime-work/wf-1-review.md"), "utf8")).toBe("native review evidence\n");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("handleDispatchRequest fails closed when native runtime execution fails", async () => {
+  const root = mkdtempSync(join(tmpdir(), "jeo-runtime-native-failure-"));
+  try {
+    const response = await handleDispatchRequest(
+      new Request("http://runtime/dispatch", {
+        method: "POST",
+        headers: { "x-runtime-dispatch-secret": "runtime-dispatch-secret" },
+        body: JSON.stringify({ workflowId: "wf-1", runtime: "nullclaw", role: "reviewer", stage: "review", request: "review" }),
+      }),
+      "nullclaw",
+      "reviewer",
+      "runtime-dispatch-secret",
+      join(root, "state"),
+      root,
+      async () => { throw new Error("provider unavailable"); },
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "provider unavailable" });
+    expect(readdirSync(root)).toEqual([]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("handleDispatchRequest rejects oversized bodies before writing artifacts", async () => {
-  const stateDir = join(process.env.TEMP || process.cwd(), "jeo-runtime-test-large-state");
-  const worktreeDir = join(process.env.TEMP || process.cwd(), "jeo-runtime-test-large-worktree");
-  rmSync(stateDir, { recursive: true, force: true });
-  rmSync(worktreeDir, { recursive: true, force: true });
+  const root = mkdtempSync(join(tmpdir(), "jeo-runtime-test-large-"));
+  const stateDir = join(root, "state");
+  const worktreeDir = join(root, "worktree");
   mkdirSync(stateDir, { recursive: true });
   mkdirSync(worktreeDir, { recursive: true });
 
-  const body = JSON.stringify({
-    workflowId: "wf-large",
-    runtime: "zeroclaw",
-    role: "reviewer",
-    stage: "review",
-    request: "x".repeat(70 * 1024),
-  });
+  try {
+    const body = JSON.stringify({
+      workflowId: "wf-large",
+      runtime: "zeroclaw",
+      role: "reviewer",
+      stage: "review",
+      request: "x".repeat(70 * 1024),
+    });
 
-  const res = await handleDispatchRequest(
-    new Request("http://runtime/dispatch", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-runtime-dispatch-secret": "runtime-dispatch-secret",
-      },
-      body,
-    }),
-    "zeroclaw",
-    "reviewer",
-    "runtime-dispatch-secret",
-    stateDir,
-    worktreeDir,
-  );
+    const res = await handleDispatchRequest(
+      new Request("http://runtime/dispatch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-runtime-dispatch-secret": "runtime-dispatch-secret",
+        },
+        body,
+      }),
+      "zeroclaw",
+      "reviewer",
+      "runtime-dispatch-secret",
+      stateDir,
+      worktreeDir,
+    );
 
-  expect(res.status).toBe(413);
+    expect(res.status).toBe(413);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

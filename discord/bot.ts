@@ -1,6 +1,10 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+import { HIGH_RISK_ACTIONS, RUNTIMES, STAGES } from "../glue/contract.ts";
+
 import { ChannelType, Client, GatewayIntentBits, PermissionFlagsBits, REST, Routes, SlashCommandBuilder } from "discord.js";
 import { ORCHESTRATOR_STATUS_PORT, type ControlEvent, type WorkflowState, type HighRiskAction, type Runtime, type StatusNotification } from "../glue/contract.ts";
 import { parseRepoRef } from "./commands.ts";
+import { discordProxyRequest } from "./proxy-transport.ts";
 
 export interface CommandPolicy {
   guildId?: string;
@@ -46,6 +50,10 @@ function requestEventFromInteraction(interaction: any): ControlEvent | undefined
   };
 }
 
+function isHeadSha(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
 function approvalEventFromInteraction(
   commandName: "approve" | "reject",
   interaction: any,
@@ -54,14 +62,25 @@ function approvalEventFromInteraction(
   const workflowId = interaction.options?.getString?.("workflowid")?.trim();
   const action = actionFromInteraction(interaction);
   if (!workflowId || !action) return undefined;
+  if (commandName === "approve" && action === "pr.merge") {
+    const headSha = interaction.options?.getString?.("headsha")?.trim();
+    if (!isHeadSha(headSha)) return undefined;
+    return { type: "approve", source: "discord", workflowId, action, user, headSha };
+  }
   return { type: commandName, source: "discord", workflowId, action, user };
 }
 
 function approvalEventFromButton(customId: string, user: string): ApprovalControlEvent | undefined {
-  const [verb, workflowId, actionRaw] = customId.split(":");
+  const [verb, workflowId, actionRaw, headSha, ...extra] = customId.split(":");
   if (verb !== "approve" && verb !== "reject") return undefined;
   const action = actionRaw === "pr.create" || actionRaw === "pr.merge" ? actionRaw : undefined;
   if (!workflowId || !action) return undefined;
+  if (extra.length) return undefined;
+  if (verb === "approve" && action === "pr.merge") {
+    if (!isHeadSha(headSha)) return undefined;
+    return { type: "approve", source: "discord", workflowId, action, user, headSha };
+  }
+  if (headSha !== undefined) return undefined;
   return { type: verb, source: "discord", workflowId, action, user };
 }
 
@@ -176,6 +195,7 @@ export function discordCommandDefinitions(): unknown[] {
           .setRequired(true)
           .addChoices({ name: "pr.create", value: "pr.create" }, { name: "pr.merge", value: "pr.merge" }),
       )
+      .addStringOption((option) => option.setName("headsha").setDescription("Full reviewed PR head SHA (required for merge)").setRequired(false))
       .toJSON(),
     new SlashCommandBuilder()
       .setName("reject")
@@ -202,11 +222,11 @@ export function discordCommandDefinitions(): unknown[] {
 }
 
 
-async function registerGuildCommands(token: string, guildId: string, applicationId: string | undefined): Promise<void> {
+async function registerGuildCommands(token: string, guildId: string, applicationId: string | undefined, proxy?: string): Promise<void> {
   const appId = applicationId?.trim();
   if (!appId) throw new Error("Discord application id is unavailable after login");
   const appIdSafe = appId;
-  const rest = new REST({ version: "10" }).setToken(token);
+  const rest = new REST({ version: "10", ...(proxy ? { makeRequest: discordProxyRequest(proxy) } : {}) }).setToken(token);
   await rest.put(Routes.applicationGuildCommands(appIdSafe, guildId), { body: discordCommandDefinitions() });
 }
 
@@ -257,6 +277,15 @@ async function ensureTextChannel(guild: any, channelId: string | undefined, pref
 
 export async function resolveLivePolicy(client: any, env: NodeJS.ProcessEnv = process.env): Promise<CommandPolicy> {
   const basePolicy = policyFromEnv(env);
+  if (env.JEO_CONTROL_MODE === "probe-only") {
+    const guildId = requireTrimmed("DISCORD_GUILD_ID", basePolicy.guildId);
+    const channelId = requireTrimmed("DISCORD_REQUEST_CHANNEL_ID", basePolicy.requestChannelId);
+    if (!/^\d{1,20}$/.test(guildId) || !/^\d{1,20}$/.test(channelId)) throw new Error("Probe mode requires numeric guild and request channel IDs");
+    const guild = await client.guilds.fetch(guildId);
+    const channel = await guild.channels.fetch(channelId);
+    if (!channel || channel.type !== ChannelType.GuildText) throw new Error("Configured request channel is missing or not a text channel");
+    return { ...basePolicy, guildId, requestChannelId: channelId };
+  }
   const guildId = await selectGuildId(client, basePolicy.guildId);
   const guild = await client.guilds.fetch(guildId);
   const requestChannelId = await ensureTextChannel(guild, basePolicy.requestChannelId, optionalTrimmed(env.DISCORD_REQUEST_CHANNEL_NAME) ?? "jeo-request");
@@ -344,6 +373,7 @@ export async function forwardControlEvent(
   secret: string,
   event: ControlEvent,
   timeoutMs = DEFAULT_CONTROL_EVENT_TIMEOUT_MS,
+  signal?: AbortSignal,
 ): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -355,7 +385,7 @@ export async function forwardControlEvent(
         "x-control-event-secret": secret,
       },
       body: JSON.stringify(event),
-      signal: controller.signal,
+      signal: signal ? AbortSignal.any([controller.signal, signal]) : controller.signal,
     });
     if (!res.ok) {
       throw new Error(`control event delivery failed (${res.status})`);
@@ -363,7 +393,7 @@ export async function forwardControlEvent(
     const contentType = res.headers.get("content-type") ?? "";
     return contentType.includes("application/json") ? await res.json() : await res.text();
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
+    if (err instanceof DOMException && err.name === "AbortError" && controller.signal.aborted && !signal?.aborted) {
       throw new Error(`control event delivery timed out after ${timeoutMs}ms`);
     }
     throw err;
@@ -381,12 +411,18 @@ export function buildHandlers(deps: {
   botUserId?: string;
   allowSelfTest?: boolean;
   fetchStatus?: () => Promise<WorkflowState[]>;
+  signal?: AbortSignal;
+  mode?: "normal" | "probe-only";
 }) {
   const processEvent = async (
     event: ControlEvent,
     context: EventContext,
     replyError: (reason: string) => Promise<void>
   ): Promise<{ ok: boolean; response?: unknown }> => {
+    if (deps.mode === "probe-only" && event.type !== "ping") {
+      await replyError("Ordinary workflow commands are disabled in probe-only mode.");
+      return { ok: false };
+    }
     const auth = authorizeEvent(event, context, deps.policy);
     if (!auth.ok) {
       await replyError(auth.reason || "Unauthorized command");
@@ -588,6 +624,7 @@ export function buildHandlers(deps: {
             const deferred = await deferInteraction(interaction, true);
             try {
               const list = await deps.fetchStatus();
+              if (deps.signal?.aborted) return;
                       const lines = list.slice(-10).map((wf) => {
                 const repoStr = wf.repo ? `[${wf.repo}]` : "[-]";
                 const stageKorean: Record<string, string> = {
@@ -611,6 +648,7 @@ export function buildHandlers(deps: {
               const reply = lines.length > 0 ? `🏰 **[Sovereign 제어 타워: 현재 상태 (최근 10건)]**\n${lines}` : "진행 중인 워크플로우가 없습니다.";
               await replyInteraction(interaction, { content: reply, ephemeral: false }, deferred);
             } catch (err) {
+              if (deps.signal?.aborted) return;
               await replyInteraction(interaction, { content: `Failed to fetch status: ${errorMessage(err)}`, ephemeral: true }, deferred);
             }
           } else {
@@ -634,7 +672,7 @@ export function buildHandlers(deps: {
           });
         } else {
           await replyInteraction(interaction, {
-            content: "Unknown command.",
+            content: commandName === "approve" ? "Approval requires a valid workflow, action, and full lowercase head SHA for merge." : "Unknown command.",
             ephemeral: true,
           }, false);
         }
@@ -652,8 +690,50 @@ export function buildHandlers(deps: {
     },
   };
 }
+const MAX_STATUS_BODY_BYTES = 64 * 1024;
+
+async function readStatusBody(req: Request): Promise<string | undefined> {
+  const length = req.headers.get("content-length");
+  if (length && Number(length) > MAX_STATUS_BODY_BYTES) {
+    void req.body?.cancel().catch(() => {});
+    return undefined;
+  }
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let body = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return body + decoder.decode();
+      size += value.byteLength;
+      if (size > MAX_STATUS_BODY_BYTES) {
+        void reader.cancel().catch(() => {});
+        return undefined;
+      }
+      body += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function validStatusNotification(value: unknown): value is StatusNotification & { claw?: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  const optionalString = (key: string) => item[key] === undefined || typeof item[key] === "string";
+  return typeof item.workflowId === "string" && item.workflowId.length > 0 &&
+    typeof item.stage === "string" && (STAGES as readonly string[]).includes(item.stage) &&
+    typeof item.status === "string" && ["queued", "pending", "running", "awaiting-approval", "merged", "rejected", "failed", "scheduled"].includes(item.status) &&
+    typeof item.message === "string" && optionalString("repo") && optionalString("claw") && optionalString("headSha") &&
+    (item.runtime === undefined || (typeof item.runtime === "string" && (RUNTIMES as readonly string[]).includes(item.runtime))) &&
+    (item.pendingAction === undefined || (typeof item.pendingAction === "string" && (HIGH_RISK_ACTIONS as readonly string[]).includes(item.pendingAction)));
+}
+
 export function buildStatusRelayHandler(deps: {
-  client?: unknown;
+  statusRelaySecret?: string;
+  mode?: "normal" | "probe-only";
   sendToChannel: (workflowId: string | undefined, content: string, components?: unknown[]) => Promise<void>;
 }) {
   return async (req: Request): Promise<Response> => {
@@ -664,13 +744,21 @@ export function buildStatusRelayHandler(deps: {
     if (url.pathname !== "/status") {
       return new Response("Not Found", { status: 404 });
     }
+    const supplied = req.headers.get("x-status-relay-secret") ?? "";
+    const expected = deps.statusRelaySecret ?? "";
+    const suppliedHash = createHash("sha256").update(supplied).digest();
+    const expectedHash = createHash("sha256").update(expected).digest();
+    if (!supplied || !expected || !timingSafeEqual(suppliedHash, expectedHash)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    if (deps.mode === "probe-only") return new Response("Ordinary notifications disabled", { status: 409 });
     try {
-      const notification = (await req.json()) as StatusNotification;
-      if (!notification.workflowId || !notification.stage || !notification.status) {
-        return new Response("Bad Request: Missing required fields", { status: 400 });
-      }
+      const body = await readStatusBody(req);
+      if (body === undefined) return new Response("Payload Too Large", { status: 413 });
+      const notification: unknown = JSON.parse(body);
+      if (!validStatusNotification(notification)) return new Response("Bad Request", { status: 400 });
 
-      const claw = (notification as any).claw ?? "🏰 Sovereign (Orchestrator)";
+      const claw = notification.claw ?? "🏰 Sovereign (Orchestrator)";
       const repoStr = notification.repo ? `[${notification.repo}]` : "[-]";
       const stageKorean: Record<string, string> = {
         "research-code": "코딩 (Researcher/Coder)",
@@ -691,9 +779,11 @@ export function buildStatusRelayHandler(deps: {
       };
       const statusColor = getStatusColor(notification.status);
 
+      const mergeApproval = notification.status === "awaiting-approval" && notification.pendingAction === "pr.merge";
+      const headSha = isHeadSha(notification.headSha) ? notification.headSha : undefined;
       const content = `> ${statusColor} **Sovereign Evolution Control Tower**
 > 
-> 🔹 **Workflow:** \`${notification.workflowId}\`
+> 🔹 **Workflow:** \`${notification.workflowId}\`${mergeApproval ? `\n> 🔐 **Reviewed head SHA:** ${headSha ? `\`${headSha}\`` : "unavailable; merge approval disabled"}` : ""}
 > 📦 **Target:** ${repoStr}
 > 📍 **Stage:** **${stageStr}**
 > 🚥 **Status:** \`${notification.status.toUpperCase()}\`
@@ -703,26 +793,17 @@ export function buildStatusRelayHandler(deps: {
 
       let components: any[] | undefined = undefined;
 
-      if (notification.status === "awaiting-approval" && notification.pendingAction) {
-        components = [
-          {
-            type: 1, // ActionRow
-            components: [
-              {
-                type: 2, // Button
-                style: 3, // Success
-                label: "승인",
-                custom_id: `approve:${notification.workflowId}:${notification.pendingAction}`,
-              },
-              {
-                type: 2, // Button
-                style: 4, // Danger
-                label: "거부",
-                custom_id: `reject:${notification.workflowId}:${notification.pendingAction}`,
-              },
-            ],
-          },
-        ];
+      if (notification.status === "awaiting-approval" && notification.pendingAction && !notification.workflowId.includes(":")) {
+        const approveId = `approve:${notification.workflowId}:${notification.pendingAction}${mergeApproval && headSha ? `:${headSha}` : ""}`;
+        const rejectId = `reject:${notification.workflowId}:${notification.pendingAction}`;
+        const buttons = [];
+        if ((!mergeApproval || headSha) && approveId.length <= 100) {
+          buttons.push({ type: 2, style: 3, label: "승인", custom_id: approveId });
+        }
+        if (rejectId.length <= 100) {
+          buttons.push({ type: 2, style: 4, label: "거부", custom_id: rejectId });
+        }
+        if (buttons.length) components = [{ type: 1, components: buttons }];
       }
 
       await deps.sendToChannel(notification.workflowId, content, components);
@@ -731,7 +812,7 @@ export function buildStatusRelayHandler(deps: {
         headers: { "Content-Type": "application/json" },
       });
     } catch (err) {
-      return new Response(JSON.stringify({ ok: false, error: String(err) }), {
+      return new Response(JSON.stringify({ ok: false, error: "Invalid status request" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
@@ -745,7 +826,7 @@ export function startStatusRelay(
 ) {
   return Bun.serve({
     port,
-    hostname: "0.0.0.0",
+    hostname: "127.0.0.1",
     fetch(req) {
       return handler(req);
     },
@@ -756,28 +837,66 @@ export function startStatusRelay(
  * Starts the Discord bot client.
  * Constructs client and logs in using Secret-Manager-loaded env.
  */
-export async function start(): Promise<Client> {
-  const client = new Client({
+export async function start(deps: {
+  createClient?: () => Client;
+  resolvePolicy?: typeof resolveLivePolicy;
+  registerCommands?: typeof registerGuildCommands;
+  relayPort?: number;
+  proxy?: string;
+} = {}): Promise<Client> {
+  const mode = process.env.JEO_CONTROL_MODE ?? "normal";
+  if (mode !== "normal" && mode !== "probe-only") throw new Error("Invalid JEO_CONTROL_MODE");
+  const client = deps.createClient?.() ?? new Client({
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
     ],
+    ...(deps.proxy ? { rest: { makeRequest: discordProxyRequest(deps.proxy) } } : {}),
   });
 
+  let relay: { readonly port: number | undefined; stop(closeActiveConnections?: boolean): void } | undefined;
+  const lifecycle = new AbortController();
+  const detachListeners: Array<() => void> = [];
+  const destroyClient = client.destroy.bind(client);
+  let shutdown: Promise<void> | undefined;
+  client.destroy = () => {
+    if (!shutdown) {
+      shutdown = (async () => {
+        lifecycle.abort();
+        for (const detach of detachListeners) detach();
+        try {
+          relay?.stop(true);
+        } finally {
+          await destroyClient();
+        }
+      })();
+    }
+    return shutdown;
+  };
+
+  try {
   const token = requireTrimmed("DISCORD_BOT_TOKEN", process.env.DISCORD_BOT_TOKEN);
-
-  client.on("ready", () => {
+  const onReady = () => {
     console.log(`[Discord Bot] Ready. Logged in as ${client.user?.tag}`);
-  });
+  };
+  client.on("ready", onReady);
+  detachListeners.push(() => client.off("ready", onReady));
 
   await client.login(token);
 
-  const policy = await resolveLivePolicy(client, process.env);
-  console.log("[Discord Bot] Policy:", JSON.stringify(policy));
+  const policy = await (deps.resolvePolicy ?? resolveLivePolicy)(client, process.env);
+  console.log("[Discord Bot] Policy:", JSON.stringify({
+    guildId: policy.guildId,
+    requestChannelId: policy.requestChannelId,
+    approvalChannelId: policy.approvalChannelId,
+    approverRoleId: policy.approverRoleId,
+  }));
   const guildId = requireTrimmed("DISCORD_GUILD_ID", policy.guildId);
   const glueEndpoint = requireTrimmed("GLUE_EVENT_ENDPOINT", policy.controlEndpoint);
   const controlEventSecret = requireTrimmed("JEO_CONTROL_EVENT_SECRET", policy.controlEventSecret);
+  const statusRelaySecret = requireTrimmed("JEO_STATUS_RELAY_SECRET", process.env.JEO_STATUS_RELAY_SECRET);
+  if (statusRelaySecret.length < 24 || statusRelaySecret === controlEventSecret || statusRelaySecret === token) throw new Error("JEO_STATUS_RELAY_SECRET must be at least 24 characters and distinct from other control secrets");
 
   const workflowMessageMap = new Map<string, string>();
   const MAX_MESSAGE_MAP_SIZE = 1000;
@@ -787,88 +906,113 @@ export async function start(): Promise<Client> {
     }
 
     try {
-      const channelId = policy.requestChannelId;
-      if (!channelId) return;
+      const channels = new Set([policy.requestChannelId, ...(components?.length ? [policy.approvalChannelId] : [])]);
+      if (workflowId && policy.approvalChannelId && workflowMessageMap.has(`${policy.approvalChannelId}:${workflowId}`)) channels.add(policy.approvalChannelId);
+      for (const channelId of channels) {
+      if (!channelId) continue;
+      const messageKey = workflowId ? `${channelId}:${workflowId}` : undefined;
+      const channelComponents = channelId === policy.approvalChannelId ? components : undefined;
       const channel = await client.channels.fetch(channelId);
       if (channel && "send" in channel) {
         const textChannel = channel as any;
-        if (workflowId && workflowMessageMap.has(workflowId)) {
-          const msgId = workflowMessageMap.get(workflowId)!;
+        if (messageKey && workflowMessageMap.has(messageKey)) {
+          const msgId = workflowMessageMap.get(messageKey)!;
           try {
             const msg = await textChannel.messages.fetch(msgId);
             if (msg) {
-              await msg.edit({ content, components: components || [] });
-              return;
+              await msg.edit({ content, components: channelComponents || [] });
+              continue;
             }
           } catch(e) {
             // message might have been deleted, fallback to send
-            workflowMessageMap.delete(workflowId);
+            workflowMessageMap.delete(messageKey);
           }
         }
         const sent = await textChannel.send({
           content,
-          components: components || [],
+          components: channelComponents || [],
         });
-        if (workflowId) {
-          workflowMessageMap.set(workflowId, sent.id);
+        if (messageKey) {
+          workflowMessageMap.set(messageKey, sent.id);
           if (workflowMessageMap.size > MAX_MESSAGE_MAP_SIZE) {
             const firstKey = workflowMessageMap.keys().next().value;
             if (firstKey) workflowMessageMap.delete(firstKey);
           }
         }
       }
-    } catch (err) {
-      console.error("[Discord Bot] Failed to send relay message:", err);
+      }
+    } catch {
+      console.error("[Discord Bot] Failed to send relay message");
     }
   };
 
-  const statusRelayHandler = buildStatusRelayHandler({ client, sendToChannel });
-  startStatusRelay(ORCHESTRATOR_STATUS_PORT, statusRelayHandler);
-  console.log(`[Discord Bot] Status relay listening on 0.0.0.0:${ORCHESTRATOR_STATUS_PORT}`);
+  const statusRelayHandler = buildStatusRelayHandler({ statusRelaySecret, sendToChannel, mode });
+  relay = startStatusRelay(deps.relayPort ?? ORCHESTRATOR_STATUS_PORT, statusRelayHandler);
+  console.log(`[Discord Bot] Status relay listening on 127.0.0.1:${relay.port}`);
 
   const handlers = buildHandlers({
+    mode,
     policy,
     botUserId: client.user?.id,
     allowSelfTest: process.env.JEO_ALLOW_SELF_TEST === "1",
+    signal: lifecycle.signal,
     fetchStatus: async () => {
-      const res = await fetch(`${glueEndpoint}/debug/workflows`, {
-        headers: { "x-control-event-secret": controlEventSecret },
-      });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = (await res.json()) as { workflows: WorkflowState[] };
-      return data.workflows || [];
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), DEFAULT_CONTROL_EVENT_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${glueEndpoint}/debug/workflows`, {
+          headers: { "x-control-event-secret": controlEventSecret },
+          signal: AbortSignal.any([lifecycle.signal, controller.signal]),
+        });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = (await res.json()) as { workflows: WorkflowState[] };
+        return data.workflows || [];
+      } finally {
+        clearTimeout(timeout);
+      }
     },
     onEvent: async (event) => {
-      const response = await forwardControlEvent(glueEndpoint, controlEventSecret, event);
+      const response = await forwardControlEvent(glueEndpoint, controlEventSecret, event, DEFAULT_CONTROL_EVENT_TIMEOUT_MS, lifecycle.signal);
       console.log("[Discord Bot] ControlEvent:", controlEventLogSummary(event));
       return response;
     },
   });
 
-  client.on("messageCreate", async (message) => {
+  const onMessage = async (message: Parameters<typeof handlers.handleMessage>[0]) => {
     try {
       await handlers.handleMessage(message);
     } catch (err) {
       console.error("Error handling message:", err);
     }
-  });
+  };
+  client.on("messageCreate", onMessage);
+  detachListeners.push(() => client.off("messageCreate", onMessage));
 
-  client.on("interactionCreate", async (interaction) => {
+  const onInteraction = async (interaction: Parameters<typeof handlers.handleInteraction>[0]) => {
     try {
       await handlers.handleInteraction(interaction);
     } catch (err) {
       console.error("Error handling interaction:", err);
     }
-  });
+  };
+  client.on("interactionCreate", onInteraction);
+  detachListeners.push(() => client.off("interactionCreate", onInteraction));
 
-  await registerGuildCommands(token, guildId, client.application?.id ?? client.user?.id);
-  console.log(`[Discord Bot] Registered guild slash commands for ${guildId}`);
+  if (mode === "normal") {
+    await (deps.registerCommands ?? registerGuildCommands)(token, guildId, client.application?.id ?? client.user?.id, deps.proxy);
+    console.log(`[Discord Bot] Registered guild slash commands for ${guildId}`);
+  }
   return client;
+  } catch (error) {
+    try {
+      await client.destroy();
+    } catch (cleanupError) {
+      console.error("[Discord Bot] Cleanup failed:", cleanupError);
+    }
+    throw error;
+  }
 }
 
 if (import.meta.main) {
-  start().catch((err) => {
-    console.error("[Discord Bot] Startup failed:", err);
-    process.exit(1);
-  });
+  throw new Error("Start Discord through discord/proxy-main.ts");
 }

@@ -6,10 +6,11 @@ import { isBannedTarget, normalizeRepo } from "../glue/banned-targets.ts";
 const role = process.argv[2] || "unknown";
 const port = parseInt(process.env.JEO_CLAW_PORT || "9201", 10);
 const secret = process.env.JEO_RUNTIME_DISPATCH_SECRET || "";
+const shutdown = new AbortController();
 
 console.log(`Claw worker started for role: ${role} on port: ${port}`);
 
-serve({ idleTimeout: 0,
+const server = serve({ idleTimeout: 0,
   port,
   async fetch(req) {
     if (req.method !== "POST" || new URL(req.url).pathname !== "/dispatch") {
@@ -38,7 +39,7 @@ serve({ idleTimeout: 0,
 
       // SOVEREIGN DIRECTIVE: Notify Discord via Status Relay
       try {
-        const tool = (role === "researcher-coder" && body.stage === "research-code") ? "gjc" : undefined;
+        const tool = (role === "researcher-coder" && body.stage === "research-code") ? "jeopi" : undefined;
         const directiveId = `DIR-${role.slice(0, 3).toUpperCase()}-${body.workflowId.slice(0, 4).toUpperCase()}`;
         
         // Report structured directive
@@ -59,6 +60,7 @@ serve({ idleTimeout: 0,
           await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.any([shutdown.signal, AbortSignal.timeout(5000)]),
             body: JSON.stringify({
               workflowId: body.workflowId,
               runtime: body.runtime || "zeroclaw",
@@ -84,28 +86,17 @@ serve({ idleTimeout: 0,
       } catch (err: any) {
         console.error("Failed to report to Discord:", err);
       }
+      shutdown.signal.throwIfAborted();
 
       if (role === "researcher-coder" && body.stage === "research-code") {
-        // Run gjc via repo-work
+        // Run jeopi via repo-work.
         const analysis = { repo: body.repo || "akillness/jeo-claw", defaultBranch: "main", description: "", languages: {}, recentCommits: [], openIssues: 0, fileTree: [] };
-        const result = await generateImprovement(body.runtime || "nullclaw", analysis, body.request, body.workflowId, body.headRef);
+        const result = await generateImprovement(body.runtime || "nullclaw", analysis, body.request, body.workflowId, undefined, shutdown.signal);
         
         console.log(`Claw ${role} stage ${body.stage} completed successfully for workflow ${body.workflowId}`);
         return new Response(JSON.stringify({ success: true, summary: result.summary, artifacts: result.files }), { headers: { "Content-Type": "application/json" } });
-      } else if (role === "pr-review-scheduler" && body.stage === "pr-review-schedule") {
-        console.log(`[PR-Review-Scheduler] Emitting ciPassed and reviewPassed for workflow ${body.workflowId}`);
-        return new Response(JSON.stringify({ success: true, summary: "Auto-approved CI/Review", ciPassed: true, reviewPassed: true }), { headers: { "Content-Type": "application/json" } });
-      } else if (role === "reviewer" && body.stage === "review") {
-        console.log(`[Reviewer] Emitting reviewPassed and ciPassed for workflow ${body.workflowId}`);
-        
-        // Emitting removed to prevent deadlock
-
-        console.log(`Claw ${role} stage ${body.stage} completed successfully for workflow ${body.workflowId}`);
-        return new Response(JSON.stringify({ success: true, summary: "Successfully reviewed and passed" }), { headers: { "Content-Type": "application/json" } });
       } else {
-        // Generic success for other roles to keep workflow moving
-        console.log(`Claw ${role} stage ${body.stage} completed successfully for workflow ${body.workflowId}`);
-        return new Response(JSON.stringify({ success: true, summary: "Successfully completed stage" }), { headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ success: false, error: `Unsupported worker role/stage: ${role}/${body.stage}` }), { status: 501, headers: { "Content-Type": "application/json" } });
       }
     } catch (e: any) {
       console.error(`Claw ${role} stage failed:`, e);
@@ -113,3 +104,10 @@ serve({ idleTimeout: 0,
     }
   }
 });
+
+const stop = () => {
+  shutdown.abort();
+  void server.stop().catch((error: unknown) => console.error("Worker shutdown failed:", error));
+};
+process.once("SIGTERM", stop);
+process.once("SIGINT", stop);

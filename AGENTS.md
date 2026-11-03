@@ -4,7 +4,7 @@
 
 `jeo-claw` is a **dual-runtime agentic PR orchestration system** that runs two agent
 runtimes — **ZeroClaw** (Rust) and **NullClaw** (Zig) — side by side under identical
-LLM settings (`openai` / `gpt-5-codex`) to perform continuous **A/B comparison** while
+LLM settings (`openai` / `gpt-6.1-terra`, via the `openai-codex` OAuth adapter) to perform continuous **A/B comparison** while
 they drive pull requests on the target repo `akillness/jeo-claw` itself.
 
 The orchestration layer (glue, Discord bot, A/B compare, secret loader, validators) is

@@ -1,10 +1,13 @@
 
 import { SQLiteWorkflowStore } from "../glue/store.ts";
 const store = new SQLiteWorkflowStore("workflows.sqlite");
-const workflows = await store.values();
+const workflows = (await store.values()).map((workflow) => {
+    if (workflow.id === undefined) throw new Error("Workflow is missing an id");
+    return { ...workflow, id: workflow.id };
+});
 const sorted = [...workflows].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10);
 
-console.log("\x1b[1m=== GJC (Global Jeoclaw Control) TUI Monitor ===\x1b[0m");
+console.log("\x1b[1m=== Jeopi / Jeo Claw TUI Monitor ===\x1b[0m");
 console.log("-".repeat(70));
 console.log("ID".padEnd(20) + "Runtime".padEnd(12) + "Stage".padEnd(18) + "Status");
 console.log("-".repeat(70));

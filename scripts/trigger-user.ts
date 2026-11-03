@@ -1,9 +1,11 @@
 async function run() {
+    const secret = process.env.JEO_CONTROL_EVENT_SECRET;
+    if (!secret) throw new Error("JEO_CONTROL_EVENT_SECRET is required");
     const res = await fetch("http://127.0.0.1:8787/control-event", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            "x-control-event-secret": "c4d5d2f7071751a543514a894acd70bfb3a538b234175edb5cec6278bfc2494c"
+            "x-control-event-secret": secret
         },
         body: JSON.stringify({
             type: "request",
@@ -13,4 +15,7 @@ async function run() {
     });
     console.log(await res.text());
 }
-run().catch(console.error);
+run().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

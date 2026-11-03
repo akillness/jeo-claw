@@ -1,4 +1,7 @@
 import { test, expect } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { isAbsolute, join, relative } from "node:path";
 import {
   FileSecretSource,
   loadSecretsForRole,
@@ -32,6 +35,7 @@ const fullStore = {
   "jeo-claw-github-webhook-secret": "whsec_generated_secret_value",
   "jeo-claw-discord-bot-token": "xoxb_fake_discord",
   "jeo-claw-control-event-secret": "control-event-secret-value",
+  "jeo-claw-status-relay-secret": "status-relay-secret-value",
   "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
 };
 
@@ -69,9 +73,11 @@ test("runtime roles never receive control-plane secrets", async () => {
     expect(env.GITHUB_WEBHOOK_SECRET).toBeUndefined();
     expect(env.DISCORD_BOT_TOKEN).toBeUndefined();
     expect(env.JEO_CONTROL_EVENT_SECRET).toBeUndefined();
+    expect(env.JEO_STATUS_RELAY_SECRET).toBeUndefined();
     expect(src.accessed).not.toContain("jeo-claw-github-webhook-secret");
     expect(src.accessed).not.toContain("jeo-claw-discord-bot-token");
     expect(src.accessed).not.toContain("jeo-claw-control-event-secret");
+    expect(src.accessed).not.toContain("jeo-claw-status-relay-secret");
   }
 });
 
@@ -80,17 +86,31 @@ test("control services receive only control-plane secrets", async () => {
   const glue = await loadSecretsForControl("glue-webhook", glueSrc, { prefix: "jeo-claw" });
   expect(glue.GITHUB_WEBHOOK_SECRET).toBe("whsec_generated_secret_value");
   expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("control-event-secret-value");
+  expect(glue.JEO_STATUS_RELAY_SECRET).toBe("status-relay-secret-value");
   expect(glue.GITHUB_TOKEN).toBeUndefined();
   expect(glue.OPENAI_CODEX_AUTH).toBeUndefined();
-  expect(glueSrc.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret", "jeo-claw-runtime-dispatch-secret"]);
+  expect(glueSrc.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret", "jeo-claw-status-relay-secret", "jeo-claw-runtime-dispatch-secret"]);
 
   const discordSrc = new MockSource(fullStore);
   const discord = await loadSecretsForControl("discord-bot", discordSrc, { prefix: "jeo-claw" });
   expect(discord.DISCORD_BOT_TOKEN).toBe("xoxb_fake_discord");
   expect(discord.JEO_CONTROL_EVENT_SECRET).toBe("control-event-secret-value");
+  expect(discord.JEO_STATUS_RELAY_SECRET).toBe("status-relay-secret-value");
   expect(discord.GITHUB_TOKEN).toBeUndefined();
   expect(discord.OPENAI_CODEX_AUTH).toBeUndefined();
-  expect(discordSrc.accessed).toEqual(["jeo-claw-discord-bot-token", "jeo-claw-control-event-secret"]);
+  expect(discordSrc.accessed).toEqual(["jeo-claw-discord-bot-token", "jeo-claw-control-event-secret", "jeo-claw-status-relay-secret"]);
+});
+
+test("control services reject relay secrets reused for control, webhook or runtime authorization", async () => {
+  for (const key of ["jeo-claw-control-event-secret", "jeo-claw-github-webhook-secret", "jeo-claw-runtime-dispatch-secret"] as const) {
+    const src = new MockSource({ ...fullStore, "jeo-claw-status-relay-secret": fullStore[key] });
+    await expect(loadSecretsForControl("glue-webhook", src, { prefix: "jeo-claw" })).rejects.toThrow("status relay secret must differ");
+  }
+  const discordStore = { ...fullStore, "jeo-claw-discord-bot-token": "synthetic-discord-token-long-enough" };
+  for (const key of ["jeo-claw-control-event-secret", "jeo-claw-discord-bot-token"] as const) {
+    const src = new MockSource({ ...discordStore, "jeo-claw-status-relay-secret": discordStore[key] });
+    await expect(loadSecretsForControl("discord-bot", src, { prefix: "jeo-claw" })).rejects.toThrow("status relay secret must differ");
+  }
 });
 
 test("missing required secret is a hard failure with sanitized upstream details", async () => {
@@ -142,16 +162,40 @@ test("redact masks overlapping secret values longest-first", () => {
 });
 
 
-test("FileSecretSource and secretSourceFromEnv support local file-backed secrets", async () => {
-  const path = `${process.env.TEMP || process.cwd()}\\jeo-claw-test-secrets.json`;
-  await Bun.write(path, JSON.stringify(fullStore));
+test("malformed secret file errors do not leak file contents", async () => {
+  const root = await mkdtemp(join(tmpdir(), "relay-malformed-secrets-"));
+  const path = join(root, "secrets.json");
+  const secret = "synthetic-sensitive-json-fragment";
   try {
+    await Bun.write(path, `{"token":"${secret}" trailing`);
+    try {
+      new FileSecretSource(path);
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect(String(error)).toContain("Unable to load secret file");
+      expect(String(error)).not.toContain(secret);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("FileSecretSource and secretSourceFromEnv support local file-backed secrets", async () => {
+  const root = await mkdtemp(join(tmpdir(), "jeo-file-secrets-"));
+  const path = join(root, "secrets.json");
+  const relativePath = relative(root, path);
+  try {
+    expect(relativePath).not.toBe("");
+    expect(relativePath.startsWith("..")).toBe(false);
+    expect(isAbsolute(relativePath)).toBe(false);
+    await Bun.write(path, JSON.stringify(fullStore));
     const source = new FileSecretSource(path);
     expect(await source.access("jeo-claw-openai-codex-oauth")).toBe('{"tokens":{"access_token":"fake"}}');
     const selected = secretSourceFromEnv({ JEO_SECRET_SOURCE: "file", JEO_SECRETS_FILE: path }, "ignored-project");
     expect(await selected.access("jeo-claw-github-token-ro")).toBe("ghp_readonly");
   } finally {
-    await Bun.file(path).delete();
+    await rm(root, { recursive: true, force: true });
   }
 });
 test("every runtime role requires the OpenAI Codex OAuth key and not the legacy API key, and control services do not require either", () => {

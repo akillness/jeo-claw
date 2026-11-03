@@ -1,4 +1,7 @@
 import { test, expect } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, relative, isAbsolute } from "node:path";
 import { checkLiveEnv, requiredSecretIds, runLivePreflight } from "./preflight-live.ts";
 import type { SecretSource } from "../secrets/loader.ts";
 
@@ -60,6 +63,7 @@ test("requiredSecretIds derives the live Secret Manager manifest", () => {
     "jeo-claw-github-webhook-secret",
     "jeo-claw-discord-bot-token",
     "jeo-claw-control-event-secret",
+    "jeo-claw-status-relay-secret",
     "jeo-claw-runtime-dispatch-secret",
   ]);
 });
@@ -72,7 +76,7 @@ test("runLivePreflight succeeds when env and all required secrets are present", 
   expect(result.ok).toBe(true);
   expect(result.missingEnv).toEqual([]);
   expect(result.missingSecrets).toEqual([]);
-  expect(result.checkedSecrets).toHaveLength(7);
+  expect(result.checkedSecrets).toHaveLength(8);
 });
 
 test("runLivePreflight fails closed on missing or empty secrets", async () => {
@@ -88,11 +92,26 @@ test("runLivePreflight fails closed on missing or empty secrets", async () => {
   expect(result.missingSecrets).toContain("jeo-claw-runtime-dispatch-secret");
 });
 
+test("live preflight rejects short or reused relay secrets", async () => {
+  for (const reused of [undefined, "jeo-claw-control-event-secret", "jeo-claw-github-webhook-secret", "jeo-claw-runtime-dispatch-secret", "jeo-claw-openai-codex-oauth", "jeo-claw-github-token-ro", "jeo-claw-github-token-rw", "jeo-claw-discord-bot-token"] as const) {
+    const values = Object.fromEntries(requiredSecretIds("jeo-claw").map((id) => [id, `value-for-${id}`]));
+    values["jeo-claw-status-relay-secret"] = reused === undefined ? "short" : values[reused]!;
+    const result = await runLivePreflight(completeEnv, () => new MockSource(values));
+    expect(result.ok).toBe(false);
+    expect(result.missingSecrets).toContain("jeo-claw-status-relay-secret");
+  }
+});
+
 test("runLivePreflight supports file-backed secrets without GCLOUD_PROJECT", async () => {
-  const path = `${process.env.TEMP || process.cwd()}\\jeo-claw-preflight-secrets.json`;
+  const root = await mkdtemp(join(tmpdir(), "jeo-claw-preflight-"));
+  const path = join(root, "secrets.json");
+  const relativePath = relative(root, path);
   const payload = Object.fromEntries(requiredSecretIds("jeo-claw").map((id) => [id, `value-for-${id}`]));
-  await Bun.write(path, JSON.stringify(payload));
   try {
+    expect(relativePath).not.toBe("");
+    expect(relativePath.startsWith("..")).toBe(false);
+    expect(isAbsolute(relativePath)).toBe(false);
+    await Bun.write(path, JSON.stringify(payload));
     const result = await runLivePreflight({
       ...completeEnv,
       JEO_SECRET_SOURCE: "file",
@@ -102,6 +121,6 @@ test("runLivePreflight supports file-backed secrets without GCLOUD_PROJECT", asy
     expect(result.missingEnv).toEqual([]);
     expect(result.missingSecrets).toEqual([]);
   } finally {
-    await Bun.file(path).delete();
+    await rm(root, { recursive: true, force: true });
   }
 });

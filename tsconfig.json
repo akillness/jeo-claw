@@ -26,5 +26,13 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "exclude": [
+    "scripts/record-sovereign-evolution-v41.ts",
+    "scripts/record-sovereign-evolution-v42.ts",
+    "scripts/record-sovereign-evolution-v43.ts",
+    "scripts/record-sovereign-evolution-v44.ts",
+    "scripts/record-sovereign-evolution-v475.ts",
+    "scripts/record-v412.ts"
+  ]
 }

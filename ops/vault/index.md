@@ -20,6 +20,7 @@ claw가 작업으로 적재한 지식의 진입점. **새 작업은 여기 검�
 
 ## Sources (작업 원천)
 <!-- SOURCES -->
+- [[wiki/sources/jeopi-terra-lifecycle]] — Jeopi, GPT-6.1 Terra & Lifecycle Hardening
 - [[wiki/sources/deep-refactoring-cycle-175]] — Ouroboros Evolution Cycle: Spec-Kit Driven Deep Refactoring (Cycle #175)
 - [[wiki/sources/deep-refactoring-172]] — Deep Refactoring Cycle 172
 - [[wiki/sources/deep-refactoring-cycle-166]] — Deep Refactoring Cycle 166: Non-blocking Queue Processing

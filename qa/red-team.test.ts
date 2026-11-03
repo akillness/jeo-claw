@@ -233,6 +233,7 @@ test("3.5 Control secret loader - control services receive only their own contro
     "jeo-claw-github-webhook-secret": "whsec_generated_secret_value",
     "jeo-claw-discord-bot-token": "xoxb_control",
     "jeo-claw-control-event-secret": "control-event-secret-value",
+    "jeo-claw-status-relay-secret": "status-relay-secret-value",
     "jeo-claw-runtime-dispatch-secret": "runtime-dispatch-secret-value",
     "jeo-claw-openai-codex-oauth": '{"tokens":{"access_token":"fake"}}',
     "jeo-claw-github-token-ro": "ghp_ro",
@@ -246,7 +247,7 @@ test("3.5 Control secret loader - control services receive only their own contro
   expect(glue.JEO_CONTROL_EVENT_SECRET).toBe("control-event-secret-value");
   expect(glue.OPENAI_CODEX_AUTH).toBeUndefined();
   expect(glue.GITHUB_TOKEN).toBeUndefined();
-  expect(glueSpy.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret", "jeo-claw-runtime-dispatch-secret"]);
+  expect(glueSpy.accessed).toEqual(["jeo-claw-github-webhook-secret", "jeo-claw-control-event-secret", "jeo-claw-status-relay-secret", "jeo-claw-runtime-dispatch-secret"]);
 
   const discordSpy = new SpySource(store);
   const discord = await loadSecretsForControl("discord-bot", discordSpy, { prefix: "jeo-claw" });
@@ -254,7 +255,7 @@ test("3.5 Control secret loader - control services receive only their own contro
   expect(discord.JEO_CONTROL_EVENT_SECRET).toBe("control-event-secret-value");
   expect(discord.GITHUB_TOKEN).toBeUndefined();
   expect(discord.OPENAI_CODEX_AUTH).toBeUndefined();
-  expect(discordSpy.accessed).toEqual(["jeo-claw-discord-bot-token", "jeo-claw-control-event-secret"]);
+  expect(discordSpy.accessed).toEqual(["jeo-claw-discord-bot-token", "jeo-claw-control-event-secret", "jeo-claw-status-relay-secret"]);
 });
 
 // ==========================================
@@ -291,7 +292,7 @@ test("4.4 Control event path - unauthenticated approval mutation is rejected", a
     new Request("http://localhost/control-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "approve", workflowId: "wf-1", action: "pr.merge", user: "mallory" }),
+      body: JSON.stringify({ type: "approve", source: "discord", workflowId: "wf-1", action: "pr.merge", user: "mallory" }),
     }),
     { store, controlEventSecret: "control-secret" },
   );
@@ -300,11 +301,9 @@ test("4.4 Control event path - unauthenticated approval mutation is rejected", a
 });
 
 test("4.5 Discord control plane - approval command outside approval policy is rejected", async () => {
-  const registry = new ApprovalRegistry();
   const received: ControlEvent[] = [];
   let reply = "";
   const handlers = buildHandlers({
-    registry,
     policy: {
       guildId: "guild-1",
       requestChannelId: "request-chan",
@@ -321,6 +320,7 @@ test("4.5 Discord control plane - approval command outside approval policy is re
 test("4.6 Dispatch broker - unauthenticated write-secret release is rejected", async () => {
   const store = new MemoryWorkflowStore();
   const wf = createWorkflow("wf-broker", "zeroclaw", "build secure feature");
+  if (!wf.id) throw new Error("created workflow is missing an id");
   store.set(wf.id, wf);
 
   const res = await handleControlDispatchRequest(
@@ -344,6 +344,7 @@ test("4.7 Dispatch broker - approved write-secret release is scoped and consumes
   const store = new MemoryWorkflowStore();
   let wf = pendingPrCreateWorkflow("wf-broker");
   wf = applyEvent(wf, { type: "approve", action: "pr.create", user: "alice" });
+  if (!wf.id) throw new Error("created workflow is missing an id");
   store.set(wf.id, wf);
 
   const res = await handleControlDispatchRequest(
@@ -373,10 +374,13 @@ test("4.7 Dispatch broker - approved write-secret release is scoped and consumes
 test("4.7b Dispatch broker - approved merge release is scoped and consumed only when merge is ready", async () => {
   const store = new MemoryWorkflowStore();
   let wf = pendingMergeWorkflow("wf-broker-merge");
+  const headSha = "a".repeat(40);
   wf.prNumber = 101;
+  wf.headSha = headSha;
   wf = applyEvent(wf, { ciPassed: true, reviewPassed: true });
   wf = advanceStage(wf);
-  wf = applyEvent(wf, { type: "approve", action: "pr.merge", user: "alice" });
+  wf = applyEvent(wf, { type: "approve", action: "pr.merge", user: "alice", headSha });
+  if (!wf.id) throw new Error("created workflow is missing an id");
   store.set(wf.id, wf);
 
   const res = await handleControlDispatchRequest(

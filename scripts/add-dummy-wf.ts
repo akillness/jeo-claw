@@ -9,13 +9,13 @@ if (workflows.length === 0) {
     const wf1 = createWorkflow("wf-demo-1", "zeroclaw", "Improve TUI features");
     wf1.status = "running";
     wf1.stage = "research-code";
-    await store.set(wf1.id, wf1);
+    await store.set("wf-demo-1", wf1);
 
     const wf2 = createWorkflow("wf-demo-2", "nullclaw", "Fix login bug");
     wf2.status = "awaiting-approval";
     wf2.stage = "pr-create";
     wf2.pendingAction = "pr.create";
-    await store.set(wf2.id, wf2);
+    await store.set("wf-demo-2", wf2);
     
     console.log("Added dummy workflows for TUI capture.");
 } else {

@@ -3,20 +3,28 @@
 
 export type Runtime = "zeroclaw" | "nullclaw";
 
+export type ControlMode = "normal" | "probe-only";
+
+export function parseControlMode(value: string | undefined): ControlMode {
+  if (value === undefined || value === "normal") return "normal";
+  if (value === "probe-only") return value;
+  throw new Error("Invalid JEO_CONTROL_MODE");
+}
+
 export const ORCHESTRATOR_STATUS_PORT = 9100;
 export const ORCHESTRATOR_WEBHOOK_PORT = 8787;
 
 export const RUNTIMES = ["zeroclaw", "nullclaw"] as const satisfies readonly Runtime[];
 
-// LLM provider identity shared by both runtimes. A/B fairness requires one identical
-// provider per comparison, so the union only contains providers BOTH runtimes support.
-// Phase 1: ChatGPT subscription OAuth ("openai-codex"). A future "gemini" (Antigravity)
-// entry is deferred until NullClaw gains Google/Gemini OAuth support upstream.
-export type LLMProvider = "openai-codex";
+// User-facing provider family. Both runtimes authenticate through their native
+// `openai-codex` ChatGPT OAuth adapter, but the shared logical provider is OpenAI.
+export type LLMProvider = "openai" | "openai-codex";
 
-export const LLM_PROVIDERS = ["openai-codex"] as const satisfies readonly LLMProvider[];
+export const LLM_PROVIDERS = ["openai", "openai-codex"] as const satisfies readonly LLMProvider[];
 
-export const DEFAULT_LLM_PROVIDER: LLMProvider = "openai-codex";
+export const DEFAULT_LLM_PROVIDER: LLMProvider = "openai";
+
+export const OPENAI_OAUTH_ADAPTER = "openai-codex" as const;
 
 export function parseLLMProvider(value: unknown): LLMProvider | undefined {
   return typeof value === "string" && (LLM_PROVIDERS as readonly string[]).includes(value)
@@ -79,6 +87,7 @@ export type WorkflowStatus = "queued" | "pending" | "running" | "awaiting-approv
 
 export interface ApprovalSnapshot {
   status: "pending" | "approved" | "rejected" | "consumed";
+  headSha?: string;
   user?: string;
   requestedAt?: string;
   decidedAt?: string;
@@ -95,8 +104,11 @@ export interface WorkflowState {
   status: WorkflowStatus;
   flow?: FlowType;
   prNumber?: number;
+  headSha?: string;
   ciPassed?: boolean;
   reviewPassed?: boolean;
+  webhookDigests?: string[];
+  webhookPendingDigest?: string;
   /** @deprecated Use actionApprovals keyed by HighRiskAction. */
   approved?: boolean;
   pendingAction?: HighRiskAction;
@@ -127,9 +139,7 @@ export interface MergeGateResult {
 export type ControlEvent =
   | { type: "request"; runtime: Runtime; request: string }
   | { type: "request"; source: "discord"; runtime: Runtime; request: string; repo?: string; baseBranch?: string; flow?: "direct" | "scheduled"; scheduledAt?: string }
-  | { type: "approve"; workflowId: string; action: HighRiskAction; user: string }
-  | { type: "approve"; source: "discord"; workflowId: string; action: HighRiskAction; user: string }
-  | { type: "reject"; workflowId: string; action: HighRiskAction; user: string }
+  | { type: "approve"; source: "discord"; workflowId: string; action: HighRiskAction; user: string; headSha?: string }
   | { type: "reject"; source: "discord"; workflowId: string; action: HighRiskAction; user: string }
   | { type: "config-set"; key: ConfigKey; value: string }
   | { type: "ping" }
@@ -143,6 +153,7 @@ export interface StatusNotification {
   runtime: Runtime;
   stage: Stage;
   status: WorkflowStatus;
+  headSha?: string;
   action?: WorkflowAction;
   message: string;
   repo?: string;

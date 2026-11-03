@@ -10,12 +10,12 @@ async function run() {
     
     const repo = "jeo-claw";
     
-    const wf = createWorkflow(wfId, "sc_jeo", goal);
+    const wf = createWorkflow(wfId, "zeroclaw", goal);
     wf.repo = repo;
     wf.status = "queued";
-    wf.stage = "intake";
+    wf.stage = "research-code";
     
-    await store.set(wf.id, wf);
+    await store.set(wf.id!, wf);
     console.log(`Successfully queued workflow ${wfId}. Auto-Heal poller will pick it up.`);
 }
 

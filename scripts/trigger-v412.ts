@@ -1,9 +1,11 @@
 import { SQLiteWorkflowStore } from "../glue/store.ts";
 import { createWorkflow } from "../glue/state-machine.ts";
+import type { Runtime } from "../glue/contract.ts";
 
 const args = process.argv.slice(2);
 const request = args.find(a => a.startsWith("--request="))?.split("=")[1] || "Sovereign Evolution (v412)";
-const runtimeArg = args.find(a => a.startsWith("--runtime="))?.split("=")[1] || "zeroclaw";
+const runtimeValue = args.find(a => a.startsWith("--runtime="))?.split("=")[1] || "zeroclaw";
+const runtimeArg: Runtime = runtimeValue === "nullclaw" ? "nullclaw" : "zeroclaw";
 
 async function run() {
     const store = new SQLiteWorkflowStore("workflows.sqlite");
@@ -13,12 +15,12 @@ async function run() {
     const goal = request;
     const repo = "akillness/jeo-claw";
     
-    const wf = createWorkflow(wfId, runtimeArg as any, goal);
+    const wf = createWorkflow(wfId, runtimeArg, goal);
     wf.repo = repo;
     wf.status = "queued";
-    wf.stage = "intake";
+    wf.stage = "research-code";
     
-    await store.set(wf.id, wf);
+    await store.set(wf.id!, wf);
     console.log(`Successfully queued workflow ${wfId} for ${runtimeArg} runtime.`);
 }
 

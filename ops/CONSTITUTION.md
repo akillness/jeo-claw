@@ -42,7 +42,7 @@ bun run preflight:live      # 라이브 Secret Manager/Discord 경로 변경 시
 
 ## IV. A/B 공정성 (Fairness is structural)
 
-ZeroClaw·NullClaw는 동일 LLM(`openai`/`gpt-5-codex`) · `autonomy=supervised` · 정확히 5개 역할 · 평문 비밀 없음으로만 비교된다. 한쪽을 유리하게 만드는 설정 변경은 금지. `config/validate.ts`가 이를 강제한다.
+ZeroClaw·NullClaw는 동일 LLM(`openai`/`gpt-6.1-terra`; native OAuth adapter `openai-codex`) · `autonomy=supervised` · 정확히 5개 역할 · 평문 비밀 없음으로만 비교된다. 한쪽을 유리하게 만드는 설정 변경은 금지. `config/validate.ts`가 이를 강제한다.
 
 ## V. 학습·진화 (Every task makes claw smarter)
 

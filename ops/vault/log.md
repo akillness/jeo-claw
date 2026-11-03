@@ -7,6 +7,7 @@ updated: 2026-06-10
 # 적재 이력 (append-only)
 
 <!-- LOG -->
+- 2026-11-04 · [[wiki/sources/jeopi-terra-lifecycle]] — Jeopi, GPT-6.1 Terra & Lifecycle Hardening (jeopi, terra, lifecycle, security, cleanup, runtime)
 - 2026-06-17 · [[wiki/sources/sovereign-evolution-v418-celestial-harmony]] — Sovereign Evolution: Celestial Harmony & Neural Singularity (v418) (sovereign, evolution, v418, orchestration, discord)
 - 2026-06-10 · [[wiki/sources/oauth-provider-auth]] — OAuth provider 인증 전환 (Phase 1: openai-codex) (oauth, security, runtime, provider)
 - 2026-06-09 · [[wiki/sources/spec-kit-operation-guide-smoke]] — Spec-kit operation guide smoke (spec-kit, operation-guide, smoke, security)

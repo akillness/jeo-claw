@@ -81,7 +81,7 @@ export function collectBrowserStatus(): BrowserStatusPayload {
     "jeo-glue-webhook",
     "bun",
     "-e",
-    "const res = await fetch('http://127.0.0.1:8787/debug/workflows'); console.log(await res.text())",
+    "import { resolveControlEnvironment } from './control/start.ts'; import { secretSourceFromEnv } from './secrets/loader.ts'; const env = await resolveControlEnvironment('glue-webhook', process.env, secretSourceFromEnv(process.env, process.env.GCLOUD_PROJECT ?? '')); const res = await fetch('http://127.0.0.1:8787/debug/workflows', { headers: { 'x-control-event-secret': env.JEO_CONTROL_EVENT_SECRET } }); if (!res.ok) throw new Error('Workflow status request failed: ' + res.status); console.log(await res.text())",
   ]);
   const workflows = (JSON.parse(workflowsOut.trim()) as { workflows: BrowserStatusWorkflow[] }).workflows;
 

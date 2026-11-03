@@ -73,6 +73,13 @@ export class DeliveryIdempotencyCache {
     return { duplicate: false, firstSeenAt: now };
   }
 
+  has(deliveryId: string): boolean {
+    const now = this.now();
+    this.evictExpired(now);
+    const existing = this.seen.get(deliveryId);
+    return existing !== undefined && now - existing <= this.ttlMs;
+  }
+
   get size(): number {
     return this.seen.size;
   }

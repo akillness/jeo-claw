@@ -1,10 +1,10 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import { resolveControlEnvironment } from "../../control/start.ts";
-import { FileSecretSource } from "../../secrets/loader.ts";
+import { secretSourceFromEnv } from "../../secrets/loader.ts";
 
 async function main() {
-  const source = new FileSecretSource();
-  const env = await resolveControlEnvironment("glue", process.env as NodeJS.ProcessEnv, source);
+  const source = secretSourceFromEnv(process.env, process.env.GCLOUD_PROJECT ?? "");
+  const env = await resolveControlEnvironment("discord-bot", process.env, source);
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
   
   client.on("ready", async () => {
@@ -12,7 +12,7 @@ async function main() {
     const channelId = process.env.DISCORD_STATUS_CHANNEL_ID;
     if (channelId) {
       const channel = await client.channels.fetch(channelId);
-      if (channel && channel.isTextBased()) {
+      if (channel && channel.isSendable()) {
         await channel.send("Ping from JOC/Sovereign test-ping!");
         console.log("Ping sent successfully!");
       }

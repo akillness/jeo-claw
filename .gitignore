@@ -11,7 +11,17 @@ node_modules/
 dist/
 *.log
 
-# runtime data
+# hidden local/runtime state (tracked project configuration stays visible)
+.*
+!.gitignore
+!.dockerignore
+!.env.example
+!.github/
+!.github/**
+
+# runtime & test scratch data
 data/
 *.sqlite
 *.sqlite-*
+jeo-runtime-*/
+artifacts/native-qualification/current/
