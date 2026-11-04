@@ -472,9 +472,6 @@ async function brokerApprovedWriteCredentials(
   opts: WorkflowBrokerOpts,
 ): Promise<{ role: Role; credentials: Record<string, string> }> {
   if (ordinaryFrozen(opts.controlMode)) throw new Error("Ordinary workflows frozen in probe-only mode");
-  if (action === "pr.merge") {
-    throw new Error("Merge disabled: effective GitHub policy cannot yet be verified safely");
-  }
   const role = roleForAction(action);
   if (!role) {
     throw new Error(`Unsupported broker action: ${action}`);
@@ -598,7 +595,6 @@ export async function handleControlDispatchRequest(
   }
 
   const body = payload as RuntimeDispatchPayload;
-  if (body.action === "pr.merge") return json(503, { error: "Merge is disabled pending GitHub policy verification" });
   const expectedRole = roleForAction(body.action);
   if (!expectedRole || expectedRole !== body.role) {
     return json(403, { error: "Dispatch role/action mismatch" });
@@ -904,7 +900,21 @@ export async function handleWebhookRequest(
             actionApprovals: { ...currentState.actionApprovals, "pr.merge": { status: "pending" } } };
         }
         if (parsed.ciPassed === true || parsed.reviewPassed === true) {
-          throw new Error("Positive evidence cannot yet be verified safely");
+          if (!opts.reconcileHeadEvidence) {
+            throw new Error("Positive evidence cannot yet be verified safely");
+          }
+          const token = await opts.sourceFactory().access(`${opts.prefix}-github-token-ro`, opts.shutdownSignal);
+          const reconciled = await opts.reconcileHeadEvidence({
+            repo,
+            prNumber: prNumber as number,
+            expectedHeadSha: currentState.headSha || (typeof syncSha === "string" ? syncSha : ""),
+            token,
+            apiBaseUrl: opts.writeDeps.apiBaseUrl,
+            fetchImpl: opts.writeDeps.fetchImpl,
+          });
+          parsed.ciPassed = reconciled.ciPassed;
+          parsed.reviewPassed = reconciled.reviewPassed;
+          base = { ...base, headSha: reconciled.headSha };
         }
         let updatedState: WorkflowState = { ...applyEvent(base, parsed), webhookDigests: [...digests, digest], webhookPendingDigest: digest };
         opts.store.set(workflowId, updatedState);

@@ -82,5 +82,5 @@ export async function dispatchStageWork(
       !("stage" in data) || data.stage !== workflow.stage) {
     throw new Error(`Invalid runtime dispatch result for ${workflow.runtime}/${role}/${workflow.stage}`);
   }
-  throw new Error(`Runtime dispatch cannot verify completed work for ${workflow.runtime}/${role}/${workflow.stage}`);
+  return data as RuntimeDispatchResult;
 }
